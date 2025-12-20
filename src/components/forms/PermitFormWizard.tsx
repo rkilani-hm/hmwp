@@ -1,0 +1,483 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { workTypes } from '@/data/mockData';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Check, 
+  Upload, 
+  User, 
+  Building2, 
+  Calendar, 
+  FileText,
+  Paperclip,
+  X
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
+const steps = [
+  { id: 1, title: 'Requester Info', icon: User },
+  { id: 2, title: 'Work Details', icon: Building2 },
+  { id: 3, title: 'Schedule', icon: Calendar },
+  { id: 4, title: 'Documents', icon: FileText },
+  { id: 5, title: 'Review', icon: Check },
+];
+
+interface FormData {
+  requesterName: string;
+  requesterEmail: string;
+  contractorName: string;
+  contactMobile: string;
+  unit: string;
+  floor: string;
+  workLocation: string;
+  workTypeId: string;
+  workDescription: string;
+  workDateFrom: string;
+  workDateTo: string;
+  workTimeFrom: string;
+  workTimeTo: string;
+  attachments: File[];
+}
+
+export function PermitFormWizard() {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<FormData>({
+    requesterName: '',
+    requesterEmail: '',
+    contractorName: '',
+    contactMobile: '',
+    unit: '',
+    floor: '',
+    workLocation: '',
+    workTypeId: '',
+    workDescription: '',
+    workDateFrom: '',
+    workDateTo: '',
+    workTimeFrom: '08:00',
+    workTimeTo: '17:00',
+    attachments: [],
+  });
+
+  const updateField = (field: keyof FormData, value: string | File[]) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      updateField('attachments', [...formData.attachments, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    updateField(
+      'attachments',
+      formData.attachments.filter((_, i) => i !== index)
+    );
+  };
+
+  const handleSubmit = () => {
+    toast.success('Work permit submitted successfully!', {
+      description: 'You will receive an email confirmation shortly.',
+    });
+    navigate('/permits');
+  };
+
+  const canProceed = () => {
+    switch (currentStep) {
+      case 1:
+        return formData.requesterName && formData.requesterEmail && formData.contractorName && formData.contactMobile;
+      case 2:
+        return formData.unit && formData.floor && formData.workLocation && formData.workTypeId && formData.workDescription;
+      case 3:
+        return formData.workDateFrom && formData.workDateTo && formData.workTimeFrom && formData.workTimeTo;
+      case 4:
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  const selectedWorkType = workTypes.find(wt => wt.id === formData.workTypeId);
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => (
+            <div key={step.id} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <div
+                  className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all',
+                    currentStep > step.id
+                      ? 'bg-success border-success text-success-foreground'
+                      : currentStep === step.id
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'bg-muted border-border text-muted-foreground'
+                  )}
+                >
+                  {currentStep > step.id ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    <step.icon className="w-5 h-5" />
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    'text-xs mt-2 font-medium hidden sm:block',
+                    currentStep === step.id ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {step.title}
+                </span>
+              </div>
+              {index < steps.length - 1 && (
+                <div
+                  className={cn(
+                    'w-12 sm:w-20 h-0.5 mx-2',
+                    currentStep > step.id ? 'bg-success' : 'bg-border'
+                  )}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Form Steps */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentStep}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">{steps[currentStep - 1].title}</CardTitle>
+              <CardDescription>
+                {currentStep === 1 && 'Enter the requester and contractor information'}
+                {currentStep === 2 && 'Describe the work to be performed'}
+                {currentStep === 3 && 'Set the work schedule'}
+                {currentStep === 4 && 'Upload relevant documents'}
+                {currentStep === 5 && 'Review and submit your permit request'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {currentStep === 1 && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="requesterName">Requester Name *</Label>
+                    <Input
+                      id="requesterName"
+                      value={formData.requesterName}
+                      onChange={(e) => updateField('requesterName', e.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="requesterEmail">Requester Email *</Label>
+                    <Input
+                      id="requesterEmail"
+                      type="email"
+                      value={formData.requesterEmail}
+                      onChange={(e) => updateField('requesterEmail', e.target.value)}
+                      placeholder="john@company.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contractorName">Contractor Company *</Label>
+                    <Input
+                      id="contractorName"
+                      value={formData.contractorName}
+                      onChange={(e) => updateField('contractorName', e.target.value)}
+                      placeholder="ABC Contractors Ltd."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactMobile">Contact Mobile *</Label>
+                    <Input
+                      id="contactMobile"
+                      value={formData.contactMobile}
+                      onChange={(e) => updateField('contactMobile', e.target.value)}
+                      placeholder="+1 555-0123"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="unit">Unit *</Label>
+                      <Input
+                        id="unit"
+                        value={formData.unit}
+                        onChange={(e) => updateField('unit', e.target.value)}
+                        placeholder="A-101"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="floor">Floor *</Label>
+                      <Input
+                        id="floor"
+                        value={formData.floor}
+                        onChange={(e) => updateField('floor', e.target.value)}
+                        placeholder="10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="workLocation">Work Location *</Label>
+                      <Input
+                        id="workLocation"
+                        value={formData.workLocation}
+                        onChange={(e) => updateField('workLocation', e.target.value)}
+                        placeholder="Server Room"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="workType">Work Type *</Label>
+                    <Select
+                      value={formData.workTypeId}
+                      onValueChange={(value) => updateField('workTypeId', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select work type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workTypes.map((wt) => (
+                          <SelectItem key={wt.id} value={wt.id}>
+                            {wt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="workDescription">Work Description *</Label>
+                    <Textarea
+                      id="workDescription"
+                      value={formData.workDescription}
+                      onChange={(e) => updateField('workDescription', e.target.value)}
+                      placeholder="Describe the work to be performed..."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="workDateFrom">Start Date *</Label>
+                      <Input
+                        id="workDateFrom"
+                        type="date"
+                        value={formData.workDateFrom}
+                        onChange={(e) => updateField('workDateFrom', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="workDateTo">End Date *</Label>
+                      <Input
+                        id="workDateTo"
+                        type="date"
+                        value={formData.workDateTo}
+                        onChange={(e) => updateField('workDateTo', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="workTimeFrom">Start Time *</Label>
+                      <Input
+                        id="workTimeFrom"
+                        type="time"
+                        value={formData.workTimeFrom}
+                        onChange={(e) => updateField('workTimeFrom', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="workTimeTo">End Time *</Label>
+                      <Input
+                        id="workTimeTo"
+                        type="time"
+                        value={formData.workTimeTo}
+                        onChange={(e) => updateField('workTimeTo', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 4 && (
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+                      'hover:border-accent/50 hover:bg-accent/5'
+                    )}
+                  >
+                    <input
+                      type="file"
+                      id="file-upload"
+                      className="hidden"
+                      multiple
+                      onChange={handleFileChange}
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      <Upload className="w-10 h-10 text-muted-foreground" />
+                      <p className="text-sm font-medium">Drop files here or click to upload</p>
+                      <p className="text-xs text-muted-foreground">
+                        PDF, DOC, XLS, JPG, PNG up to 10MB each
+                      </p>
+                    </label>
+                  </div>
+
+                  {formData.attachments.length > 0 && (
+                    <div className="space-y-2">
+                      {formData.attachments.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{file.name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Requester</p>
+                      <p className="text-sm">{formData.requesterName}</p>
+                      <p className="text-sm text-muted-foreground">{formData.requesterEmail}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Contractor</p>
+                      <p className="text-sm">{formData.contractorName}</p>
+                      <p className="text-sm text-muted-foreground">{formData.contactMobile}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Location</p>
+                      <p className="text-sm">{formData.workLocation}</p>
+                      <p className="text-sm text-muted-foreground">Unit {formData.unit}, Floor {formData.floor}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Work Type</p>
+                      <p className="text-sm">{selectedWorkType?.name}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Work Description</p>
+                    <p className="text-sm mt-1">{formData.workDescription}</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Schedule</p>
+                      <p className="text-sm">{formData.workDateFrom} to {formData.workDateTo}</p>
+                      <p className="text-sm text-muted-foreground">{formData.workTimeFrom} - {formData.workTimeTo}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Attachments</p>
+                      <p className="text-sm">{formData.attachments.length} file(s)</p>
+                    </div>
+                  </div>
+
+                  {selectedWorkType && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm font-medium mb-2">Required Approvals</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-xs bg-background px-2 py-1 rounded">Helpdesk</span>
+                        {selectedWorkType.requiresPM && <span className="text-xs bg-background px-2 py-1 rounded">PM</span>}
+                        {selectedWorkType.requiresPD && <span className="text-xs bg-background px-2 py-1 rounded">PD</span>}
+                        {selectedWorkType.requiresBDCR && <span className="text-xs bg-background px-2 py-1 rounded">BDCR</span>}
+                        {selectedWorkType.requiresMPR && <span className="text-xs bg-background px-2 py-1 rounded">MPR</span>}
+                        {selectedWorkType.requiresIT && <span className="text-xs bg-background px-2 py-1 rounded">IT</span>}
+                        {selectedWorkType.requiresFitOut && <span className="text-xs bg-background px-2 py-1 rounded">Fit-Out</span>}
+                        {selectedWorkType.requiresSoftFacilities && <span className="text-xs bg-background px-2 py-1 rounded">Soft Facilities</span>}
+                        {selectedWorkType.requiresHardFacilities && <span className="text-xs bg-background px-2 py-1 rounded">Hard Facilities</span>}
+                        <span className="text-xs bg-background px-2 py-1 rounded">PM Service</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between mt-6">
+        <Button
+          variant="outline"
+          onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
+          disabled={currentStep === 1}
+        >
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Previous
+        </Button>
+
+        {currentStep < 5 ? (
+          <Button
+            onClick={() => setCurrentStep((prev) => Math.min(5, prev + 1))}
+            disabled={!canProceed()}
+            className="bg-primary hover:bg-primary/90"
+          >
+            Next
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSubmit}
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            <Check className="w-4 h-4 mr-2" />
+            Submit Permit Request
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
