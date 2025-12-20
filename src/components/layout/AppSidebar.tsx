@@ -1,0 +1,200 @@
+import { cn } from '@/lib/utils';
+import { UserRole, roleLabels } from '@/types/workPermit';
+import {
+  LayoutDashboard,
+  FileText,
+  ClipboardCheck,
+  Users,
+  Settings,
+  LogOut,
+  Shield,
+  Wrench,
+  Building,
+  Zap,
+  HardHat,
+  Leaf,
+  Cog,
+  UserCheck,
+  ChevronDown,
+} from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+interface AppSidebarProps {
+  currentRole: UserRole;
+  onRoleChange: (role: UserRole) => void;
+}
+
+const navigationItems = {
+  contractor: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: FileText, label: 'New Permit', path: '/new-permit' },
+    { icon: ClipboardCheck, label: 'My Permits', path: '/permits' },
+  ],
+  helpdesk: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: ClipboardCheck, label: 'Submissions', path: '/permits' },
+    { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
+  ],
+  admin: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
+    { icon: Users, label: 'Approvers', path: '/approvers' },
+    { icon: Settings, label: 'Work Types', path: '/work-types' },
+  ],
+  approver: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: ClipboardCheck, label: 'Pending Approvals', path: '/approvals' },
+    { icon: ClipboardCheck, label: 'History', path: '/permits' },
+  ],
+};
+
+const getRoleIcon = (role: UserRole) => {
+  const icons: Record<UserRole, typeof Shield> = {
+    contractor: HardHat,
+    helpdesk: Users,
+    pm: Building,
+    pd: Wrench,
+    bdcr: Shield,
+    mpr: Zap,
+    it: Cog,
+    fitout: Wrench,
+    soft_facilities: Leaf,
+    hard_facilities: Cog,
+    pm_service: UserCheck,
+    admin: Settings,
+  };
+  return icons[role];
+};
+
+const getNavItems = (role: UserRole) => {
+  if (role === 'contractor') return navigationItems.contractor;
+  if (role === 'helpdesk') return navigationItems.helpdesk;
+  if (role === 'admin') return navigationItems.admin;
+  return navigationItems.approver;
+};
+
+export function AppSidebar({ currentRole, onRoleChange }: AppSidebarProps) {
+  const location = useLocation();
+  const navItems = getNavItems(currentRole);
+  const RoleIcon = getRoleIcon(currentRole);
+
+  const allRoles: UserRole[] = [
+    'contractor',
+    'helpdesk',
+    'pm',
+    'pd',
+    'bdcr',
+    'mpr',
+    'it',
+    'fitout',
+    'soft_facilities',
+    'hard_facilities',
+    'pm_service',
+    'admin',
+  ];
+
+  return (
+    <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen flex flex-col">
+      {/* Logo */}
+      <div className="p-6 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
+            <Shield className="w-5 h-5 text-sidebar-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="font-display font-bold text-lg leading-tight">WorkPermit</h1>
+            <p className="text-xs text-sidebar-foreground/60">Management System</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Role Switcher */}
+      <div className="p-4 border-b border-sidebar-border">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-between h-auto py-3 px-3 bg-sidebar-accent hover:bg-sidebar-accent/80"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-sidebar-primary/20 rounded-lg flex items-center justify-center">
+                  <RoleIcon className="w-4 h-4 text-sidebar-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs text-sidebar-foreground/60">Current Role</p>
+                  <p className="text-sm font-medium">{roleLabels[currentRole]}</p>
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {allRoles.map((role) => {
+              const Icon = getRoleIcon(role);
+              return (
+                <DropdownMenuItem
+                  key={role}
+                  onClick={() => onRoleChange(role)}
+                  className={cn(
+                    'cursor-pointer',
+                    role === currentRole && 'bg-accent'
+                  )}
+                >
+                  <Icon className="w-4 h-4 mr-2" />
+                  {roleLabels[role]}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-1">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+              )
+            }
+          >
+            <item.icon className="w-5 h-5" />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User Section */}
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary text-sm">
+              JD
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">John Doe</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">john@example.com</p>
+          </div>
+          <Button variant="ghost" size="icon" className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
