@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { UserRole, roleLabels } from '@/types/workPermit';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   FileText,
@@ -17,19 +17,29 @@ import {
   UserCheck,
   ChevronDown,
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
+type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin';
+
+const roleLabels: Record<UserRole, string> = {
+  contractor: 'Contractor',
+  helpdesk: 'Helpdesk',
+  pm: 'Property Management',
+  pd: 'Project Development',
+  bdcr: 'BDCR',
+  mpr: 'MPR',
+  it: 'IT Department',
+  fitout: 'Fit-Out',
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service Provider',
+  admin: 'Administrator',
+};
+
 interface AppSidebarProps {
   currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
 }
 
 const navigationItems = {
@@ -81,25 +91,27 @@ const getNavItems = (role: UserRole) => {
   return navigationItems.approver;
 };
 
-export function AppSidebar({ currentRole, onRoleChange }: AppSidebarProps) {
+export function AppSidebar({ currentRole }: AppSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
   const navItems = getNavItems(currentRole);
   const RoleIcon = getRoleIcon(currentRole);
 
-  const allRoles: UserRole[] = [
-    'contractor',
-    'helpdesk',
-    'pm',
-    'pd',
-    'bdcr',
-    'mpr',
-    'it',
-    'fitout',
-    'soft_facilities',
-    'hard_facilities',
-    'pm_service',
-    'admin',
-  ];
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen flex flex-col">
@@ -116,45 +128,17 @@ export function AppSidebar({ currentRole, onRoleChange }: AppSidebarProps) {
         </div>
       </div>
 
-      {/* Role Switcher */}
+      {/* Role Display */}
       <div className="p-4 border-b border-sidebar-border">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-between h-auto py-3 px-3 bg-sidebar-accent hover:bg-sidebar-accent/80"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-sidebar-primary/20 rounded-lg flex items-center justify-center">
-                  <RoleIcon className="w-4 h-4 text-sidebar-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs text-sidebar-foreground/60">Current Role</p>
-                  <p className="text-sm font-medium">{roleLabels[currentRole]}</p>
-                </div>
-              </div>
-              <ChevronDown className="w-4 h-4 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {allRoles.map((role) => {
-              const Icon = getRoleIcon(role);
-              return (
-                <DropdownMenuItem
-                  key={role}
-                  onClick={() => onRoleChange(role)}
-                  className={cn(
-                    'cursor-pointer',
-                    role === currentRole && 'bg-accent'
-                  )}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {roleLabels[role]}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-3 py-3 px-3 bg-sidebar-accent rounded-lg">
+          <div className="w-8 h-8 bg-sidebar-primary/20 rounded-lg flex items-center justify-center">
+            <RoleIcon className="w-4 h-4 text-sidebar-primary" />
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-sidebar-foreground/60">Current Role</p>
+            <p className="text-sm font-medium">{roleLabels[currentRole]}</p>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -183,14 +167,19 @@ export function AppSidebar({ currentRole, onRoleChange }: AppSidebarProps) {
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary text-sm">
-              JD
+              {getInitials(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">John Doe</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">john@example.com</p>
+            <p className="text-sm font-medium truncate">{profile?.full_name || 'User'}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{profile?.email}</p>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            onClick={handleSignOut}
+          >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>

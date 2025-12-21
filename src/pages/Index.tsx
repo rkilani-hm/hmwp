@@ -1,17 +1,29 @@
-import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { UserRole } from '@/types/workPermit';
+import { useAuth } from '@/contexts/AuthContext';
 import Dashboard from './Dashboard';
 import NewPermit from './NewPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
 
 const Index = () => {
-  const [currentRole, setCurrentRole] = useState<UserRole>('contractor');
+  const { roles } = useAuth();
+  
+  // Get the primary role for navigation
+  const getPrimaryRole = () => {
+    if (roles.includes('admin')) return 'admin';
+    if (roles.includes('helpdesk')) return 'helpdesk';
+    const approverRoles = ['pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'] as const;
+    for (const role of approverRoles) {
+      if (roles.includes(role)) return role;
+    }
+    return 'contractor';
+  };
+
+  const currentRole = getPrimaryRole();
 
   return (
-    <AppLayout currentRole={currentRole} onRoleChange={setCurrentRole}>
+    <AppLayout currentRole={currentRole}>
       <Routes>
         <Route index element={<Dashboard currentRole={currentRole} />} />
         <Route path="new-permit" element={<NewPermit />} />
