@@ -5,6 +5,8 @@ import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
+import { ReworkDialog } from '@/components/ReworkDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,6 +30,8 @@ import {
   FileText,
   AlertTriangle,
   Timer,
+  Forward,
+  RotateCcw,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { motion } from 'framer-motion';
@@ -48,6 +52,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [comments, setComments] = useState('');
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
@@ -481,10 +487,27 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-wrap gap-3 pt-4">
                   <Button
                     variant="outline"
-                    className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => setForwardDialogOpen(true)}
+                    disabled={secureApprove.isPending}
+                  >
+                    <Forward className="w-4 h-4 mr-2" />
+                    Forward
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReworkDialogOpen(true)}
+                    disabled={secureApprove.isPending}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Rework
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={handleReject}
                     disabled={secureApprove.isPending}
                   >
@@ -492,7 +515,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                     Reject
                   </Button>
                   <Button
-                    className="flex-1 bg-success text-success-foreground hover:bg-success/90"
+                    className="bg-success text-success-foreground hover:bg-success/90"
                     onClick={handleApprove}
                     disabled={secureApprove.isPending}
                   >
@@ -512,6 +535,18 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             description={`You are about to ${approvalAction} permit ${permit.permit_no}. Please verify your identity.`}
             actionType={approvalAction}
             isLoading={secureApprove.isPending}
+          />
+          <ForwardPermitDialog
+            open={forwardDialogOpen}
+            onOpenChange={setForwardDialogOpen}
+            permitId={permit.id}
+            currentStatus={permit.status}
+          />
+
+          <ReworkDialog
+            open={reworkDialogOpen}
+            onOpenChange={setReworkDialogOpen}
+            permitId={permit.id}
           />
         </div>
 
