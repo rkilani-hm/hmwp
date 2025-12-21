@@ -420,6 +420,228 @@ export function useSecureApprovePermit() {
   });
 }
 
+// Hook to get pending permits for approver inbox
+export function usePendingPermitsForApprover() {
+  const { roles, user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['pending-permits-approver', roles],
+    queryFn: async () => {
+      // Map roles to their pending statuses
+      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
+      
+      const statusMap: Record<string, PermitStatus> = {
+        helpdesk: 'submitted',
+        pm: 'pending_pm',
+        pd: 'pending_pd',
+        bdcr: 'pending_bdcr',
+        mpr: 'pending_mpr',
+        it: 'pending_it',
+        fitout: 'pending_fitout',
+        soft_facilities: 'pending_soft_facilities',
+        hard_facilities: 'pending_hard_facilities',
+        pm_service: 'pending_pm_service',
+      };
+
+      const relevantStatuses = roles
+        .filter(role => statusMap[role])
+        .map(role => statusMap[role]);
+
+      if (relevantStatuses.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('work_permits')
+        .select('*, work_types(*)')
+        .in('status', relevantStatuses)
+        .order('sla_deadline', { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+      return (data || []) as WorkPermit[];
+    },
+    enabled: roles.length > 0 && !!user,
+  });
+}
+
+// Hook to get pending permits count for current user's role
+export function usePendingPermitsCount() {
+  const { roles } = useAuth();
+  
+  return useQuery({
+    queryKey: ['pending-permits-count', roles],
+    queryFn: async () => {
+      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
+      
+      const statusMap: Record<string, PermitStatus> = {
+        helpdesk: 'submitted',
+        pm: 'pending_pm',
+        pd: 'pending_pd',
+        bdcr: 'pending_bdcr',
+        mpr: 'pending_mpr',
+        it: 'pending_it',
+        fitout: 'pending_fitout',
+        soft_facilities: 'pending_soft_facilities',
+        hard_facilities: 'pending_hard_facilities',
+        pm_service: 'pending_pm_service',
+      };
+
+      const relevantStatuses = roles
+        .filter(role => statusMap[role])
+        .map(role => statusMap[role]);
+
+      if (relevantStatuses.length === 0) return 0;
+
+      const { count, error } = await supabase
+        .from('work_permits')
+        .select('*', { count: 'exact', head: true })
+        .in('status', relevantStatuses);
+
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: roles.length > 0,
+  });
+}
+
+// Hook to forward permit to a different approver
+export function useForwardPermit() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
+  type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'hard_facilities' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pm_service' | 'soft_facilities';
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      targetRole,
+      reason,
+    }: {
+      permitId: string;
+      targetRole: AppRole;
+      reason: string;
+    }) => {
+      const statusMap: Record<string, PermitStatus> = {
+        helpdesk: 'submitted',
+        pm: 'pending_pm',
+        pd: 'pending_pd',
+        bdcr: 'pending_bdcr',
+        mpr: 'pending_mpr',
+        it: 'pending_it',
+        fitout: 'pending_fitout',
+        soft_facilities: 'pending_soft_facilities',
+        hard_facilities: 'pending_hard_facilities',
+        pm_service: 'pending_pm_service',
+      };
+
+      const newStatus = statusMap[targetRole];
+      if (!newStatus) throw new Error('Invalid target role');
+
+      const { data, error } = await supabase
+        .from('work_permits')
+        .update({ status: newStatus })
+        .eq('id', permitId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        permit_id: permitId,
+        action: 'Forwarded',
+        performed_by: profile?.full_name || user?.email || 'Unknown',
+        performed_by_id: user?.id,
+        details: `Forwarded to ${targetRole.toUpperCase()} - ${reason}`,
+      });
+
+      // Create notification for target approvers
+      const { data: targetUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', targetRole);
+
+      if (targetUsers) {
+        for (const tu of targetUsers) {
+          await supabase.from('notifications').insert({
+            user_id: tu.user_id,
+            permit_id: permitId,
+            type: 'forwarded',
+            title: 'Permit Forwarded to You',
+            message: `Permit ${data.permit_no} has been forwarded for your review. Reason: ${reason}`,
+          });
+        }
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      toast.success('Permit forwarded successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to forward permit: ' + error.message);
+    },
+  });
+}
+
+// Hook to send permit back for rework
+export function useRequestRework() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      reason,
+    }: {
+      permitId: string;
+      reason: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('work_permits')
+        .update({ status: 'draft' })
+        .eq('id', permitId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        permit_id: permitId,
+        action: 'Rework Requested',
+        performed_by: profile?.full_name || user?.email || 'Unknown',
+        performed_by_id: user?.id,
+        details: reason,
+      });
+
+      // Notify the requester
+      if (data.requester_id) {
+        await supabase.from('notifications').insert({
+          user_id: data.requester_id,
+          permit_id: permitId,
+          type: 'rework_requested',
+          title: 'Rework Requested',
+          message: `Your permit ${data.permit_no} requires changes. Reason: ${reason}`,
+        });
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      toast.success('Permit sent back for rework');
+    },
+    onError: (error) => {
+      toast.error('Failed to request rework: ' + error.message);
+    },
+  });
+}
+
 export function usePermitStats() {
   const { data: permits } = useWorkPermits();
 
