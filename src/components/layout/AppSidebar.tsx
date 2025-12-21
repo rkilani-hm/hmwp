@@ -52,11 +52,13 @@ const navigationItems = {
   ],
   helpdesk: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: ClipboardCheck, label: 'Submissions', path: '/permits' },
+    { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
+    { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
   ],
   admin: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Users, label: 'User Management', path: '/approvers' },
@@ -64,7 +66,7 @@ const navigationItems = {
   ],
   approver: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: ClipboardCheck, label: 'Pending Approvals', path: '/approvals' },
+    { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
   ],
 };

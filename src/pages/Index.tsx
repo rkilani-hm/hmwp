@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import NewPermit from './NewPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
+import ApproverInbox from './ApproverInbox';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import Reports from './admin/Reports';
@@ -25,6 +26,7 @@ const Index = () => {
 
   const currentRole = getPrimaryRole();
   const isAdmin = hasRole('admin');
+  const isApprover = roles.some(r => ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'].includes(r));
 
   return (
     <AppLayout currentRole={currentRole}>
@@ -33,6 +35,7 @@ const Index = () => {
         <Route path="new-permit" element={<NewPermit />} />
         <Route path="permits" element={<PermitsList currentRole={currentRole} />} />
         <Route path="permits/:id" element={<PermitDetail currentRole={currentRole} />} />
+        <Route path="inbox" element={isApprover ? <ApproverInbox /> : <Navigate to="/" replace />} />
         <Route path="approvals" element={<PermitsList currentRole={currentRole} />} />
         <Route path="close-permits" element={<PermitsList currentRole={currentRole} />} />
         <Route 
