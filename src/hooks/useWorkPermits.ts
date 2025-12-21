@@ -24,6 +24,11 @@ export interface WorkPermit {
   attachments: string[];
   work_type_id: string | null;
   
+  // Urgency & SLA fields
+  urgency: string | null;
+  sla_deadline: string | null;
+  sla_breached: boolean | null;
+  
   // Approval fields
   helpdesk_status: string | null;
   helpdesk_approver_name: string | null;
@@ -209,9 +214,15 @@ export function useCreatePermit() {
       work_time_from: string;
       work_time_to: string;
       attachments?: string[];
+      urgency?: 'normal' | 'urgent';
     }) => {
       // Generate permit number
       const permitNo = `WP-${Date.now().toString(36).toUpperCase()}`;
+      
+      // Calculate SLA deadline based on urgency
+      const urgency = permitData.urgency || 'normal';
+      const hoursToAdd = urgency === 'urgent' ? 4 : 48;
+      const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000).toISOString();
 
       const { data, error } = await supabase
         .from('work_permits')
@@ -222,6 +233,8 @@ export function useCreatePermit() {
           requester_name: profile?.full_name || user?.email || 'Unknown',
           requester_email: user?.email || '',
           status: 'submitted',
+          urgency,
+          sla_deadline: slaDeadline,
         })
         .select()
         .single();
@@ -234,8 +247,26 @@ export function useCreatePermit() {
         action: 'Permit Created',
         performed_by: profile?.full_name || user?.email || 'Unknown',
         performed_by_id: user?.id,
-        details: `Permit ${permitNo} submitted for review`,
+        details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
+
+      // Create notifications for relevant approvers (helpdesk first)
+      const { data: helpdeskUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'helpdesk');
+
+      if (helpdeskUsers) {
+        for (const hd of helpdeskUsers) {
+          await supabase.from('notifications').insert({
+            user_id: hd.user_id,
+            permit_id: data.id,
+            type: 'new_permit',
+            title: `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit Submitted`,
+            message: `${permitNo} requires your review. ${urgency === 'urgent' ? '4-hour SLA' : '48-hour SLA'}`,
+          });
+        }
+      }
 
       return data;
     },
@@ -316,6 +347,45 @@ export function useApprovePermit() {
   });
 }
 
+export function useSecureApprovePermit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      role,
+      comments,
+      signature,
+      approved,
+      password,
+    }: {
+      permitId: string;
+      role: string;
+      comments: string;
+      signature: string | null;
+      approved: boolean;
+      password: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('verify-signature-approval', {
+        body: { permitId, role, comments, signature, approved, password },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      toast.success(variables.approved ? 'Permit approved with verified signature!' : 'Permit rejected');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to process approval');
+    },
+  });
+}
+
 export function usePermitStats() {
   const { data: permits } = useWorkPermits();
 
@@ -326,6 +396,8 @@ export function usePermitStats() {
       approved: 0,
       rejected: 0,
       closed: 0,
+      slaBreached: 0,
+      urgent: 0,
     };
   }
 
@@ -339,5 +411,7 @@ export function usePermitStats() {
     approved: permits.filter(p => p.status === 'approved').length,
     rejected: permits.filter(p => p.status === 'rejected').length,
     closed: permits.filter(p => p.status === 'closed').length,
+    slaBreached: permits.filter(p => p.sla_breached).length,
+    urgent: permits.filter(p => p.urgency === 'urgent').length,
   };
 }

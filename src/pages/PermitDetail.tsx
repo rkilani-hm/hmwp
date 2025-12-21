@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useWorkPermit, useApprovePermit } from '@/hooks/useWorkPermits';
+import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
-import { SignaturePad } from '@/components/ui/SignaturePad';
+import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { UserRole, PermitStatus } from '@/types/workPermit';
 import {
   ArrowLeft,
@@ -26,11 +27,14 @@ import {
   Download,
   Loader2,
   FileText,
+  AlertTriangle,
+  Timer,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 
 interface PermitDetailProps {
   currentRole: UserRole;
@@ -42,10 +46,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const queryClient = useQueryClient();
   const { roles } = useAuth();
   const [comments, setComments] = useState('');
-  const [signature, setSignature] = useState<string | null>(null);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
-  const approvePermit = useApprovePermit();
+  const secureApprove = useSecureApprovePermit();
   const { generatePdf, isGenerating } = useGeneratePdf();
 
   const handleGeneratePdf = async () => {
@@ -125,17 +130,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   };
 
   const handleApprove = () => {
-    if (!signature) {
-      toast.error('Please provide your signature to approve');
-      return;
-    }
-    approvePermit.mutate({
-      permitId: permit.id,
-      role: getApprovalRole(),
-      comments,
-      signature,
-      approved: true,
-    });
+    setApprovalAction('approve');
+    setApprovalDialogOpen(true);
   };
 
   const handleReject = () => {
@@ -143,13 +139,21 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       toast.error('Please provide a reason for rejection');
       return;
     }
-    approvePermit.mutate({
+    setApprovalAction('reject');
+    setApprovalDialogOpen(true);
+  };
+
+  const handleSecureApproval = async (password: string, signature: string) => {
+    await secureApprove.mutateAsync({
       permitId: permit.id,
       role: getApprovalRole(),
       comments,
-      signature,
-      approved: false,
+      signature: approvalAction === 'approve' ? signature : null,
+      approved: approvalAction === 'approve',
+      password,
     });
+    setApprovalDialogOpen(false);
+    setComments('');
   };
 
   // Transform permit data for WorkflowTimeline
@@ -478,19 +482,12 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Signature</Label>
-                  <SignaturePad
-                    onSave={(sig) => setSignature(sig)}
-                  />
-                </div>
-
                 <div className="flex gap-3 pt-4">
                   <Button
                     variant="outline"
                     className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={handleReject}
-                    disabled={approvePermit.isPending}
+                    disabled={secureApprove.isPending}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
                     Reject
@@ -498,15 +495,25 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <Button
                     className="flex-1 bg-success text-success-foreground hover:bg-success/90"
                     onClick={handleApprove}
-                    disabled={approvePermit.isPending}
+                    disabled={secureApprove.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {approvePermit.isPending ? 'Processing...' : 'Approve'}
+                    Approve
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
+
+          <SecureApprovalDialog
+            isOpen={approvalDialogOpen}
+            onClose={() => setApprovalDialogOpen(false)}
+            onConfirm={handleSecureApproval}
+            title={approvalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+            description={`You are about to ${approvalAction} permit ${permit.permit_no}. Please verify your identity.`}
+            actionType={approvalAction}
+            isLoading={secureApprove.isPending}
+          />
         </div>
 
         {/* Workflow Timeline Sidebar */}

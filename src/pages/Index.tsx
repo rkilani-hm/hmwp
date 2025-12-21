@@ -7,6 +7,7 @@ import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
+import Reports from './admin/Reports';
 
 const Index = () => {
   const { roles, hasRole } = useAuth();
@@ -41,6 +42,10 @@ const Index = () => {
         <Route 
           path="work-types" 
           element={isAdmin ? <WorkTypesManagement /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="reports" 
+          element={isAdmin ? <Reports /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>

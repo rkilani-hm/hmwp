@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -25,7 +27,9 @@ import {
   FileText,
   Paperclip,
   X,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -53,6 +57,7 @@ interface FormData {
   workTimeFrom: string;
   workTimeTo: string;
   attachments: File[];
+  urgency: 'normal' | 'urgent';
 }
 
 export function PermitFormWizard() {
@@ -77,9 +82,10 @@ export function PermitFormWizard() {
     workTimeFrom: '08:00',
     workTimeTo: '17:00',
     attachments: [],
+    urgency: 'normal',
   });
 
-  const updateField = (field: keyof FormData, value: string | File[]) => {
+  const updateField = (field: keyof FormData, value: string | File[] | 'normal' | 'urgent') => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -111,6 +117,7 @@ export function PermitFormWizard() {
       work_time_from: formData.workTimeFrom,
       work_time_to: formData.workTimeTo,
       attachments: formData.attachments.map(f => f.name),
+      urgency: formData.urgency,
     }, {
       onSuccess: () => {
         navigate('/permits');
@@ -196,7 +203,7 @@ export function PermitFormWizard() {
               <CardDescription>
                 {currentStep === 1 && 'Enter the requester and contractor information'}
                 {currentStep === 2 && 'Describe the work to be performed'}
-                {currentStep === 3 && 'Set the work schedule'}
+                {currentStep === 3 && 'Set the work schedule and urgency level'}
                 {currentStep === 4 && 'Upload relevant documents'}
                 {currentStep === 5 && 'Review and submit your permit request'}
               </CardDescription>
@@ -311,7 +318,54 @@ export function PermitFormWizard() {
               )}
 
               {currentStep === 3 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  {/* Urgency Selection */}
+                  <div className="space-y-3">
+                    <Label>Priority Level *</Label>
+                    <RadioGroup
+                      value={formData.urgency}
+                      onValueChange={(value) => updateField('urgency', value as 'normal' | 'urgent')}
+                      className="grid grid-cols-2 gap-4"
+                    >
+                      <div className={cn(
+                        "flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        formData.urgency === 'normal' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground'
+                      )}>
+                        <RadioGroupItem value="normal" id="normal" />
+                        <Label htmlFor="normal" className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Normal</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            48-hour SLA for approval
+                          </p>
+                        </Label>
+                      </div>
+                      <div className={cn(
+                        "flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        formData.urgency === 'urgent' 
+                          ? 'border-destructive bg-destructive/5' 
+                          : 'border-border hover:border-muted-foreground'
+                      )}>
+                        <RadioGroupItem value="urgent" id="urgent" />
+                        <Label htmlFor="urgent" className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                            <span className="font-medium">Urgent</span>
+                            <Badge variant="destructive" className="text-xs">Priority</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            4-hour SLA for approval
+                          </p>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Date/Time Selection */}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="workDateFrom">Start Date *</Label>
@@ -410,6 +464,22 @@ export function PermitFormWizard() {
 
               {currentStep === 5 && (
                 <div className="space-y-6">
+                  {/* Urgency Badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Priority:</span>
+                    {formData.urgency === 'urgent' ? (
+                      <Badge variant="destructive" className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Urgent (4hr SLA)
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Normal (48hr SLA)
+                      </Badge>
+                    )}
+                  </div>
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Requester</p>
@@ -443,24 +513,43 @@ export function PermitFormWizard() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Attachments</p>
-                      <p className="text-sm">{formData.attachments.length} file(s)</p>
+                      <p className="text-sm">
+                        {formData.attachments.length === 0 
+                          ? 'No files attached' 
+                          : `${formData.attachments.length} file(s)`}
+                      </p>
                     </div>
                   </div>
-
                   {selectedWorkType && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm font-medium mb-2">Required Approvals</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-xs bg-background px-2 py-1 rounded">Helpdesk</span>
-                        {selectedWorkType.requires_pm && <span className="text-xs bg-background px-2 py-1 rounded">PM</span>}
-                        {selectedWorkType.requires_pd && <span className="text-xs bg-background px-2 py-1 rounded">PD</span>}
-                        {selectedWorkType.requires_bdcr && <span className="text-xs bg-background px-2 py-1 rounded">BDCR</span>}
-                        {selectedWorkType.requires_mpr && <span className="text-xs bg-background px-2 py-1 rounded">MPR</span>}
-                        {selectedWorkType.requires_it && <span className="text-xs bg-background px-2 py-1 rounded">IT</span>}
-                        {selectedWorkType.requires_fitout && <span className="text-xs bg-background px-2 py-1 rounded">Fit-Out</span>}
-                        {selectedWorkType.requires_soft_facilities && <span className="text-xs bg-background px-2 py-1 rounded">Soft Facilities</span>}
-                        {selectedWorkType.requires_hard_facilities && <span className="text-xs bg-background px-2 py-1 rounded">Hard Facilities</span>}
-                        <span className="text-xs bg-background px-2 py-1 rounded">PM Service</span>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Required Approvals</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Helpdesk</span>
+                        {selectedWorkType.requires_pm && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM</span>
+                        )}
+                        {selectedWorkType.requires_pd && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PD</span>
+                        )}
+                        {selectedWorkType.requires_bdcr && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">BDCR</span>
+                        )}
+                        {selectedWorkType.requires_mpr && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">MPR</span>
+                        )}
+                        {selectedWorkType.requires_it && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">IT</span>
+                        )}
+                        {selectedWorkType.requires_fitout && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
+                        )}
+                        {selectedWorkType.requires_soft_facilities && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Soft Facilities</span>
+                        )}
+                        {selectedWorkType.requires_hard_facilities && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Hard Facilities</span>
+                        )}
+                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM Service</span>
                       </div>
                     </div>
                   )}
@@ -475,18 +564,16 @@ export function PermitFormWizard() {
       <div className="flex justify-between mt-6">
         <Button
           variant="outline"
-          onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
+          onClick={() => setCurrentStep(prev => prev - 1)}
           disabled={currentStep === 1}
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
           Previous
         </Button>
-
         {currentStep < 5 ? (
           <Button
-            onClick={() => setCurrentStep((prev) => Math.min(5, prev + 1))}
+            onClick={() => setCurrentStep(prev => prev + 1)}
             disabled={!canProceed()}
-            className="bg-primary hover:bg-primary/90"
           >
             Next
             <ChevronRight className="w-4 h-4 ml-2" />
@@ -498,11 +585,16 @@ export function PermitFormWizard() {
             className="bg-accent text-accent-foreground hover:bg-accent/90"
           >
             {createPermit.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Submitting...
+              </>
             ) : (
-              <Check className="w-4 h-4 mr-2" />
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Submit Permit Request
+              </>
             )}
-            {createPermit.isPending ? 'Submitting...' : 'Submit Permit Request'}
           </Button>
         )}
       </div>
