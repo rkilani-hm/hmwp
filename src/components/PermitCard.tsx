@@ -1,4 +1,4 @@
-import { WorkPermit } from '@/types/workPermit';
+import { PermitStatus } from '@/types/workPermit';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,26 @@ import { Calendar, MapPin, User, Clock, ChevronRight, Building2 } from 'lucide-r
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
+export interface PermitCardData {
+  id: string;
+  permitNo: string;
+  status: PermitStatus;
+  contractorName: string;
+  workDescription: string;
+  workTypeName: string;
+  workDateFrom: string;
+  workDateTo: string;
+  createdAt: string;
+  unit?: string;
+  floor?: string;
+  workLocation?: string;
+  workTimeFrom?: string;
+  workTimeTo?: string;
+  attachments?: string[];
+}
+
 interface PermitCardProps {
-  permit: WorkPermit;
+  permit: PermitCardData;
   onClick?: () => void;
   className?: string;
 }
@@ -52,31 +70,39 @@ export function PermitCard({ permit, onClick, className }: PermitCardProps) {
               <User className="h-3.5 w-3.5" />
               <span className="truncate">{permit.contractorName}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" />
-              <span>{permit.unit}, Floor {permit.floor}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate">{permit.workLocation}</span>
-            </div>
+            {permit.unit && permit.floor && (
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>{permit.unit}, Floor {permit.floor}</span>
+              </div>
+            )}
+            {permit.workLocation && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="truncate">{permit.workLocation}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
               <span>{permit.workDateFrom}</span>
             </div>
           </div>
 
-          <div className="pt-2 border-t flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span>{permit.workTimeFrom} - {permit.workTimeTo}</span>
+          {(permit.workTimeFrom || (permit.attachments && permit.attachments.length > 0)) && (
+            <div className="pt-2 border-t flex items-center justify-between">
+              {permit.workTimeFrom && permit.workTimeTo && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>{permit.workTimeFrom} - {permit.workTimeTo}</span>
+                </div>
+              )}
+              {permit.attachments && permit.attachments.length > 0 && (
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                  {permit.attachments.length} file{permit.attachments.length > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
-            {permit.attachments.length > 0 && (
-              <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                {permit.attachments.length} file{permit.attachments.length > 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>

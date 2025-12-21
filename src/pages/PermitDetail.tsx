@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockPermits, workTypes } from '@/data/mockData';
+import { useWorkPermit, useApprovePermit } from '@/hooks/useWorkPermits';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { WorkflowTimeline } from '@/components/ui/WorkflowTimeline';
+import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserRole, roleLabels } from '@/types/workPermit';
+import { UserRole, PermitStatus } from '@/types/workPermit';
 import {
   ArrowLeft,
   Building2,
   Calendar,
   Clock,
-  FileText,
   MapPin,
   Phone,
   User,
@@ -24,9 +23,11 @@ import {
   CheckCircle,
   XCircle,
   Download,
+  Loader2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PermitDetailProps {
   currentRole: UserRole;
@@ -35,12 +36,22 @@ interface PermitDetailProps {
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { roles } = useAuth();
   const [comments, setComments] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
 
-  const permit = mockPermits.find((p) => p.id === id);
+  const { data: permit, isLoading, error } = useWorkPermit(id);
+  const approvePermit = useApprovePermit();
 
-  if (!permit) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !permit) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-muted-foreground">Permit not found</p>
@@ -48,15 +59,35 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     );
   }
 
-  const workType = workTypes.find((wt) => wt.id === permit.workTypeId);
+  const workType = permit.work_types;
 
   const canApprove = () => {
     if (currentRole === 'contractor') return false;
-    if (currentRole === 'helpdesk' && permit.status === 'submitted') return true;
-    if (currentRole === 'pm' && permit.status === 'pending_pm') return true;
-    if (currentRole === 'it' && permit.status === 'pending_it') return true;
-    if (currentRole === 'pm_service' && permit.status === 'pending_pm_service') return true;
+    if (roles.includes('helpdesk') && permit.status === 'submitted') return true;
+    if (roles.includes('pm') && permit.status === 'pending_pm') return true;
+    if (roles.includes('pd') && permit.status === 'pending_pd') return true;
+    if (roles.includes('bdcr') && permit.status === 'pending_bdcr') return true;
+    if (roles.includes('mpr') && permit.status === 'pending_mpr') return true;
+    if (roles.includes('it') && permit.status === 'pending_it') return true;
+    if (roles.includes('fitout') && permit.status === 'pending_fitout') return true;
+    if (roles.includes('soft_facilities') && permit.status === 'pending_soft_facilities') return true;
+    if (roles.includes('hard_facilities') && permit.status === 'pending_hard_facilities') return true;
+    if (roles.includes('pm_service') && permit.status === 'pending_pm_service') return true;
     return false;
+  };
+
+  const getApprovalRole = (): string => {
+    if (permit.status === 'submitted') return 'helpdesk';
+    if (permit.status === 'pending_pm') return 'pm';
+    if (permit.status === 'pending_pd') return 'pd';
+    if (permit.status === 'pending_bdcr') return 'bdcr';
+    if (permit.status === 'pending_mpr') return 'mpr';
+    if (permit.status === 'pending_it') return 'it';
+    if (permit.status === 'pending_fitout') return 'fitout';
+    if (permit.status === 'pending_soft_facilities') return 'soft_facilities';
+    if (permit.status === 'pending_hard_facilities') return 'hard_facilities';
+    if (permit.status === 'pending_pm_service') return 'pm_service';
+    return 'helpdesk';
   };
 
   const handleApprove = () => {
@@ -64,8 +95,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       toast.error('Please provide your signature to approve');
       return;
     }
-    toast.success('Permit approved successfully');
-    navigate('/permits');
+    approvePermit.mutate({
+      permitId: permit.id,
+      role: getApprovalRole(),
+      comments,
+      signature,
+      approved: true,
+    });
   };
 
   const handleReject = () => {
@@ -73,8 +109,61 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       toast.error('Please provide a reason for rejection');
       return;
     }
-    toast.success('Permit rejected');
-    navigate('/permits');
+    approvePermit.mutate({
+      permitId: permit.id,
+      role: getApprovalRole(),
+      comments,
+      signature,
+      approved: false,
+    });
+  };
+
+  // Transform permit data for WorkflowTimeline
+  const transformedPermit: WorkflowPermit = {
+    id: permit.id,
+    status: permit.status as PermitStatus,
+    helpdeskApproval: {
+      status: (permit.helpdesk_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: permit.helpdesk_approver_name || undefined,
+      date: permit.helpdesk_date || undefined,
+      comments: permit.helpdesk_comments || undefined,
+      signature: permit.helpdesk_signature || undefined,
+    },
+    pmApproval: {
+      status: (permit.pm_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: permit.pm_approver_name || undefined,
+      date: permit.pm_date || undefined,
+      comments: permit.pm_comments || undefined,
+      signature: permit.pm_signature || undefined,
+    },
+    pdApproval: {
+      status: (permit.pd_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: permit.pd_approver_name || undefined,
+      date: permit.pd_date || undefined,
+      comments: permit.pd_comments || undefined,
+      signature: permit.pd_signature || undefined,
+    },
+    bdcrApproval: {
+      status: (permit.bdcr_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    mprApproval: {
+      status: (permit.mpr_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    itApproval: {
+      status: (permit.it_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    fitoutApproval: {
+      status: (permit.fitout_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    softFacilitiesApproval: {
+      status: (permit.soft_facilities_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    hardFacilitiesApproval: {
+      status: (permit.hard_facilities_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
+    pmServiceApproval: {
+      status: (permit.pm_service_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    },
   };
 
   return (
@@ -91,13 +180,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl md:text-3xl font-display font-bold">
-              {permit.permitNo}
+              {permit.permit_no}
             </h1>
-            <StatusBadge status={permit.status} />
+            <StatusBadge status={permit.status as PermitStatus} />
           </div>
-          <p className="text-muted-foreground mt-1">{permit.workTypeName}</p>
+          <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
-        {permit.pdfUrl && (
+        {permit.pdf_url && (
           <Button variant="outline">
             <Download className="w-4 h-4 mr-2" />
             Download PDF
@@ -123,7 +212,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardTitle className="text-lg font-display">Work Description</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm leading-relaxed">{permit.workDescription}</p>
+                  <p className="text-sm leading-relaxed">{permit.work_description}</p>
                 </CardContent>
               </Card>
 
@@ -136,11 +225,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      {permit.requesterName}
+                      {permit.requester_name}
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      {permit.requesterEmail}
+                      {permit.requester_email}
                     </div>
                   </CardContent>
                 </Card>
@@ -152,11 +241,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
-                      {permit.contractorName}
+                      {permit.contractor_name}
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      {permit.contactMobile}
+                      {permit.contact_mobile}
                     </div>
                   </CardContent>
                 </Card>
@@ -171,7 +260,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="w-4 h-4 text-muted-foreground" />
-                      {permit.workLocation}
+                      {permit.work_location}
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
@@ -187,11 +276,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
-                      {permit.workDateFrom} to {permit.workDateTo}
+                      {permit.work_date_from} to {permit.work_date_to}
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="w-4 h-4 text-muted-foreground" />
-                      {permit.workTimeFrom} - {permit.workTimeTo}
+                      {permit.work_time_from} - {permit.work_time_to}
                     </div>
                   </CardContent>
                 </Card>
@@ -206,28 +295,28 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
                       <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Helpdesk</span>
-                      {workType.requiresPM && (
+                      {workType.requires_pm && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM</span>
                       )}
-                      {workType.requiresPD && (
+                      {workType.requires_pd && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PD</span>
                       )}
-                      {workType.requiresBDCR && (
+                      {workType.requires_bdcr && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">BDCR</span>
                       )}
-                      {workType.requiresMPR && (
+                      {workType.requires_mpr && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">MPR</span>
                       )}
-                      {workType.requiresIT && (
+                      {workType.requires_it && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">IT</span>
                       )}
-                      {workType.requiresFitOut && (
+                      {workType.requires_fitout && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
                       )}
-                      {workType.requiresSoftFacilities && (
+                      {workType.requires_soft_facilities && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Soft Facilities</span>
                       )}
-                      {workType.requiresHardFacilities && (
+                      {workType.requires_hard_facilities && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Hard Facilities</span>
                       )}
                       <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM Service</span>
@@ -242,15 +331,15 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 <CardHeader>
                   <CardTitle className="text-lg font-display">Attachments</CardTitle>
                   <CardDescription>
-                    {permit.attachments.length} file(s) attached
+                    {(permit.attachments || []).length} file(s) attached
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {permit.attachments.length === 0 ? (
+                  {(permit.attachments || []).length === 0 ? (
                     <p className="text-sm text-muted-foreground">No attachments</p>
                   ) : (
                     <div className="space-y-2">
-                      {permit.attachments.map((file, index) => (
+                      {(permit.attachments || []).map((file, index) => (
                         <div
                           key={index}
                           className="flex items-center justify-between p-3 bg-muted rounded-lg"
@@ -282,23 +371,34 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                       <div>
                         <p className="text-sm font-medium">Permit Created</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(permit.createdAt).toLocaleString()} by {permit.requesterName}
+                          {new Date(permit.created_at).toLocaleString()} by {permit.requester_name}
                         </p>
                       </div>
                     </div>
-                    {permit.helpdeskApproval.status === 'approved' && (
+                    {permit.helpdesk_status === 'approved' && (
                       <div className="flex items-start gap-3">
                         <div className="w-2 h-2 mt-2 rounded-full bg-success" />
                         <div>
                           <p className="text-sm font-medium">Helpdesk Approved</p>
                           <p className="text-xs text-muted-foreground">
-                            {permit.helpdeskApproval.date} by {permit.helpdeskApproval.approverName}
+                            {permit.helpdesk_date && new Date(permit.helpdesk_date).toLocaleString()} by {permit.helpdesk_approver_name}
                           </p>
-                          {permit.helpdeskApproval.comments && (
+                          {permit.helpdesk_comments && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              "{permit.helpdeskApproval.comments}"
+                              "{permit.helpdesk_comments}"
                             </p>
                           )}
+                        </div>
+                      </div>
+                    )}
+                    {permit.pm_status === 'approved' && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 mt-2 rounded-full bg-success" />
+                        <div>
+                          <p className="text-sm font-medium">PM Approved</p>
+                          <p className="text-xs text-muted-foreground">
+                            {permit.pm_date && new Date(permit.pm_date).toLocaleString()} by {permit.pm_approver_name}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -340,6 +440,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                     variant="outline"
                     className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={handleReject}
+                    disabled={approvePermit.isPending}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
                     Reject
@@ -347,9 +448,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   <Button
                     className="flex-1 bg-success text-success-foreground hover:bg-success/90"
                     onClick={handleApprove}
+                    disabled={approvePermit.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve
+                    {approvePermit.isPending ? 'Processing...' : 'Approve'}
                   </Button>
                 </div>
               </CardContent>
@@ -364,7 +466,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <CardTitle className="text-lg font-display">Workflow Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <WorkflowTimeline permit={permit} />
+              <WorkflowTimeline permit={transformedPermit} />
             </CardContent>
           </Card>
         </div>
