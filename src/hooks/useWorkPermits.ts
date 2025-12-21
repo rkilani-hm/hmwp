@@ -234,7 +234,7 @@ export function useCreatePermit() {
           const fileExt = file.name.split('.').pop();
           const fileName = `${tempId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-          const { error: uploadError } = await supabase.storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('permit-attachments')
             .upload(fileName, file, {
               cacheControl: '3600',
@@ -243,14 +243,17 @@ export function useCreatePermit() {
 
           if (uploadError) {
             console.error('Upload error:', uploadError);
+            toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
             continue;
           }
 
-          const { data: urlData } = supabase.storage
-            .from('permit-attachments')
-            .getPublicUrl(fileName);
+          if (uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('permit-attachments')
+              .getPublicUrl(fileName);
 
-          attachmentUrls.push(urlData.publicUrl);
+            attachmentUrls.push(urlData.publicUrl);
+          }
         }
       }
 
