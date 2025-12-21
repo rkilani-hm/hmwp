@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,8 +48,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     console.log("Permit found:", permit.permit_no, "Status:", permit.status);
 
-    // Generate the PDF content
-    const pdfContent = generatePdf(permit);
+    // Generate the PDF
+    const pdfBytes = await generatePdf(permit);
 
     // Upload to storage
     const fileName = `${permit.permit_no.replace(/\//g, "-")}.pdf`;
@@ -56,7 +57,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     
     const { error: uploadError } = await supabase.storage
       .from("permit-pdfs")
-      .upload(fileName, pdfContent, {
+      .upload(fileName, pdfBytes, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -98,155 +99,143 @@ const serve_handler = async (req: Request): Promise<Response> => {
   }
 };
 
-function escapeText(text: string): string {
-  if (!text) return "";
-  return text.replace(/[()\\]/g, " ").substring(0, 100);
-}
+async function generatePdf(permit: any): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([612, 792]); // Letter size
+  
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  const { width, height } = page.getSize();
+  const margin = 50;
+  let yPos = height - margin;
+  
+  const drawText = (text: string, x: number, y: number, size: number, font = helvetica, color = rgb(0, 0, 0)) => {
+    page.drawText(text || '', { x, y, size, font, color });
+  };
+  
+  const drawLine = (y: number) => {
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: width - margin, y },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+  };
 
-function generatePdf(permit: any): Uint8Array {
-  const encoder = new TextEncoder();
-  const workType = permit.work_types?.name || "General Work";
-  const status = permit.status?.toUpperCase() || "UNKNOWN";
-  const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : "N/A";
+  const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
+  const formatDateTime = (date: string) => date ? new Date(date).toLocaleString() : 'N/A';
+  const workType = permit.work_types?.name || 'General Work';
   
-  // Build approval section
-  const approvals: string[] = [];
-  if (permit.helpdesk_status === 'approved') {
-    approvals.push(`Helpdesk: ${escapeText(permit.helpdesk_approver_name || 'Approved')}`);
-  }
-  if (permit.pm_status === 'approved') {
-    approvals.push(`PM: ${escapeText(permit.pm_approver_name || 'Approved')}`);
-  }
-  if (permit.pd_status === 'approved') {
-    approvals.push(`PD: ${escapeText(permit.pd_approver_name || 'Approved')}`);
-  }
-  if (permit.bdcr_status === 'approved') {
-    approvals.push(`BDCR: ${escapeText(permit.bdcr_approver_name || 'Approved')}`);
-  }
-  if (permit.mpr_status === 'approved') {
-    approvals.push(`MPR: ${escapeText(permit.mpr_approver_name || 'Approved')}`);
-  }
-  if (permit.it_status === 'approved') {
-    approvals.push(`IT: ${escapeText(permit.it_approver_name || 'Approved')}`);
-  }
-  if (permit.fitout_status === 'approved') {
-    approvals.push(`Fit-Out: ${escapeText(permit.fitout_approver_name || 'Approved')}`);
-  }
-  if (permit.soft_facilities_status === 'approved') {
-    approvals.push(`Soft Facilities: ${escapeText(permit.soft_facilities_approver_name || 'Approved')}`);
-  }
-  if (permit.hard_facilities_status === 'approved') {
-    approvals.push(`Hard Facilities: ${escapeText(permit.hard_facilities_approver_name || 'Approved')}`);
-  }
-  if (permit.pm_service_status === 'approved') {
-    approvals.push(`PM Service: ${escapeText(permit.pm_service_approver_name || 'Approved')}`);
-  }
-
-  // Build the content stream
-  let yPos = 750;
-  const lineHeight = 15;
-  const sectionGap = 25;
-  
-  let contentLines = [
-    `BT`,
-    `/F1 20 Tf`,
-    `50 ${yPos} Td`,
-    `(WORK PERMIT) Tj`,
-  ];
-  
+  // Header
+  drawText('WORK PERMIT', margin, yPos, 24, helveticaBold);
   yPos -= 30;
-  contentLines.push(`/F1 14 Tf`, `0 -30 Td`, `(${escapeText(permit.permit_no)}) Tj`);
-  
+  drawText(permit.permit_no || '', margin, yPos, 16, helveticaBold);
   yPos -= 25;
-  contentLines.push(`/F1 11 Tf`, `0 -25 Td`, `(Status: ${status}) Tj`);
   
-  yPos -= lineHeight;
-  contentLines.push(`0 -${lineHeight} Td`, `(Work Type: ${escapeText(workType)}) Tj`);
+  // Status badge
+  const statusText = (permit.status || 'unknown').toUpperCase();
+  const statusColor = permit.status === 'approved' ? rgb(0.13, 0.77, 0.37) : 
+                      permit.status === 'rejected' ? rgb(0.86, 0.21, 0.27) :
+                      rgb(0.42, 0.45, 0.5);
+  drawText(`Status: ${statusText}`, margin, yPos, 12, helveticaBold, statusColor);
+  yPos -= 20;
+  drawText(`Work Type: ${workType}`, margin, yPos, 11, helvetica);
+  yPos -= 30;
   
-  // Requester section
-  yPos -= sectionGap;
-  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(REQUESTER INFORMATION) Tj`);
-  contentLines.push(`/F1 10 Tf`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Name: ${escapeText(permit.requester_name)}) Tj`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Email: ${escapeText(permit.requester_email)}) Tj`);
+  drawLine(yPos);
+  yPos -= 25;
   
-  // Contractor section
-  yPos -= sectionGap;
-  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(CONTRACTOR INFORMATION) Tj`);
-  contentLines.push(`/F1 10 Tf`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Company: ${escapeText(permit.contractor_name)}) Tj`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Contact: ${escapeText(permit.contact_mobile)}) Tj`);
+  // Work Description
+  drawText('WORK DESCRIPTION', margin, yPos, 12, helveticaBold);
+  yPos -= 18;
+  const description = (permit.work_description || '').substring(0, 200);
+  const words = description.split(' ');
+  let line = '';
+  for (const word of words) {
+    const testLine = line + word + ' ';
+    if (testLine.length > 80) {
+      drawText(line.trim(), margin, yPos, 10, helvetica);
+      yPos -= 14;
+      line = word + ' ';
+    } else {
+      line = testLine;
+    }
+  }
+  if (line.trim()) {
+    drawText(line.trim(), margin, yPos, 10, helvetica);
+    yPos -= 20;
+  }
   
-  // Location section
-  yPos -= sectionGap;
-  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(LOCATION) Tj`);
-  contentLines.push(`/F1 10 Tf`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Work Location: ${escapeText(permit.work_location)}) Tj`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Unit: ${escapeText(permit.unit)}, Floor: ${escapeText(permit.floor)}) Tj`);
+  yPos -= 10;
+  drawLine(yPos);
+  yPos -= 25;
   
-  // Schedule section
-  yPos -= sectionGap;
-  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(SCHEDULE) Tj`);
-  contentLines.push(`/F1 10 Tf`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Date: ${formatDate(permit.work_date_from)} to ${formatDate(permit.work_date_to)}) Tj`);
-  contentLines.push(`0 -${lineHeight} Td`, `(Time: ${permit.work_time_from || 'N/A'} - ${permit.work_time_to || 'N/A'}) Tj`);
+  // Two column layout
+  const col1 = margin;
+  const col2 = width / 2 + 10;
   
-  // Work description
-  yPos -= sectionGap;
-  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(WORK DESCRIPTION) Tj`);
-  contentLines.push(`/F1 10 Tf`);
-  contentLines.push(`0 -${lineHeight} Td`, `(${escapeText(permit.work_description)}) Tj`);
+  // Requester Info
+  drawText('REQUESTER INFORMATION', col1, yPos, 11, helveticaBold);
+  drawText('CONTRACTOR INFORMATION', col2, yPos, 11, helveticaBold);
+  yPos -= 18;
+  drawText(`Name: ${permit.requester_name || 'N/A'}`, col1, yPos, 10, helvetica);
+  drawText(`Company: ${permit.contractor_name || 'N/A'}`, col2, yPos, 10, helvetica);
+  yPos -= 14;
+  drawText(`Email: ${permit.requester_email || 'N/A'}`, col1, yPos, 10, helvetica);
+  drawText(`Contact: ${permit.contact_mobile || 'N/A'}`, col2, yPos, 10, helvetica);
+  yPos -= 25;
+  
+  // Location & Schedule
+  drawText('LOCATION', col1, yPos, 11, helveticaBold);
+  drawText('SCHEDULE', col2, yPos, 11, helveticaBold);
+  yPos -= 18;
+  drawText(`Location: ${permit.work_location || 'N/A'}`, col1, yPos, 10, helvetica);
+  drawText(`Date: ${formatDate(permit.work_date_from)} - ${formatDate(permit.work_date_to)}`, col2, yPos, 10, helvetica);
+  yPos -= 14;
+  drawText(`Unit: ${permit.unit || 'N/A'}, Floor: ${permit.floor || 'N/A'}`, col1, yPos, 10, helvetica);
+  drawText(`Time: ${permit.work_time_from || 'N/A'} - ${permit.work_time_to || 'N/A'}`, col2, yPos, 10, helvetica);
+  yPos -= 30;
+  
+  drawLine(yPos);
+  yPos -= 25;
   
   // Approvals section
-  if (approvals.length > 0) {
-    contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(APPROVALS) Tj`);
-    contentLines.push(`/F1 10 Tf`);
-    for (const approval of approvals) {
-      contentLines.push(`0 -${lineHeight} Td`, `(${approval}) Tj`);
+  drawText('APPROVALS', margin, yPos, 12, helveticaBold);
+  yPos -= 20;
+  
+  const approvals = [
+    { name: 'Helpdesk', status: permit.helpdesk_status, approver: permit.helpdesk_approver_name, date: permit.helpdesk_date },
+    { name: 'PM', status: permit.pm_status, approver: permit.pm_approver_name, date: permit.pm_date },
+    { name: 'PD', status: permit.pd_status, approver: permit.pd_approver_name, date: permit.pd_date },
+    { name: 'BDCR', status: permit.bdcr_status, approver: permit.bdcr_approver_name, date: permit.bdcr_date },
+    { name: 'MPR', status: permit.mpr_status, approver: permit.mpr_approver_name, date: permit.mpr_date },
+    { name: 'IT', status: permit.it_status, approver: permit.it_approver_name, date: permit.it_date },
+    { name: 'Fit-Out', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date },
+    { name: 'Soft Facilities', status: permit.soft_facilities_status, approver: permit.soft_facilities_approver_name, date: permit.soft_facilities_date },
+    { name: 'Hard Facilities', status: permit.hard_facilities_status, approver: permit.hard_facilities_approver_name, date: permit.hard_facilities_date },
+    { name: 'PM Service', status: permit.pm_service_status, approver: permit.pm_service_approver_name, date: permit.pm_service_date },
+  ];
+  
+  for (const approval of approvals) {
+    if (approval.status === 'approved' || approval.status === 'rejected') {
+      const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : rgb(0.86, 0.21, 0.27);
+      const statusSymbol = approval.status === 'approved' ? '✓' : '✗';
+      drawText(`${statusSymbol} ${approval.name}`, margin, yPos, 10, helveticaBold, statusColor);
+      drawText(`by ${approval.approver || 'N/A'} on ${formatDateTime(approval.date)}`, margin + 120, yPos, 9, helvetica, rgb(0.4, 0.4, 0.4));
+      yPos -= 16;
+      
+      if (yPos < 80) break; // Prevent overflow
     }
   }
   
   // Footer
-  contentLines.push(`0 -${sectionGap} Td`, `(Generated: ${new Date().toLocaleString().replace(/[()\\]/g, ' ')}) Tj`);
-  contentLines.push(`ET`);
+  yPos = 40;
+  drawLine(yPos + 10);
+  drawText(`Generated on ${new Date().toLocaleString()}`, margin, yPos - 5, 8, helvetica, rgb(0.5, 0.5, 0.5));
+  drawText('This is an official work permit document.', width - margin - 180, yPos - 5, 8, helvetica, rgb(0.5, 0.5, 0.5));
   
-  const contentStream = contentLines.join('\n');
-  const streamLength = contentStream.length;
-  
-  const pdf = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
-endobj
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-4 0 obj
-<< /Length ${streamLength} >>
-stream
-${contentStream}
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000266 00000 n 
-0000000214 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-%%EOF
-`;
-
-  return encoder.encode(pdf);
+  return await pdfDoc.save();
 }
 
 serve(serve_handler);
