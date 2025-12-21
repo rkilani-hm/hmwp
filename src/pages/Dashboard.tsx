@@ -152,30 +152,35 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           value={stats.total}
           icon={FileText}
           variant="primary"
+          href="/permits"
         />
         <StatsCard
           title="Pending"
           value={stats.pending}
           icon={Clock}
           variant="warning"
+          href="/permits?status=pending"
         />
         <StatsCard
           title="Approved"
           value={stats.approved}
           icon={CheckCircle}
           variant="success"
+          href="/permits?status=approved"
         />
         <StatsCard
           title="Rejected"
           value={stats.rejected}
           icon={XCircle}
           variant="destructive"
+          href="/permits?status=rejected"
         />
         <StatsCard
           title="Closed"
           value={stats.closed}
           icon={Archive}
           variant="default"
+          href="/permits?status=closed"
         />
       </motion.div>
 
