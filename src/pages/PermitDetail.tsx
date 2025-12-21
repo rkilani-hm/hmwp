@@ -54,18 +54,28 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     if (pdfUrl) {
       // Refetch permit to get the updated pdf_url
       queryClient.invalidateQueries({ queryKey: ['work-permit', id] });
-      // Open PDF in new tab
-      window.open(pdfUrl, '_blank');
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `${permit.permit_no.replace(/\//g, '-')}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
   const handleDownloadPdf = () => {
     if (permit?.pdf_url) {
-      window.open(permit.pdf_url, '_blank');
+      const link = document.createElement('a');
+      link.href = permit.pdf_url;
+      link.download = `${permit.permit_no.replace(/\//g, '-')}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
-
-  const canGeneratePdf = permit?.status === 'approved' || permit?.status === 'closed';
 
   if (isLoading) {
     return (
@@ -211,7 +221,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
         <div className="flex gap-2">
-          {canGeneratePdf && !permit.pdf_url && (
+          {!permit.pdf_url && (
             <Button 
               variant="default" 
               onClick={handleGeneratePdf}

@@ -1,1 +1,4 @@
 project_id = "wmtlvmtpwnjjjmjhasuo"
+
+[functions.generate-permit-pdf]
+verify_jwt = true
