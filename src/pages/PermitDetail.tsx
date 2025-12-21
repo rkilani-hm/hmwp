@@ -21,7 +21,6 @@ import {
   Phone,
   User,
   Mail,
-  Paperclip,
   CheckCircle,
   XCircle,
   Download,
@@ -30,6 +29,7 @@ import {
   AlertTriangle,
   Timer,
 } from 'lucide-react';
+import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -393,20 +393,19 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                     <p className="text-sm text-muted-foreground">No attachments</p>
                   ) : (
                     <div className="space-y-2">
-                      {(permit.attachments || []).map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Paperclip className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">{file}</span>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
+                      {(permit.attachments || []).map((url, index) => {
+                        // Extract filename from URL or use index
+                        const filename = url.includes('/') 
+                          ? decodeURIComponent(url.split('/').pop() || `attachment-${index + 1}`)
+                          : url;
+                        return (
+                          <AttachmentPreview
+                            key={index}
+                            url={url}
+                            filename={filename}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>

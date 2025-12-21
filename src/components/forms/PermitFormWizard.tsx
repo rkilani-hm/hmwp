@@ -116,7 +116,7 @@ export function PermitFormWizard() {
       work_date_to: formData.workDateTo,
       work_time_from: formData.workTimeFrom,
       work_time_to: formData.workTimeTo,
-      attachments: formData.attachments.map(f => f.name),
+      files: formData.attachments,
       urgency: formData.urgency,
     }, {
       onSuccess: () => {
