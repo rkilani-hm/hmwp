@@ -1,9 +1,32 @@
 import { cn } from '@/lib/utils';
 import { Check, X, Clock, Circle } from 'lucide-react';
-import { WorkPermit } from '@/types/workPermit';
+import { PermitStatus } from '@/types/workPermit';
+
+export interface ApprovalRecord {
+  status: 'pending' | 'approved' | 'rejected';
+  approverName?: string;
+  date?: string;
+  comments?: string;
+  signature?: string;
+}
+
+export interface WorkflowPermit {
+  id: string;
+  status: PermitStatus;
+  helpdeskApproval: ApprovalRecord;
+  pmApproval: ApprovalRecord;
+  pdApproval: ApprovalRecord;
+  bdcrApproval: ApprovalRecord;
+  mprApproval: ApprovalRecord;
+  itApproval: ApprovalRecord;
+  fitoutApproval: ApprovalRecord;
+  softFacilitiesApproval: ApprovalRecord;
+  hardFacilitiesApproval: ApprovalRecord;
+  pmServiceApproval: ApprovalRecord;
+}
 
 interface WorkflowTimelineProps {
-  permit: WorkPermit;
+  permit: WorkflowPermit;
   className?: string;
 }
 

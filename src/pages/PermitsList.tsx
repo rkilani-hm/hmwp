@@ -9,9 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockPermits } from '@/data/mockData';
+import { useWorkPermits } from '@/hooks/useWorkPermits';
 import { PermitStatus, statusLabels, UserRole } from '@/types/workPermit';
-import { Search, Filter, Plus, LayoutGrid, List } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -25,17 +25,35 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PermitStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  const { data: permits, isLoading, error } = useWorkPermits();
 
-  const filteredPermits = mockPermits.filter((permit) => {
+  const filteredPermits = (permits || []).filter((permit) => {
     const matchesSearch =
-      permit.permitNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      permit.contractorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      permit.workDescription.toLowerCase().includes(searchQuery.toLowerCase());
+      permit.permit_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      permit.contractor_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      permit.work_description.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || permit.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-destructive">Failed to load permits</p>
+      </div>
+    );
+  }
 
   const statusOptions: (PermitStatus | 'all')[] = [
     'all',
@@ -142,10 +160,26 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
               : 'space-y-3'
           )}
         >
-          {filteredPermits.map((permit) => (
+        {filteredPermits.map((permit) => (
             <PermitCard
               key={permit.id}
-              permit={permit}
+              permit={{
+                id: permit.id,
+                permitNo: permit.permit_no,
+                status: permit.status as PermitStatus,
+                contractorName: permit.contractor_name,
+                workDescription: permit.work_description,
+                workTypeName: permit.work_types?.name || 'General',
+                workDateFrom: permit.work_date_from,
+                workDateTo: permit.work_date_to,
+                createdAt: permit.created_at,
+                unit: permit.unit,
+                floor: permit.floor,
+                workLocation: permit.work_location,
+                workTimeFrom: permit.work_time_from,
+                workTimeTo: permit.work_time_to,
+                attachments: permit.attachments || [],
+              }}
               onClick={() => navigate(`/permits/${permit.id}`)}
             />
           ))}
