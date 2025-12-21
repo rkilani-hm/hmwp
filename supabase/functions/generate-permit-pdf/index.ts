@@ -21,6 +21,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { permitId }: GeneratePdfRequest = await req.json();
+    console.log("Generating PDF for permit:", permitId);
 
     if (!permitId) {
       return new Response(JSON.stringify({ error: "Permit ID is required" }), {
@@ -37,31 +38,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (permitError || !permit) {
+      console.error("Permit fetch error:", permitError);
       return new Response(JSON.stringify({ error: "Permit not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    // Check if permit is approved
-    if (permit.status !== "approved" && permit.status !== "closed") {
-      return new Response(
-        JSON.stringify({ error: "Only approved or closed permits can generate PDFs" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
+    console.log("Permit found:", permit.permit_no, "Status:", permit.status);
 
-    // Generate HTML for the PDF
-    const html = generatePermitHtml(permit);
-
-    // Convert HTML to PDF using a simple approach
-    const pdfContent = generatePdfFromHtml(html, permit);
+    // Generate the PDF content
+    const pdfContent = generatePdf(permit);
 
     // Upload to storage
     const fileName = `${permit.permit_no.replace(/\//g, "-")}.pdf`;
+    console.log("Uploading PDF as:", fileName);
+    
     const { error: uploadError } = await supabase.storage
       .from("permit-pdfs")
       .upload(fileName, pdfContent, {
@@ -71,7 +63,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      return new Response(JSON.stringify({ error: "Failed to upload PDF" }), {
+      return new Response(JSON.stringify({ error: "Failed to upload PDF: " + uploadError.message }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -81,6 +73,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const { data: urlData } = supabase.storage
       .from("permit-pdfs")
       .getPublicUrl(fileName);
+
+    console.log("PDF URL:", urlData.publicUrl);
 
     // Update the permit with the PDF URL
     await supabase
@@ -104,255 +98,122 @@ const serve_handler = async (req: Request): Promise<Response> => {
   }
 };
 
-function generatePermitHtml(permit: any): string {
-  const workType = permit.work_types?.name || "General Work";
-  const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : "N/A";
-  const formatDateTime = (date: string) => date ? new Date(date).toLocaleString() : "N/A";
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Work Permit - ${permit.permit_no}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 40px; font-size: 12px; }
-        h1 { color: #1a1a1a; border-bottom: 2px solid #333; padding-bottom: 10px; }
-        h2 { color: #333; margin-top: 20px; font-size: 14px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
-        .status.approved { background: #22c55e; color: white; }
-        .status.closed { background: #6b7280; color: white; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .section-title { font-weight: bold; margin-bottom: 10px; color: #374151; }
-        .field { margin-bottom: 8px; }
-        .label { color: #6b7280; font-size: 11px; }
-        .value { font-weight: 500; }
-        .approval-box { border: 1px solid #d1d5db; padding: 10px; margin-bottom: 10px; border-radius: 6px; }
-        .approval-box.approved { border-color: #22c55e; background: #f0fdf4; }
-        .signature { border-top: 1px solid #000; width: 200px; margin-top: 30px; padding-top: 5px; }
-        .footer { margin-top: 40px; text-align: center; color: #6b7280; font-size: 10px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>WORK PERMIT</h1>
-        <p style="font-size: 18px; font-weight: bold;">${permit.permit_no}</p>
-        <span class="status ${permit.status}">${permit.status.toUpperCase()}</span>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Work Details</div>
-        <div class="field">
-          <div class="label">Work Type</div>
-          <div class="value">${workType}</div>
-        </div>
-        <div class="field">
-          <div class="label">Description</div>
-          <div class="value">${permit.work_description}</div>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="section">
-          <div class="section-title">Requester Information</div>
-          <div class="field">
-            <div class="label">Name</div>
-            <div class="value">${permit.requester_name}</div>
-          </div>
-          <div class="field">
-            <div class="label">Email</div>
-            <div class="value">${permit.requester_email}</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">Contractor Information</div>
-          <div class="field">
-            <div class="label">Company</div>
-            <div class="value">${permit.contractor_name}</div>
-          </div>
-          <div class="field">
-            <div class="label">Contact</div>
-            <div class="value">${permit.contact_mobile}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="section">
-          <div class="section-title">Location</div>
-          <div class="field">
-            <div class="label">Work Location</div>
-            <div class="value">${permit.work_location}</div>
-          </div>
-          <div class="field">
-            <div class="label">Unit / Floor</div>
-            <div class="value">${permit.unit} / ${permit.floor}</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">Schedule</div>
-          <div class="field">
-            <div class="label">Date Range</div>
-            <div class="value">${formatDate(permit.work_date_from)} to ${formatDate(permit.work_date_to)}</div>
-          </div>
-          <div class="field">
-            <div class="label">Time</div>
-            <div class="value">${permit.work_time_from} - ${permit.work_time_to}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Approvals</div>
-        
-        ${permit.helpdesk_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>Helpdesk</strong> - Approved by ${permit.helpdesk_approver_name || 'N/A'} on ${formatDateTime(permit.helpdesk_date)}
-          ${permit.helpdesk_comments ? `<p style="margin: 5px 0 0 0; font-size: 11px;">Comments: ${permit.helpdesk_comments}</p>` : ''}
-        </div>
-        ` : ''}
-
-        ${permit.pm_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>PM</strong> - Approved by ${permit.pm_approver_name || 'N/A'} on ${formatDateTime(permit.pm_date)}
-          ${permit.pm_comments ? `<p style="margin: 5px 0 0 0; font-size: 11px;">Comments: ${permit.pm_comments}</p>` : ''}
-        </div>
-        ` : ''}
-
-        ${permit.pd_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>PD</strong> - Approved by ${permit.pd_approver_name || 'N/A'} on ${formatDateTime(permit.pd_date)}
-          ${permit.pd_comments ? `<p style="margin: 5px 0 0 0; font-size: 11px;">Comments: ${permit.pd_comments}</p>` : ''}
-        </div>
-        ` : ''}
-
-        ${permit.bdcr_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>BDCR</strong> - Approved by ${permit.bdcr_approver_name || 'N/A'} on ${formatDateTime(permit.bdcr_date)}
-        </div>
-        ` : ''}
-
-        ${permit.mpr_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>MPR</strong> - Approved by ${permit.mpr_approver_name || 'N/A'} on ${formatDateTime(permit.mpr_date)}
-        </div>
-        ` : ''}
-
-        ${permit.it_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>IT</strong> - Approved by ${permit.it_approver_name || 'N/A'} on ${formatDateTime(permit.it_date)}
-        </div>
-        ` : ''}
-
-        ${permit.fitout_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>Fit-Out</strong> - Approved by ${permit.fitout_approver_name || 'N/A'} on ${formatDateTime(permit.fitout_date)}
-        </div>
-        ` : ''}
-
-        ${permit.soft_facilities_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>Soft Facilities</strong> - Approved by ${permit.soft_facilities_approver_name || 'N/A'} on ${formatDateTime(permit.soft_facilities_date)}
-        </div>
-        ` : ''}
-
-        ${permit.hard_facilities_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>Hard Facilities</strong> - Approved by ${permit.hard_facilities_approver_name || 'N/A'} on ${formatDateTime(permit.hard_facilities_date)}
-        </div>
-        ` : ''}
-
-        ${permit.pm_service_status === 'approved' ? `
-        <div class="approval-box approved">
-          <strong>PM Service</strong> - Approved by ${permit.pm_service_approver_name || 'N/A'} on ${formatDateTime(permit.pm_service_date)}
-        </div>
-        ` : ''}
-      </div>
-
-      <div class="footer">
-        <p>Generated on ${new Date().toLocaleString()}</p>
-        <p>This is an official work permit document.</p>
-      </div>
-    </body>
-    </html>
-  `;
+function escapeText(text: string): string {
+  if (!text) return "";
+  return text.replace(/[()\\]/g, " ").substring(0, 100);
 }
 
-function generatePdfFromHtml(html: string, permit: any): Uint8Array {
-  // Create a simple text-based PDF
-  // Note: For production, you'd want to use a proper PDF library
+function generatePdf(permit: any): Uint8Array {
   const encoder = new TextEncoder();
+  const workType = permit.work_types?.name || "General Work";
+  const status = permit.status?.toUpperCase() || "UNKNOWN";
+  const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : "N/A";
   
-  const pdfHeader = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
-endobj
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-4 0 obj
-<< /Length 6 0 R >>
-stream
-BT
-/F1 16 Tf
-50 750 Td
-(WORK PERMIT) Tj
-/F1 14 Tf
-0 -30 Td
-(${permit.permit_no}) Tj
-/F1 10 Tf
-0 -25 Td
-(Status: ${permit.status.toUpperCase()}) Tj
-0 -20 Td
-(Work Type: ${permit.work_types?.name || 'General Work'}) Tj
-0 -30 Td
-(REQUESTER INFORMATION) Tj
-0 -15 Td
-(Name: ${permit.requester_name}) Tj
-0 -15 Td
-(Email: ${permit.requester_email}) Tj
-0 -30 Td
-(CONTRACTOR INFORMATION) Tj
-0 -15 Td
-(Company: ${permit.contractor_name}) Tj
-0 -15 Td
-(Contact: ${permit.contact_mobile}) Tj
-0 -30 Td
-(LOCATION) Tj
-0 -15 Td
-(Work Location: ${permit.work_location}) Tj
-0 -15 Td
-(Unit: ${permit.unit}, Floor: ${permit.floor}) Tj
-0 -30 Td
-(SCHEDULE) Tj
-0 -15 Td
-(Date: ${permit.work_date_from} to ${permit.work_date_to}) Tj
-0 -15 Td
-(Time: ${permit.work_time_from} - ${permit.work_time_to}) Tj
-0 -30 Td
-(WORK DESCRIPTION) Tj
-0 -15 Td
-(${permit.work_description.substring(0, 80)}) Tj
-0 -30 Td
-(Generated: ${new Date().toLocaleString()}) Tj
-ET
-endstream
-endobj
-`;
+  // Build approval section
+  const approvals: string[] = [];
+  if (permit.helpdesk_status === 'approved') {
+    approvals.push(`Helpdesk: ${escapeText(permit.helpdesk_approver_name || 'Approved')}`);
+  }
+  if (permit.pm_status === 'approved') {
+    approvals.push(`PM: ${escapeText(permit.pm_approver_name || 'Approved')}`);
+  }
+  if (permit.pd_status === 'approved') {
+    approvals.push(`PD: ${escapeText(permit.pd_approver_name || 'Approved')}`);
+  }
+  if (permit.bdcr_status === 'approved') {
+    approvals.push(`BDCR: ${escapeText(permit.bdcr_approver_name || 'Approved')}`);
+  }
+  if (permit.mpr_status === 'approved') {
+    approvals.push(`MPR: ${escapeText(permit.mpr_approver_name || 'Approved')}`);
+  }
+  if (permit.it_status === 'approved') {
+    approvals.push(`IT: ${escapeText(permit.it_approver_name || 'Approved')}`);
+  }
+  if (permit.fitout_status === 'approved') {
+    approvals.push(`Fit-Out: ${escapeText(permit.fitout_approver_name || 'Approved')}`);
+  }
+  if (permit.soft_facilities_status === 'approved') {
+    approvals.push(`Soft Facilities: ${escapeText(permit.soft_facilities_approver_name || 'Approved')}`);
+  }
+  if (permit.hard_facilities_status === 'approved') {
+    approvals.push(`Hard Facilities: ${escapeText(permit.hard_facilities_approver_name || 'Approved')}`);
+  }
+  if (permit.pm_service_status === 'approved') {
+    approvals.push(`PM Service: ${escapeText(permit.pm_service_approver_name || 'Approved')}`);
+  }
 
-  const streamLength = pdfHeader.split('stream\n')[1].split('\nendstream')[0].length;
+  // Build the content stream
+  let yPos = 750;
+  const lineHeight = 15;
+  const sectionGap = 25;
   
-  const pdfFull = `%PDF-1.4
+  let contentLines = [
+    `BT`,
+    `/F1 20 Tf`,
+    `50 ${yPos} Td`,
+    `(WORK PERMIT) Tj`,
+  ];
+  
+  yPos -= 30;
+  contentLines.push(`/F1 14 Tf`, `0 -30 Td`, `(${escapeText(permit.permit_no)}) Tj`);
+  
+  yPos -= 25;
+  contentLines.push(`/F1 11 Tf`, `0 -25 Td`, `(Status: ${status}) Tj`);
+  
+  yPos -= lineHeight;
+  contentLines.push(`0 -${lineHeight} Td`, `(Work Type: ${escapeText(workType)}) Tj`);
+  
+  // Requester section
+  yPos -= sectionGap;
+  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(REQUESTER INFORMATION) Tj`);
+  contentLines.push(`/F1 10 Tf`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Name: ${escapeText(permit.requester_name)}) Tj`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Email: ${escapeText(permit.requester_email)}) Tj`);
+  
+  // Contractor section
+  yPos -= sectionGap;
+  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(CONTRACTOR INFORMATION) Tj`);
+  contentLines.push(`/F1 10 Tf`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Company: ${escapeText(permit.contractor_name)}) Tj`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Contact: ${escapeText(permit.contact_mobile)}) Tj`);
+  
+  // Location section
+  yPos -= sectionGap;
+  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(LOCATION) Tj`);
+  contentLines.push(`/F1 10 Tf`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Work Location: ${escapeText(permit.work_location)}) Tj`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Unit: ${escapeText(permit.unit)}, Floor: ${escapeText(permit.floor)}) Tj`);
+  
+  // Schedule section
+  yPos -= sectionGap;
+  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(SCHEDULE) Tj`);
+  contentLines.push(`/F1 10 Tf`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Date: ${formatDate(permit.work_date_from)} to ${formatDate(permit.work_date_to)}) Tj`);
+  contentLines.push(`0 -${lineHeight} Td`, `(Time: ${permit.work_time_from || 'N/A'} - ${permit.work_time_to || 'N/A'}) Tj`);
+  
+  // Work description
+  yPos -= sectionGap;
+  contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(WORK DESCRIPTION) Tj`);
+  contentLines.push(`/F1 10 Tf`);
+  contentLines.push(`0 -${lineHeight} Td`, `(${escapeText(permit.work_description)}) Tj`);
+  
+  // Approvals section
+  if (approvals.length > 0) {
+    contentLines.push(`/F1 12 Tf`, `0 -${sectionGap} Td`, `(APPROVALS) Tj`);
+    contentLines.push(`/F1 10 Tf`);
+    for (const approval of approvals) {
+      contentLines.push(`0 -${lineHeight} Td`, `(${approval}) Tj`);
+    }
+  }
+  
+  // Footer
+  contentLines.push(`0 -${sectionGap} Td`, `(Generated: ${new Date().toLocaleString().replace(/[()\\]/g, ' ')}) Tj`);
+  contentLines.push(`ET`);
+  
+  const contentStream = contentLines.join('\n');
+  const streamLength = contentStream.length;
+  
+  const pdf = `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
@@ -368,56 +229,11 @@ endobj
 4 0 obj
 << /Length ${streamLength} >>
 stream
-BT
-/F1 16 Tf
-50 750 Td
-(WORK PERMIT) Tj
-/F1 14 Tf
-0 -30 Td
-(${permit.permit_no}) Tj
-/F1 10 Tf
-0 -25 Td
-(Status: ${permit.status.toUpperCase()}) Tj
-0 -20 Td
-(Work Type: ${permit.work_types?.name || 'General Work'}) Tj
-0 -30 Td
-(REQUESTER INFORMATION) Tj
-0 -15 Td
-(Name: ${permit.requester_name}) Tj
-0 -15 Td
-(Email: ${permit.requester_email}) Tj
-0 -30 Td
-(CONTRACTOR INFORMATION) Tj
-0 -15 Td
-(Company: ${permit.contractor_name}) Tj
-0 -15 Td
-(Contact: ${permit.contact_mobile}) Tj
-0 -30 Td
-(LOCATION) Tj
-0 -15 Td
-(Work Location: ${permit.work_location}) Tj
-0 -15 Td
-(Unit: ${permit.unit}, Floor: ${permit.floor}) Tj
-0 -30 Td
-(SCHEDULE) Tj
-0 -15 Td
-(Date: ${permit.work_date_from} to ${permit.work_date_to}) Tj
-0 -15 Td
-(Time: ${permit.work_time_from} - ${permit.work_time_to}) Tj
-0 -30 Td
-(WORK DESCRIPTION) Tj
-0 -15 Td
-(${permit.work_description.substring(0, 80).replace(/[()\\]/g, ' ')}) Tj
-0 -30 Td
-(Generated: ${new Date().toLocaleString().replace(/[()\\]/g, ' ')}) Tj
-ET
+${contentStream}
 endstream
 endobj
-6 0 obj
-${streamLength}
-endobj
 xref
-0 7
+0 6
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
@@ -425,12 +241,12 @@ xref
 0000000266 00000 n 
 0000000214 00000 n 
 trailer
-<< /Size 7 /Root 1 0 R >>
+<< /Size 6 /Root 1 0 R >>
 startxref
 %%EOF
 `;
 
-  return encoder.encode(pdfFull);
+  return encoder.encode(pdf);
 }
 
 serve(serve_handler);
