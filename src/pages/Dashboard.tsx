@@ -3,8 +3,8 @@ import { PermitCard } from '@/components/PermitCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockPermits, getStatsForRole } from '@/data/mockData';
-import { UserRole, roleLabels, PermitStatus } from '@/types/workPermit';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useWorkPermits, usePermitStats, WorkPermit } from '@/hooks/useWorkPermits';
 import {
   FileText,
   Clock,
@@ -18,18 +18,76 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
+type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin';
+
+const roleLabels: Record<UserRole, string> = {
+  contractor: 'Contractor',
+  helpdesk: 'Helpdesk',
+  pm: 'Property Management',
+  pd: 'Project Development',
+  bdcr: 'BDCR',
+  mpr: 'MPR',
+  it: 'IT Department',
+  fitout: 'Fit-Out',
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service Provider',
+  admin: 'Administrator',
+};
+
 interface DashboardProps {
   currentRole: UserRole;
 }
 
+// Helper to convert database permit to legacy format for PermitCard
+const toPermitCardFormat = (permit: WorkPermit) => ({
+  id: permit.id,
+  permitNo: permit.permit_no,
+  status: permit.status as any,
+  requesterName: permit.requester_name,
+  requesterEmail: permit.requester_email,
+  contractorName: permit.contractor_name,
+  unit: permit.unit,
+  floor: permit.floor,
+  contactMobile: permit.contact_mobile,
+  workDescription: permit.work_description,
+  workLocation: permit.work_location,
+  workDateFrom: permit.work_date_from,
+  workDateTo: permit.work_date_to,
+  workTimeFrom: permit.work_time_from,
+  workTimeTo: permit.work_time_to,
+  attachments: permit.attachments || [],
+  workTypeId: permit.work_type_id || '',
+  workTypeName: permit.work_types?.name,
+  helpdeskApproval: { status: permit.helpdesk_status as any, approverName: permit.helpdesk_approver_name, approverEmail: null, date: permit.helpdesk_date, comments: permit.helpdesk_comments, signature: permit.helpdesk_signature },
+  pmApproval: { status: permit.pm_status as any, approverName: permit.pm_approver_name, approverEmail: null, date: permit.pm_date, comments: permit.pm_comments, signature: permit.pm_signature },
+  pdApproval: { status: permit.pd_status as any, approverName: permit.pd_approver_name, approverEmail: null, date: permit.pd_date, comments: permit.pd_comments, signature: permit.pd_signature },
+  bdcrApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  mprApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  itApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  fitoutApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  softFacilitiesApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  hardFacilitiesApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  pmServiceApproval: { status: null, approverName: null, approverEmail: null, date: null, comments: null, signature: null },
+  closingRemarks: null,
+  closingCleanConfirmed: false,
+  closingIncidents: null,
+  closedBy: null,
+  closedDate: null,
+  pdfUrl: permit.pdf_url,
+  createdAt: permit.created_at,
+  updatedAt: permit.updated_at,
+});
+
 export default function Dashboard({ currentRole }: DashboardProps) {
   const navigate = useNavigate();
-  const stats = getStatsForRole(currentRole);
+  const { data: permits, isLoading } = useWorkPermits();
+  const stats = usePermitStats();
   
-  const recentPermits = mockPermits.slice(0, 4);
-  const pendingPermits = mockPermits.filter(
+  const recentPermits = permits?.slice(0, 4) || [];
+  const pendingPermits = permits?.filter(
     (p) => p.status.startsWith('pending') || p.status === 'submitted' || p.status === 'under_review'
-  ).slice(0, 3);
+  ).slice(0, 3) || [];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -45,6 +103,20 @@ export default function Dashboard({ currentRole }: DashboardProps) {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 },
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -122,13 +194,17 @@ export default function Dashboard({ currentRole }: DashboardProps) {
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              {recentPermits.map((permit) => (
-                <PermitCard
-                  key={permit.id}
-                  permit={permit}
-                  onClick={() => navigate(`/permits/${permit.id}`)}
-                />
-              ))}
+              {recentPermits.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No permits yet</p>
+              ) : (
+                recentPermits.map((permit) => (
+                  <PermitCard
+                    key={permit.id}
+                    permit={toPermitCardFormat(permit)}
+                    onClick={() => navigate(`/permits/${permit.id}`)}
+                  />
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -183,12 +259,12 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                     onClick={() => navigate(`/permits/${permit.id}`)}
                   >
                     <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{permit.permitNo}</p>
+                      <p className="font-medium text-sm truncate">{permit.permit_no}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {permit.contractorName}
+                        {permit.contractor_name}
                       </p>
                     </div>
-                    <StatusBadge status={permit.status} />
+                    <StatusBadge status={permit.status as any} />
                   </div>
                 ))}
               </CardContent>
@@ -207,20 +283,22 @@ export default function Dashboard({ currentRole }: DashboardProps) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Submitted</span>
-                  <span className="text-sm font-medium">12</span>
+                  <span className="text-sm font-medium">{stats.total}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Completed</span>
-                  <span className="text-sm font-medium">8</span>
+                  <span className="text-sm font-medium">{stats.approved + stats.closed}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Avg. Processing</span>
-                  <span className="text-sm font-medium">3.2 days</span>
+                  <span className="text-sm text-muted-foreground">In Progress</span>
+                  <span className="text-sm font-medium">{stats.pending}</span>
                 </div>
                 <div className="h-px bg-border my-2" />
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Approval Rate</span>
-                  <span className="text-sm font-medium text-success">92%</span>
+                  <span className="text-sm font-medium text-success">
+                    {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
+                  </span>
                 </div>
               </div>
             </CardContent>

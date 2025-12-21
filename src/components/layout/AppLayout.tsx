@@ -1,17 +1,17 @@
 import { ReactNode, useState } from 'react';
 import { AppSidebar } from './AppSidebar';
-import { UserRole } from '@/types/workPermit';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin';
 
 interface AppLayoutProps {
   children: ReactNode;
   currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
 }
 
-export function AppLayout({ children, currentRole, onRoleChange }: AppLayoutProps) {
+export function AppLayout({ children, currentRole }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -31,7 +31,7 @@ export function AppLayout({ children, currentRole, onRoleChange }: AppLayoutProp
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <AppSidebar currentRole={currentRole} onRoleChange={onRoleChange} />
+        <AppSidebar currentRole={currentRole} />
       </div>
 
       {/* Main Content */}
