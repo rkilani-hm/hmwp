@@ -1,13 +1,15 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import Dashboard from './Dashboard';
 import NewPermit from './NewPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
+import ApproversManagement from './admin/ApproversManagement';
+import WorkTypesManagement from './admin/WorkTypesManagement';
 
 const Index = () => {
-  const { roles } = useAuth();
+  const { roles, hasRole } = useAuth();
   
   // Get the primary role for navigation
   const getPrimaryRole = () => {
@@ -21,6 +23,7 @@ const Index = () => {
   };
 
   const currentRole = getPrimaryRole();
+  const isAdmin = hasRole('admin');
 
   return (
     <AppLayout currentRole={currentRole}>
@@ -31,8 +34,14 @@ const Index = () => {
         <Route path="permits/:id" element={<PermitDetail currentRole={currentRole} />} />
         <Route path="approvals" element={<PermitsList currentRole={currentRole} />} />
         <Route path="close-permits" element={<PermitsList currentRole={currentRole} />} />
-        <Route path="approvers" element={<Dashboard currentRole={currentRole} />} />
-        <Route path="work-types" element={<Dashboard currentRole={currentRole} />} />
+        <Route 
+          path="approvers" 
+          element={isAdmin ? <ApproversManagement /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="work-types" 
+          element={isAdmin ? <WorkTypesManagement /> : <Navigate to="/" replace />} 
+        />
       </Routes>
     </AppLayout>
   );
