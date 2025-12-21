@@ -52,12 +52,14 @@ const navigationItems = {
   ],
   helpdesk: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
   ],
   admin: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
@@ -66,6 +68,7 @@ const navigationItems = {
   ],
   approver: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
   ],

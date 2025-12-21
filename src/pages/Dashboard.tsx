@@ -135,14 +135,12 @@ export default function Dashboard({ currentRole }: DashboardProps) {
             You're viewing as <span className="font-medium text-foreground">{roleLabels[currentRole]}</span>
           </p>
         </div>
-        {currentRole === 'contractor' && (
-          <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/new-permit">
-              <Plus className="w-4 h-4 mr-2" />
-              New Permit Request
-            </Link>
-          </Button>
-        )}
+        <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Link to="/new-permit">
+            <Plus className="w-4 h-4 mr-2" />
+            New Permit Request
+          </Link>
+        </Button>
       </motion.div>
 
       {/* Stats Grid */}
