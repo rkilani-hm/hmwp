@@ -2,3 +2,12 @@ project_id = "wmtlvmtpwnjjjmjhasuo"
 
 [functions.generate-permit-pdf]
 verify_jwt = true
+
+[functions.verify-signature-approval]
+verify_jwt = true
+
+[functions.admin-reset-password]
+verify_jwt = true
+
+[functions.check-sla-breach]
+verify_jwt = false

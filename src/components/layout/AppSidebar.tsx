@@ -16,8 +16,10 @@ import {
   Cog,
   UserCheck,
   ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -56,7 +58,8 @@ const navigationItems = {
   admin: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
-    { icon: Users, label: 'Approvers', path: '/approvers' },
+    { icon: BarChart3, label: 'Reports', path: '/reports' },
+    { icon: Users, label: 'User Management', path: '/approvers' },
     { icon: Settings, label: 'Work Types', path: '/work-types' },
   ],
   approver: [
@@ -117,14 +120,17 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
     <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-sidebar-primary-foreground" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-lg leading-tight">WorkPermit</h1>
+              <p className="text-xs text-sidebar-foreground/60">Management System</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-display font-bold text-lg leading-tight">WorkPermit</h1>
-            <p className="text-xs text-sidebar-foreground/60">Management System</p>
-          </div>
+          <NotificationBell />
         </div>
       </div>
 
