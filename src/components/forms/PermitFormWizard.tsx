@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { workTypes } from '@/data/mockData';
+import { useWorkTypes, useCreatePermit } from '@/hooks/useWorkPermits';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -23,10 +24,10 @@ import {
   Calendar, 
   FileText,
   Paperclip,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const steps = [
@@ -56,10 +57,14 @@ interface FormData {
 
 export function PermitFormWizard() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { data: workTypes, isLoading: workTypesLoading } = useWorkTypes();
+  const createPermit = useCreatePermit();
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
-    requesterName: '',
-    requesterEmail: '',
+    requesterName: profile?.full_name || user?.email || '',
+    requesterEmail: user?.email || '',
     contractorName: '',
     contactMobile: '',
     unit: '',
@@ -92,11 +97,25 @@ export function PermitFormWizard() {
     );
   };
 
-  const handleSubmit = () => {
-    toast.success('Work permit submitted successfully!', {
-      description: 'You will receive an email confirmation shortly.',
+  const handleSubmit = async () => {
+    createPermit.mutate({
+      contractor_name: formData.contractorName.trim(),
+      contact_mobile: formData.contactMobile.trim(),
+      unit: formData.unit.trim(),
+      floor: formData.floor.trim(),
+      work_location: formData.workLocation.trim(),
+      work_type_id: formData.workTypeId,
+      work_description: formData.workDescription.trim(),
+      work_date_from: formData.workDateFrom,
+      work_date_to: formData.workDateTo,
+      work_time_from: formData.workTimeFrom,
+      work_time_to: formData.workTimeTo,
+      attachments: formData.attachments.map(f => f.name),
+    }, {
+      onSuccess: () => {
+        navigate('/permits');
+      }
     });
-    navigate('/permits');
   };
 
   const canProceed = () => {
@@ -114,7 +133,7 @@ export function PermitFormWizard() {
     }
   };
 
-  const selectedWorkType = workTypes.find(wt => wt.id === formData.workTypeId);
+  const selectedWorkType = workTypes?.find(wt => wt.id === formData.workTypeId);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -266,11 +285,15 @@ export function PermitFormWizard() {
                         <SelectValue placeholder="Select work type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {workTypes.map((wt) => (
-                          <SelectItem key={wt.id} value={wt.id}>
-                            {wt.name}
-                          </SelectItem>
-                        ))}
+                        {workTypesLoading ? (
+                          <SelectItem value="" disabled>Loading...</SelectItem>
+                        ) : (
+                          (workTypes || []).map((wt) => (
+                            <SelectItem key={wt.id} value={wt.id}>
+                              {wt.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -429,14 +452,14 @@ export function PermitFormWizard() {
                       <p className="text-sm font-medium mb-2">Required Approvals</p>
                       <div className="flex flex-wrap gap-2">
                         <span className="text-xs bg-background px-2 py-1 rounded">Helpdesk</span>
-                        {selectedWorkType.requiresPM && <span className="text-xs bg-background px-2 py-1 rounded">PM</span>}
-                        {selectedWorkType.requiresPD && <span className="text-xs bg-background px-2 py-1 rounded">PD</span>}
-                        {selectedWorkType.requiresBDCR && <span className="text-xs bg-background px-2 py-1 rounded">BDCR</span>}
-                        {selectedWorkType.requiresMPR && <span className="text-xs bg-background px-2 py-1 rounded">MPR</span>}
-                        {selectedWorkType.requiresIT && <span className="text-xs bg-background px-2 py-1 rounded">IT</span>}
-                        {selectedWorkType.requiresFitOut && <span className="text-xs bg-background px-2 py-1 rounded">Fit-Out</span>}
-                        {selectedWorkType.requiresSoftFacilities && <span className="text-xs bg-background px-2 py-1 rounded">Soft Facilities</span>}
-                        {selectedWorkType.requiresHardFacilities && <span className="text-xs bg-background px-2 py-1 rounded">Hard Facilities</span>}
+                        {selectedWorkType.requires_pm && <span className="text-xs bg-background px-2 py-1 rounded">PM</span>}
+                        {selectedWorkType.requires_pd && <span className="text-xs bg-background px-2 py-1 rounded">PD</span>}
+                        {selectedWorkType.requires_bdcr && <span className="text-xs bg-background px-2 py-1 rounded">BDCR</span>}
+                        {selectedWorkType.requires_mpr && <span className="text-xs bg-background px-2 py-1 rounded">MPR</span>}
+                        {selectedWorkType.requires_it && <span className="text-xs bg-background px-2 py-1 rounded">IT</span>}
+                        {selectedWorkType.requires_fitout && <span className="text-xs bg-background px-2 py-1 rounded">Fit-Out</span>}
+                        {selectedWorkType.requires_soft_facilities && <span className="text-xs bg-background px-2 py-1 rounded">Soft Facilities</span>}
+                        {selectedWorkType.requires_hard_facilities && <span className="text-xs bg-background px-2 py-1 rounded">Hard Facilities</span>}
                         <span className="text-xs bg-background px-2 py-1 rounded">PM Service</span>
                       </div>
                     </div>
@@ -471,10 +494,15 @@ export function PermitFormWizard() {
         ) : (
           <Button
             onClick={handleSubmit}
+            disabled={createPermit.isPending}
             className="bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            <Check className="w-4 h-4 mr-2" />
-            Submit Permit Request
+            {createPermit.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4 mr-2" />
+            )}
+            {createPermit.isPending ? 'Submitting...' : 'Submit Permit Request'}
           </Button>
         )}
       </div>
