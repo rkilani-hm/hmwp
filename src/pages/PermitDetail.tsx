@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkPermit, useApprovePermit } from '@/hooks/useWorkPermits';
+import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
 import { SignaturePad } from '@/components/ui/SignaturePad';
@@ -24,10 +25,12 @@ import {
   XCircle,
   Download,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PermitDetailProps {
   currentRole: UserRole;
@@ -36,12 +39,33 @@ interface PermitDetailProps {
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { roles } = useAuth();
   const [comments, setComments] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const approvePermit = useApprovePermit();
+  const { generatePdf, isGenerating } = useGeneratePdf();
+
+  const handleGeneratePdf = async () => {
+    if (!permit) return;
+    const pdfUrl = await generatePdf(permit.id);
+    if (pdfUrl) {
+      // Refetch permit to get the updated pdf_url
+      queryClient.invalidateQueries({ queryKey: ['work-permit', id] });
+      // Open PDF in new tab
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (permit?.pdf_url) {
+      window.open(permit.pdf_url, '_blank');
+    }
+  };
+
+  const canGeneratePdf = permit?.status === 'approved' || permit?.status === 'closed';
 
   if (isLoading) {
     return (
@@ -186,12 +210,28 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           </div>
           <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
-        {permit.pdf_url && (
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canGeneratePdf && !permit.pdf_url && (
+            <Button 
+              variant="default" 
+              onClick={handleGeneratePdf}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4 mr-2" />
+              )}
+              Generate PDF
+            </Button>
+          )}
+          {permit.pdf_url && (
+            <Button variant="outline" onClick={handleDownloadPdf}>
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
