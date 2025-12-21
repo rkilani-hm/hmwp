@@ -52,6 +52,47 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string | null
+          permit_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          permit_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          permit_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -59,6 +100,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_active: boolean | null
           phone: string | null
           updated_at: string
         }
@@ -68,6 +110,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_active?: boolean | null
           phone?: string | null
           updated_at?: string
         }
@@ -77,10 +120,67 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_active?: boolean | null
           phone?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      signature_audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          password_verified: boolean | null
+          permit_id: string | null
+          role: string
+          signature_hash: string | null
+          user_agent: string | null
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          password_verified?: boolean | null
+          permit_id?: string | null
+          role: string
+          signature_hash?: string | null
+          user_agent?: string | null
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          password_verified?: boolean | null
+          permit_id?: string | null
+          role?: string
+          signature_hash?: string | null
+          user_agent?: string | null
+          user_email?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_audit_logs_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -172,6 +272,8 @@ export type Database = {
           requester_email: string
           requester_id: string | null
           requester_name: string
+          sla_breached: boolean | null
+          sla_deadline: string | null
           soft_facilities_approver_email: string | null
           soft_facilities_approver_name: string | null
           soft_facilities_comments: string | null
@@ -181,6 +283,7 @@ export type Database = {
           status: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at: string
+          urgency: string | null
           work_date_from: string
           work_date_to: string
           work_description: string
@@ -260,6 +363,8 @@ export type Database = {
           requester_email: string
           requester_id?: string | null
           requester_name: string
+          sla_breached?: boolean | null
+          sla_deadline?: string | null
           soft_facilities_approver_email?: string | null
           soft_facilities_approver_name?: string | null
           soft_facilities_comments?: string | null
@@ -269,6 +374,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at?: string
+          urgency?: string | null
           work_date_from: string
           work_date_to: string
           work_description: string
@@ -348,6 +454,8 @@ export type Database = {
           requester_email?: string
           requester_id?: string | null
           requester_name?: string
+          sla_breached?: boolean | null
+          sla_deadline?: string | null
           soft_facilities_approver_email?: string | null
           soft_facilities_approver_name?: string | null
           soft_facilities_comments?: string | null
@@ -357,6 +465,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["permit_status"]
           unit?: string
           updated_at?: string
+          urgency?: string | null
           work_date_from?: string
           work_date_to?: string
           work_description?: string
