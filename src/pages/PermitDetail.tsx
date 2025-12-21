@@ -354,7 +354,6 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Helpdesk</span>
                       {workType.requires_pm && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM</span>
                       )}
@@ -379,7 +378,6 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                       {workType.requires_hard_facilities && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Hard Facilities</span>
                       )}
-                      <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM Service</span>
                     </div>
                   </CardContent>
                 </Card>
