@@ -213,7 +213,7 @@ export function useCreatePermit() {
       work_date_to: string;
       work_time_from: string;
       work_time_to: string;
-      attachments?: string[];
+      files?: File[];
       urgency?: 'normal' | 'urgent';
     }) => {
       // Generate permit number
@@ -224,10 +224,43 @@ export function useCreatePermit() {
       const hoursToAdd = urgency === 'urgent' ? 4 : 48;
       const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000).toISOString();
 
+      // Generate a temporary ID for file uploads
+      const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+      // Upload files first if any
+      const attachmentUrls: string[] = [];
+      if (permitData.files && permitData.files.length > 0) {
+        for (const file of permitData.files) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${tempId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('permit-attachments')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('permit-attachments')
+            .getPublicUrl(fileName);
+
+          attachmentUrls.push(urlData.publicUrl);
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { files, ...permitDataWithoutFiles } = permitData;
+
       const { data, error } = await supabase
         .from('work_permits')
         .insert({
-          ...permitData,
+          ...permitDataWithoutFiles,
           permit_no: permitNo,
           requester_id: user?.id,
           requester_name: profile?.full_name || user?.email || 'Unknown',
@@ -235,6 +268,7 @@ export function useCreatePermit() {
           status: 'submitted',
           urgency,
           sla_deadline: slaDeadline,
+          attachments: attachmentUrls,
         })
         .select()
         .single();
