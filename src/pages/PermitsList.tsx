@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PermitCard } from '@/components/PermitCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import {
 import { useWorkPermits } from '@/hooks/useWorkPermits';
 import { PermitStatus, statusLabels, UserRole } from '@/types/workPermit';
 import { Search, Filter, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -22,11 +22,31 @@ interface PermitsListProps {
 
 export default function PermitsList({ currentRole }: PermitsListProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<PermitStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<PermitStatus | 'all' | 'pending'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const { data: permits, isLoading, error } = useWorkPermits();
+
+  // Initialize filter from URL params
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected' || statusParam === 'closed') {
+      setStatusFilter(statusParam);
+    }
+  }, [searchParams]);
+
+  // Update URL when filter changes
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value as PermitStatus | 'all' | 'pending');
+    if (value === 'all') {
+      searchParams.delete('status');
+    } else {
+      searchParams.set('status', value);
+    }
+    setSearchParams(searchParams);
+  };
 
   const filteredPermits = (permits || []).filter((permit) => {
     const matchesSearch =
@@ -34,7 +54,16 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
       permit.contractor_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       permit.work_description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || permit.status === statusFilter;
+    let matchesStatus = false;
+    if (statusFilter === 'all') {
+      matchesStatus = true;
+    } else if (statusFilter === 'pending') {
+      matchesStatus = permit.status.startsWith('pending') || 
+                      permit.status === 'submitted' || 
+                      permit.status === 'under_review';
+    } else {
+      matchesStatus = permit.status === statusFilter;
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -55,8 +84,9 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
     );
   }
 
-  const statusOptions: (PermitStatus | 'all')[] = [
+  const statusOptions: (PermitStatus | 'all' | 'pending')[] = [
     'all',
+    'pending',
     'draft',
     'submitted',
     'under_review',
@@ -106,7 +136,7 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as PermitStatus | 'all')}
+          onValueChange={handleStatusChange}
         >
           <SelectTrigger className="w-full sm:w-48">
             <Filter className="w-4 h-4 mr-2" />
@@ -114,7 +144,8 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {statusOptions.slice(1).map((status) => (
+            <SelectItem value="pending">All Pending</SelectItem>
+            {statusOptions.slice(2).map((status) => (
               <SelectItem key={status} value={status}>
                 {statusLabels[status as PermitStatus]}
               </SelectItem>
