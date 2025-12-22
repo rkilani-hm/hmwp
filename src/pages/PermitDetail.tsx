@@ -7,6 +7,7 @@ import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeli
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
+import { CancelPermitDialog } from '@/components/CancelPermitDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +33,7 @@ import {
   Timer,
   Forward,
   RotateCcw,
+  Ban,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { motion } from 'framer-motion';
@@ -48,12 +50,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const [comments, setComments] = useState('');
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
@@ -230,7 +233,19 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           </div>
           <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* Cancel button for creators - only show for active permits */}
+          {permit.requester_id === user?.id && 
+           !['cancelled', 'rejected', 'closed', 'approved'].includes(permit.status) && (
+            <Button 
+              variant="outline" 
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              onClick={() => setCancelDialogOpen(true)}
+            >
+              <Ban className="w-4 h-4 mr-2" />
+              Cancel Permit
+            </Button>
+          )}
           {!permit.pdf_url && (
             <Button 
               variant="default" 
@@ -545,6 +560,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             open={reworkDialogOpen}
             onOpenChange={setReworkDialogOpen}
             permitId={permit.id}
+          />
+
+          <CancelPermitDialog
+            open={cancelDialogOpen}
+            onOpenChange={setCancelDialogOpen}
+            permitId={permit.id}
+            permitNo={permit.permit_no}
           />
         </div>
 
