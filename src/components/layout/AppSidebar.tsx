@@ -18,6 +18,7 @@ import {
   ChevronDown,
   BarChart3,
   Timer,
+  Send,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -55,6 +56,7 @@ const navigationItems = {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
+    { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
   ],
@@ -62,6 +64,7 @@ const navigationItems = {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
+    { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: Timer, label: 'SLA Dashboard', path: '/sla-dashboard' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
@@ -72,6 +75,7 @@ const navigationItems = {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
+    { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
   ],
 };
