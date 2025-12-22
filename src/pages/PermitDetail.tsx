@@ -577,7 +577,19 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <CardTitle className="text-lg font-display">Workflow Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <WorkflowTimeline permit={transformedPermit} />
+              <WorkflowTimeline 
+                permit={transformedPermit} 
+                workTypeRequirements={workType ? {
+                  requires_pm: workType.requires_pm,
+                  requires_pd: workType.requires_pd,
+                  requires_bdcr: workType.requires_bdcr,
+                  requires_mpr: workType.requires_mpr,
+                  requires_it: workType.requires_it,
+                  requires_fitout: workType.requires_fitout,
+                  requires_soft_facilities: workType.requires_soft_facilities,
+                  requires_hard_facilities: workType.requires_hard_facilities,
+                } : null}
+              />
             </CardContent>
           </Card>
         </div>
