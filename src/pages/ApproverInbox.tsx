@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePendingPermitsForApprover, WorkPermit } from '@/hooks/useWorkPermits';
+import { usePendingPermitsForApprover, useSecureApprovePermit, WorkPermit } from '@/hooks/useWorkPermits';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,14 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   Inbox,
   Search,
   Clock,
@@ -31,16 +24,46 @@ import {
   Timer,
   Building2,
   Calendar,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import { ReworkDialog } from '@/components/ReworkDialog';
+import { toast } from 'sonner';
+
+// Map permit status to the role that should approve it
+const statusToRole: Record<string, string> = {
+  'pending_helpdesk': 'helpdesk',
+  'under_review': 'helpdesk',
+  'submitted': 'helpdesk',
+  'pending_pm': 'pm',
+  'pending_pd': 'pd',
+  'pending_bdcr': 'bdcr',
+  'pending_mpr': 'mpr',
+  'pending_it': 'it',
+  'pending_fitout': 'fitout',
+  'pending_soft_facilities': 'soft_facilities',
+  'pending_hard_facilities': 'hard_facilities',
+  'pending_pm_service': 'pm_service',
+};
 
 export default function ApproverInbox() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
+  const secureApprove = useSecureApprovePermit();
   const [searchTerm, setSearchTerm] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
+  
+  // Dialog states
+  const [selectedPermit, setSelectedPermit] = useState<WorkPermit | null>(null);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
 
   const filteredPermits = (permits || []).filter(permit => {
     const matchesSearch = 
@@ -60,6 +83,81 @@ export default function ApproverInbox() {
     const isOverdue = isPast(deadline);
     const timeLeft = formatDistanceToNow(deadline, { addSuffix: true });
     return { isOverdue, timeLeft, deadline };
+  };
+
+  // Get the current approver role based on permit status
+  const getApprovalRole = (permit: WorkPermit): string => {
+    const roleFromStatus = statusToRole[permit.status];
+    if (roleFromStatus && roles.includes(roleFromStatus as any)) {
+      return roleFromStatus;
+    }
+    // Fallback: return the first matching approver role the user has
+    const approverRoles = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'];
+    return roles.find(r => approverRoles.includes(r)) || 'helpdesk';
+  };
+
+  const handleApproveClick = (e: React.MouseEvent, permit: WorkPermit) => {
+    e.stopPropagation();
+    setSelectedPermit(permit);
+    setApprovalDialogOpen(true);
+  };
+
+  const handleRejectClick = (e: React.MouseEvent, permit: WorkPermit) => {
+    e.stopPropagation();
+    setSelectedPermit(permit);
+    setRejectDialogOpen(true);
+  };
+
+  const handleReworkClick = (e: React.MouseEvent, permit: WorkPermit) => {
+    e.stopPropagation();
+    setSelectedPermit(permit);
+    setReworkDialogOpen(true);
+  };
+
+  const handleSecureApproval = async (password: string, signature: string) => {
+    if (!selectedPermit) return;
+    
+    const role = getApprovalRole(selectedPermit);
+    
+    try {
+      await secureApprove.mutateAsync({
+        permitId: selectedPermit.id,
+        role,
+        approved: true,
+        password,
+        signature,
+        comments: '',
+      });
+      setApprovalDialogOpen(false);
+      setSelectedPermit(null);
+      toast.success('Permit approved successfully');
+    } catch (error) {
+      console.error('Approval error:', error);
+      throw error;
+    }
+  };
+
+  const handleSecureReject = async (password: string, signature: string) => {
+    if (!selectedPermit) return;
+    
+    const role = getApprovalRole(selectedPermit);
+    
+    try {
+      await secureApprove.mutateAsync({
+        permitId: selectedPermit.id,
+        role,
+        approved: false,
+        password,
+        signature: null,
+        comments: 'Rejected from approver inbox',
+      });
+      setRejectDialogOpen(false);
+      setSelectedPermit(null);
+      toast.success('Permit rejected');
+    } catch (error) {
+      console.error('Rejection error:', error);
+      throw error;
+    }
   };
 
   if (isLoading) {
@@ -146,7 +244,7 @@ export default function ApproverInbox() {
                   onClick={() => navigate(`/permits/${permit.id}`)}
                 >
                   <CardContent className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-4">
                       {/* Main Info */}
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
@@ -183,8 +281,8 @@ export default function ApproverInbox() {
                         </div>
                       </div>
 
-                      {/* SLA Timer */}
-                      <div className="flex flex-col items-end gap-2">
+                      {/* Right Side - SLA Timer and Actions */}
+                      <div className="flex flex-col items-end gap-3">
                         {slaStatus && (
                           <div className={cn(
                             "flex items-center gap-2 px-3 py-2 rounded-lg",
@@ -204,10 +302,47 @@ export default function ApproverInbox() {
                           </div>
                         )}
                         
-                        <Button size="sm" className="gap-2">
-                          <Eye className="w-4 h-4" />
-                          Review
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={(e) => handleReworkClick(e, permit)}
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Rework
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => handleRejectClick(e, permit)}
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={(e) => handleApproveClick(e, permit)}
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/permits/${permit.id}`);
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -251,6 +386,44 @@ export default function ApproverInbox() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Dialogs */}
+      <SecureApprovalDialog
+        isOpen={approvalDialogOpen}
+        onClose={() => {
+          setApprovalDialogOpen(false);
+          setSelectedPermit(null);
+        }}
+        onConfirm={handleSecureApproval}
+        title="Approve Work Permit"
+        description="Enter your password and signature to approve this permit."
+        actionType="approve"
+        isLoading={secureApprove.isPending}
+      />
+
+      <SecureApprovalDialog
+        isOpen={rejectDialogOpen}
+        onClose={() => {
+          setRejectDialogOpen(false);
+          setSelectedPermit(null);
+        }}
+        onConfirm={handleSecureReject}
+        title="Reject Work Permit"
+        description="Enter your password to confirm rejection."
+        actionType="reject"
+        isLoading={secureApprove.isPending}
+      />
+
+      {selectedPermit && (
+        <ReworkDialog
+          open={reworkDialogOpen}
+          onOpenChange={(open) => {
+            setReworkDialogOpen(open);
+            if (!open) setSelectedPermit(null);
+          }}
+          permitId={selectedPermit.id}
+        />
       )}
     </div>
   );
