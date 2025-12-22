@@ -13,7 +13,8 @@ export type PermitStatus =
   | 'pending_pm_service' 
   | 'approved' 
   | 'rejected' 
-  | 'closed';
+  | 'closed'
+  | 'cancelled';
 
 export type UserRole = 
   | 'contractor' 
@@ -130,6 +131,7 @@ export const statusLabels: Record<PermitStatus, string> = {
   approved: 'Approved',
   rejected: 'Rejected',
   closed: 'Closed',
+  cancelled: 'Cancelled',
 };
 
 export const roleLabels: Record<UserRole, string> = {

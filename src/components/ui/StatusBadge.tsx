@@ -22,6 +22,7 @@ const statusStyles: Record<PermitStatus, string> = {
   approved: 'bg-status-approved/10 text-status-approved border-status-approved/30',
   rejected: 'bg-status-rejected/10 text-status-rejected border-status-rejected/30',
   closed: 'bg-status-closed/10 text-status-closed border-status-closed/30',
+  cancelled: 'bg-muted text-muted-foreground border-muted-foreground/30',
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
@@ -41,6 +42,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
           status === 'closed' && 'bg-status-closed',
           status === 'submitted' && 'bg-status-submitted',
           status === 'draft' && 'bg-status-draft',
+          status === 'cancelled' && 'bg-muted-foreground',
           status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
           status === 'under_review' && 'bg-status-review animate-pulse-soft'
         )}

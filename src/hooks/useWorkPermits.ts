@@ -645,6 +645,82 @@ export function useRequestRework() {
   });
 }
 
+// Hook to cancel a permit (only by creator)
+export function useCancelPermit() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      reason,
+    }: {
+      permitId: string;
+      reason: string;
+    }) => {
+      // First verify the user is the creator
+      const { data: permit } = await supabase
+        .from('work_permits')
+        .select('requester_id, permit_no')
+        .eq('id', permitId)
+        .single();
+
+      if (!permit) throw new Error('Permit not found');
+      if (permit.requester_id !== user?.id) {
+        throw new Error('You can only cancel permits you created');
+      }
+
+      const { data, error } = await supabase
+        .from('work_permits')
+        .update({ status: 'cancelled' })
+        .eq('id', permitId)
+        .eq('requester_id', user?.id) // Extra safety check
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        permit_id: permitId,
+        action: 'Cancelled',
+        performed_by: profile?.full_name || user?.email || 'Unknown',
+        performed_by_id: user?.id,
+        details: reason || 'Cancelled by requester',
+      });
+
+      // Notify approvers that the permit was cancelled
+      const { data: helpdeskUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'helpdesk');
+
+      if (helpdeskUsers) {
+        for (const hd of helpdeskUsers) {
+          await supabase.from('notifications').insert({
+            user_id: hd.user_id,
+            permit_id: permitId,
+            type: 'cancelled',
+            title: 'Permit Cancelled',
+            message: `Permit ${permit.permit_no} has been cancelled by the requester.`,
+          });
+        }
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      toast.success('Permit cancelled successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to cancel permit: ' + error.message);
+    },
+  });
+}
+
 export function usePermitStats() {
   const { data: permits } = useWorkPermits();
 
