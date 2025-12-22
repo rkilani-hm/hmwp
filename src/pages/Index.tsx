@@ -9,6 +9,7 @@ import ApproverInbox from './ApproverInbox';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import Reports from './admin/Reports';
+import SLADashboard from './admin/SLADashboard';
 
 const Index = () => {
   const { roles, hasRole } = useAuth();
@@ -49,6 +50,10 @@ const Index = () => {
         <Route 
           path="reports" 
           element={isAdmin ? <Reports /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="sla-dashboard" 
+          element={isAdmin ? <SLADashboard /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>
