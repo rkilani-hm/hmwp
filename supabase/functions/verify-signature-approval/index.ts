@@ -15,6 +15,60 @@ interface ApprovalRequest {
   password: string;
 }
 
+interface WorkType {
+  id: string;
+  name: string;
+  requires_pm: boolean;
+  requires_pd: boolean;
+  requires_bdcr: boolean;
+  requires_mpr: boolean;
+  requires_it: boolean;
+  requires_fitout: boolean;
+  requires_soft_facilities: boolean;
+  requires_hard_facilities: boolean;
+}
+
+// Define the approval workflow order
+const APPROVAL_ORDER = [
+  { role: 'helpdesk', status: 'submitted', nextStatus: 'pending_pm', requiresField: null },
+  { role: 'pm', status: 'pending_pm', nextStatus: 'pending_pd', requiresField: 'requires_pm' },
+  { role: 'pd', status: 'pending_pd', nextStatus: 'pending_bdcr', requiresField: 'requires_pd' },
+  { role: 'bdcr', status: 'pending_bdcr', nextStatus: 'pending_mpr', requiresField: 'requires_bdcr' },
+  { role: 'mpr', status: 'pending_mpr', nextStatus: 'pending_it', requiresField: 'requires_mpr' },
+  { role: 'it', status: 'pending_it', nextStatus: 'pending_fitout', requiresField: 'requires_it' },
+  { role: 'fitout', status: 'pending_fitout', nextStatus: 'pending_soft_facilities', requiresField: 'requires_fitout' },
+  { role: 'soft_facilities', status: 'pending_soft_facilities', nextStatus: 'pending_hard_facilities', requiresField: 'requires_soft_facilities' },
+  { role: 'hard_facilities', status: 'pending_hard_facilities', nextStatus: 'pending_pm_service', requiresField: 'requires_hard_facilities' },
+  { role: 'pm_service', status: 'pending_pm_service', nextStatus: 'approved', requiresField: null },
+];
+
+// Get the next required approval step based on work type
+function getNextApprovalStep(currentRole: string, workType: WorkType | null): { nextStatus: string; nextRole: string | null } {
+  const currentIndex = APPROVAL_ORDER.findIndex(step => step.role === currentRole);
+  if (currentIndex === -1) {
+    return { nextStatus: 'approved', nextRole: null };
+  }
+
+  // Look for the next required step
+  for (let i = currentIndex + 1; i < APPROVAL_ORDER.length; i++) {
+    const step = APPROVAL_ORDER[i];
+    
+    // If no requiresField or no workType, include the step
+    if (!step.requiresField || !workType) {
+      return { nextStatus: step.status, nextRole: step.role };
+    }
+    
+    // Check if this step is required by the work type
+    const isRequired = workType[step.requiresField as keyof WorkType];
+    if (isRequired) {
+      return { nextStatus: step.status, nextRole: step.role };
+    }
+  }
+
+  // If no more required steps, the permit is approved
+  return { nextStatus: 'approved', nextRole: null };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -146,6 +200,27 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Audit log created for user:", user.email, "IP:", ipAddress);
 
+    // Get the current permit with work type to determine next step
+    const { data: currentPermit } = await serviceClient
+      .from("work_permits")
+      .select(`
+        *,
+        work_types (
+          id,
+          name,
+          requires_pm,
+          requires_pd,
+          requires_bdcr,
+          requires_mpr,
+          requires_it,
+          requires_fitout,
+          requires_soft_facilities,
+          requires_hard_facilities
+        )
+      `)
+      .eq("id", permitId)
+      .single();
+
     // Update the permit
     const roleField = role.toLowerCase().replace(" ", "_");
     const approvalStatus = approved ? "approved" : "rejected";
@@ -161,6 +236,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!approved) {
       updateData.status = "rejected";
+    } else {
+      // Determine next step based on work type requirements
+      const workType = currentPermit?.work_types as WorkType | null;
+      const { nextStatus, nextRole } = getNextApprovalStep(roleField, workType);
+      updateData.status = nextStatus;
+      console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole})`);
     }
 
     const { data: updatedPermit, error: updateError } = await serviceClient
@@ -193,12 +274,40 @@ const handler = async (req: Request): Promise<Response> => {
         user_id: updatedPermit.requester_id,
         permit_id: permitId,
         type: approved ? "permit_approved" : "permit_rejected",
-        title: `Permit ${approved ? "Approved" : "Rejected"} by ${role}`,
+        title: `Permit ${approved ? "Approved" : "Rejected"} by ${role.toUpperCase()}`,
         message: `Your permit ${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${userName}. ${comments ? `Comments: ${comments}` : ""}`,
       });
     }
 
-    console.log("Permit updated successfully:", permitId);
+    // If approved and not final approval, notify the next approvers
+    if (approved && updatedPermit.status !== 'approved') {
+      const workType = currentPermit?.work_types as WorkType | null;
+      const { nextRole } = getNextApprovalStep(roleField, workType);
+      
+      if (nextRole) {
+        // Get users with the next role
+        const { data: nextApprovers } = await serviceClient
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", nextRole);
+
+        if (nextApprovers && nextApprovers.length > 0) {
+          const roleLabel = nextRole.toUpperCase().replace('_', ' ');
+          for (const approver of nextApprovers) {
+            await serviceClient.from("notifications").insert({
+              user_id: approver.user_id,
+              permit_id: permitId,
+              type: "pending_approval",
+              title: `Permit Pending Your Approval`,
+              message: `Permit ${updatedPermit.permit_no} requires your review as ${roleLabel}.`,
+            });
+          }
+          console.log(`Notified ${nextApprovers.length} ${nextRole} approvers`);
+        }
+      }
+    }
+
+    console.log("Permit updated successfully:", permitId, "new status:", updatedPermit.status);
 
     return new Response(
       JSON.stringify({ 

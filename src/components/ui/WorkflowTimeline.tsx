@@ -10,6 +10,17 @@ export interface ApprovalRecord {
   signature?: string;
 }
 
+export interface WorkTypeRequirements {
+  requires_pm: boolean;
+  requires_pd: boolean;
+  requires_bdcr: boolean;
+  requires_mpr: boolean;
+  requires_it: boolean;
+  requires_fitout: boolean;
+  requires_soft_facilities: boolean;
+  requires_hard_facilities: boolean;
+}
+
 export interface WorkflowPermit {
   id: string;
   status: PermitStatus;
@@ -27,6 +38,7 @@ export interface WorkflowPermit {
 
 interface WorkflowTimelineProps {
   permit: WorkflowPermit;
+  workTypeRequirements?: WorkTypeRequirements | null;
   className?: string;
 }
 
@@ -39,12 +51,48 @@ interface TimelineStep {
   date?: string | null;
 }
 
-export function WorkflowTimeline({ permit, className }: WorkflowTimelineProps) {
+export function WorkflowTimeline({ permit, workTypeRequirements, className }: WorkflowTimelineProps) {
   const getStepStatus = (approval: { status: 'pending' | 'approved' | 'rejected' | null }) => {
     if (approval.status === 'approved') return 'completed';
     if (approval.status === 'rejected') return 'rejected';
     if (approval.status === 'pending') return 'pending';
     return 'upcoming';
+  };
+
+  // Determine if a step is required based on work type requirements
+  const isStepRequired = (key: string): boolean => {
+    // Submitted, Helpdesk, and PM Service are always required
+    if (key === 'submitted' || key === 'helpdesk' || key === 'pm_service') return true;
+    
+    if (!workTypeRequirements) {
+      // If no work type requirements, check if the approval status is not null (legacy behavior)
+      const approvalMap: Record<string, ApprovalRecord | undefined> = {
+        pm: permit.pmApproval,
+        pd: permit.pdApproval,
+        bdcr: permit.bdcrApproval,
+        mpr: permit.mprApproval,
+        it: permit.itApproval,
+        fitout: permit.fitoutApproval,
+        soft_facilities: permit.softFacilitiesApproval,
+        hard_facilities: permit.hardFacilitiesApproval,
+      };
+      const approval = approvalMap[key];
+      return approval?.status !== null && approval?.status !== undefined;
+    }
+    
+    // Check work type requirements
+    const requirementMap: Record<string, boolean> = {
+      pm: workTypeRequirements.requires_pm,
+      pd: workTypeRequirements.requires_pd,
+      bdcr: workTypeRequirements.requires_bdcr,
+      mpr: workTypeRequirements.requires_mpr,
+      it: workTypeRequirements.requires_it,
+      fitout: workTypeRequirements.requires_fitout,
+      soft_facilities: workTypeRequirements.requires_soft_facilities,
+      hard_facilities: workTypeRequirements.requires_hard_facilities,
+    };
+    
+    return requirementMap[key] ?? false;
   };
 
   const steps: TimelineStep[] = [
@@ -65,64 +113,64 @@ export function WorkflowTimeline({ permit, className }: WorkflowTimelineProps) {
     {
       key: 'pm',
       label: 'PM Approval',
-      required: true,
-      status: getStepStatus(permit.pmApproval),
+      required: isStepRequired('pm'),
+      status: isStepRequired('pm') ? getStepStatus(permit.pmApproval) : 'skipped',
       approver: permit.pmApproval.approverName,
       date: permit.pmApproval.date,
     },
     {
       key: 'pd',
       label: 'PD Approval',
-      required: permit.pdApproval.status !== null,
-      status: permit.pdApproval.status !== null ? getStepStatus(permit.pdApproval) : 'skipped',
+      required: isStepRequired('pd'),
+      status: isStepRequired('pd') ? getStepStatus(permit.pdApproval) : 'skipped',
       approver: permit.pdApproval.approverName,
       date: permit.pdApproval.date,
     },
     {
       key: 'bdcr',
       label: 'BDCR Approval',
-      required: permit.bdcrApproval.status !== null,
-      status: permit.bdcrApproval.status !== null ? getStepStatus(permit.bdcrApproval) : 'skipped',
+      required: isStepRequired('bdcr'),
+      status: isStepRequired('bdcr') ? getStepStatus(permit.bdcrApproval) : 'skipped',
       approver: permit.bdcrApproval.approverName,
       date: permit.bdcrApproval.date,
     },
     {
       key: 'mpr',
       label: 'MPR Approval',
-      required: permit.mprApproval.status !== null,
-      status: permit.mprApproval.status !== null ? getStepStatus(permit.mprApproval) : 'skipped',
+      required: isStepRequired('mpr'),
+      status: isStepRequired('mpr') ? getStepStatus(permit.mprApproval) : 'skipped',
       approver: permit.mprApproval.approverName,
       date: permit.mprApproval.date,
     },
     {
       key: 'it',
       label: 'IT Approval',
-      required: permit.itApproval.status !== null,
-      status: permit.itApproval.status !== null ? getStepStatus(permit.itApproval) : 'skipped',
+      required: isStepRequired('it'),
+      status: isStepRequired('it') ? getStepStatus(permit.itApproval) : 'skipped',
       approver: permit.itApproval.approverName,
       date: permit.itApproval.date,
     },
     {
       key: 'fitout',
       label: 'Fit-Out Approval',
-      required: permit.fitoutApproval.status !== null,
-      status: permit.fitoutApproval.status !== null ? getStepStatus(permit.fitoutApproval) : 'skipped',
+      required: isStepRequired('fitout'),
+      status: isStepRequired('fitout') ? getStepStatus(permit.fitoutApproval) : 'skipped',
       approver: permit.fitoutApproval.approverName,
       date: permit.fitoutApproval.date,
     },
     {
       key: 'soft_facilities',
       label: 'Soft Facilities',
-      required: permit.softFacilitiesApproval.status !== null,
-      status: permit.softFacilitiesApproval.status !== null ? getStepStatus(permit.softFacilitiesApproval) : 'skipped',
+      required: isStepRequired('soft_facilities'),
+      status: isStepRequired('soft_facilities') ? getStepStatus(permit.softFacilitiesApproval) : 'skipped',
       approver: permit.softFacilitiesApproval.approverName,
       date: permit.softFacilitiesApproval.date,
     },
     {
       key: 'hard_facilities',
       label: 'Hard Facilities',
-      required: permit.hardFacilitiesApproval.status !== null,
-      status: permit.hardFacilitiesApproval.status !== null ? getStepStatus(permit.hardFacilitiesApproval) : 'skipped',
+      required: isStepRequired('hard_facilities'),
+      status: isStepRequired('hard_facilities') ? getStepStatus(permit.hardFacilitiesApproval) : 'skipped',
       approver: permit.hardFacilitiesApproval.approverName,
       date: permit.hardFacilitiesApproval.date,
     },
