@@ -27,12 +27,14 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
+  Forward,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
+import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { toast } from 'sonner';
 
 // Map permit status to the role that should approve it
@@ -64,6 +66,7 @@ export default function ApproverInbox() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
 
   const filteredPermits = (permits || []).filter(permit => {
     const matchesSearch = 
@@ -112,6 +115,12 @@ export default function ApproverInbox() {
     e.stopPropagation();
     setSelectedPermit(permit);
     setReworkDialogOpen(true);
+  };
+
+  const handleForwardClick = (e: React.MouseEvent, permit: WorkPermit) => {
+    e.stopPropagation();
+    setSelectedPermit(permit);
+    setForwardDialogOpen(true);
   };
 
   const handleSecureApproval = async (password: string, signature: string) => {
@@ -308,6 +317,15 @@ export default function ApproverInbox() {
                             size="sm"
                             variant="outline"
                             className="gap-1.5"
+                            onClick={(e) => handleForwardClick(e, permit)}
+                          >
+                            <Forward className="w-4 h-4" />
+                            Forward
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
                             onClick={(e) => handleReworkClick(e, permit)}
                           >
                             <RotateCcw className="w-4 h-4" />
@@ -423,6 +441,18 @@ export default function ApproverInbox() {
             if (!open) setSelectedPermit(null);
           }}
           permitId={selectedPermit.id}
+        />
+      )}
+
+      {selectedPermit && (
+        <ForwardPermitDialog
+          open={forwardDialogOpen}
+          onOpenChange={(open) => {
+            setForwardDialogOpen(open);
+            if (!open) setSelectedPermit(null);
+          }}
+          permitId={selectedPermit.id}
+          currentStatus={selectedPermit.status}
         />
       )}
     </div>
