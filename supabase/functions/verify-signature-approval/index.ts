@@ -34,12 +34,13 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Create client with user's token to get their info
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    // Extract JWT token from Authorization header
+    const token = authHeader.replace("Bearer ", "");
+    
+    // Create admin client to verify the token and get user
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
     if (userError || !user) {
       console.error("User auth error:", userError);
       return new Response(JSON.stringify({ error: "Authentication failed" }), {
@@ -47,6 +48,9 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+    
+    // Create user client for password verification
+    const userClient = createClient(supabaseUrl, supabaseAnonKey);
 
     const {
       permitId,
