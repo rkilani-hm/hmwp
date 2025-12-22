@@ -6,6 +6,7 @@ import NewPermit from './NewPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
 import ApproverInbox from './ApproverInbox';
+import ApproverOutbox from './ApproverOutbox';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import Reports from './admin/Reports';
@@ -37,6 +38,7 @@ const Index = () => {
         <Route path="permits" element={<PermitsList currentRole={currentRole} />} />
         <Route path="permits/:id" element={<PermitDetail currentRole={currentRole} />} />
         <Route path="inbox" element={isApprover ? <ApproverInbox /> : <Navigate to="/" replace />} />
+        <Route path="outbox" element={isApprover ? <ApproverOutbox /> : <Navigate to="/" replace />} />
         <Route path="approvals" element={<PermitsList currentRole={currentRole} />} />
         <Route path="close-permits" element={<PermitsList currentRole={currentRole} />} />
         <Route 

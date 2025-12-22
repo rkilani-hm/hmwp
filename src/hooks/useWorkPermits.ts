@@ -505,6 +505,71 @@ export function usePendingPermitsCount() {
   });
 }
 
+// Extended WorkPermit type for outbox with action metadata
+export interface ProcessedWorkPermit extends WorkPermit {
+  userAction: 'approved' | 'rejected' | 'forwarded' | 'rework';
+  actionDate: string | null;
+}
+
+// Hook to get permits that the current approver has processed (for outbox)
+export function useProcessedPermitsForApprover() {
+  const { roles, user, profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ['processed-permits-approver', user?.id, roles],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      // Get activity logs where current user took action
+      const { data: activityLogs, error: logsError } = await supabase
+        .from('activity_logs')
+        .select('permit_id, action, created_at, details')
+        .eq('performed_by_id', user.id)
+        .in('action', ['Approved', 'Rejected', 'Forwarded', 'Rework Requested'])
+        .order('created_at', { ascending: false });
+
+      if (logsError) throw logsError;
+      if (!activityLogs || activityLogs.length === 0) return [];
+
+      // Get unique permit IDs from activity logs
+      const permitIds = [...new Set(activityLogs.map(log => log.permit_id))];
+
+      // Fetch permits
+      const { data: permits, error: permitsError } = await supabase
+        .from('work_permits')
+        .select('*, work_types(*)')
+        .in('id', permitIds);
+
+      if (permitsError) throw permitsError;
+
+      // Map permits with their action metadata (most recent action by user)
+      const processedPermits: ProcessedWorkPermit[] = (permits || []).map(permit => {
+        const userLogs = activityLogs.filter(log => log.permit_id === permit.id);
+        const latestLog = userLogs[0]; // Already sorted by created_at desc
+        
+        let userAction: 'approved' | 'rejected' | 'forwarded' | 'rework' = 'approved';
+        if (latestLog?.action === 'Rejected') userAction = 'rejected';
+        else if (latestLog?.action === 'Forwarded') userAction = 'forwarded';
+        else if (latestLog?.action === 'Rework Requested') userAction = 'rework';
+
+        return {
+          ...permit,
+          userAction,
+          actionDate: latestLog?.created_at || null,
+        } as ProcessedWorkPermit;
+      });
+
+      // Sort by action date (most recent first)
+      return processedPermits.sort((a, b) => {
+        if (!a.actionDate) return 1;
+        if (!b.actionDate) return -1;
+        return new Date(b.actionDate).getTime() - new Date(a.actionDate).getTime();
+      });
+    },
+    enabled: !!user?.id && roles.length > 0,
+  });
+}
+
 // Hook to forward permit to a different approver
 export function useForwardPermit() {
   const queryClient = useQueryClient();
