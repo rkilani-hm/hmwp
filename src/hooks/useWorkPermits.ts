@@ -228,10 +228,20 @@ export function useCreatePermit() {
       const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
       // Upload files first if any
-      const attachmentUrls: string[] = [];
+      const attachmentPaths: string[] = [];
       if (permitData.files && permitData.files.length > 0) {
+        // Import file validation
+        const { validateFile } = await import('./useFileUpload');
+        
         for (const file of permitData.files) {
-          const fileExt = file.name.split('.').pop();
+          // Validate file before upload
+          const validation = validateFile(file);
+          if (!validation.valid) {
+            toast.error(validation.error);
+            continue;
+          }
+
+          const fileExt = file.name.split('.').pop()?.toLowerCase();
           const fileName = `${tempId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -248,11 +258,8 @@ export function useCreatePermit() {
           }
 
           if (uploadData) {
-            const { data: urlData } = supabase.storage
-              .from('permit-attachments')
-              .getPublicUrl(fileName);
-
-            attachmentUrls.push(urlData.publicUrl);
+            // Store file path instead of public URL (bucket is now private)
+            attachmentPaths.push(fileName);
           }
         }
       }
@@ -271,7 +278,7 @@ export function useCreatePermit() {
           status: 'submitted',
           urgency,
           sla_deadline: slaDeadline,
-          attachments: attachmentUrls,
+          attachments: attachmentPaths,
         })
         .select()
         .single();
