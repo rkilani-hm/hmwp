@@ -407,8 +407,13 @@ export function useSecureApprovePermit() {
         body: { permitId, role, comments, signature, approved, password },
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      // Handle edge function errors - the error message is in data when status is non-2xx
+      if (error) {
+        // Try to extract error message from data if available
+        const errorMessage = data?.error || error.message || 'Failed to process approval';
+        throw new Error(errorMessage);
+      }
+      if (data?.error) throw new Error(data.error);
       
       return data;
     },
