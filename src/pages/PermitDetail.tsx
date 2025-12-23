@@ -412,15 +412,15 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                     <p className="text-sm text-muted-foreground">No attachments</p>
                   ) : (
                     <div className="space-y-2">
-                      {(permit.attachments || []).map((url, index) => {
-                        // Extract filename from URL or use index
-                        const filename = url.includes('/') 
-                          ? decodeURIComponent(url.split('/').pop() || `attachment-${index + 1}`)
-                          : url;
+                      {(permit.attachments || []).map((filePath, index) => {
+                        // Extract filename from path
+                        const filename = filePath.includes('/') 
+                          ? decodeURIComponent(filePath.split('/').pop() || `attachment-${index + 1}`)
+                          : filePath;
                         return (
                           <AttachmentPreview
                             key={index}
-                            url={url}
+                            filePath={filePath}
                             filename={filename}
                           />
                         );

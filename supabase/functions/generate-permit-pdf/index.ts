@@ -19,7 +19,42 @@ const serve_handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    // Create service role client for database operations
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(JSON.stringify({ error: "Unauthorized - No authorization header" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    
+    // Create a client with the user's token to verify their identity
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log("Authenticated user:", user.id, user.email);
 
     const { permitId }: GeneratePdfRequest = await req.json();
     console.log("Generating PDF for permit:", permitId);
@@ -31,8 +66,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Fetch the permit details
-    const { data: permit, error: permitError } = await supabase
+    // Check if user has access to this permit
+    // User must either be the requester or an approver
+    const { data: permit, error: permitError } = await supabaseAdmin
       .from("work_permits")
       .select("*, work_types(*)")
       .eq("id", permitId)
@@ -46,6 +82,29 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Authorization check: user must be requester or approver
+    const isRequester = permit.requester_id === user.id;
+    
+    // Check if user is an approver
+    const { data: isApproverResult } = await supabaseAdmin.rpc('is_approver', { _user_id: user.id });
+    const isApprover = isApproverResult === true;
+
+    // Check if user is admin
+    const { data: isAdminResult } = await supabaseAdmin.rpc('has_role', { 
+      _user_id: user.id, 
+      _role: 'admin' 
+    });
+    const isAdmin = isAdminResult === true;
+
+    if (!isRequester && !isApprover && !isAdmin) {
+      console.error("User not authorized to generate PDF for this permit:", user.id);
+      return new Response(JSON.stringify({ error: "Forbidden - You don't have access to this permit" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log("Authorization check passed. User:", user.email, "isRequester:", isRequester, "isApprover:", isApprover, "isAdmin:", isAdmin);
     console.log("Permit found:", permit.permit_no, "Status:", permit.status);
 
     // Generate the PDF using pdf-lib
@@ -196,7 +255,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const fileName = `${permit.permit_no.replace(/\//g, "-")}.pdf`;
     console.log("Uploading PDF as:", fileName);
     
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from("permit-pdfs")
       .upload(fileName, pdfBytes, {
         contentType: "application/pdf",
@@ -211,21 +270,29 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Get the public URL
-    const { data: urlData } = supabase.storage
+    // Generate a signed URL for the PDF (expires in 1 hour)
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
       .from("permit-pdfs")
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 3600);
 
-    console.log("PDF URL:", urlData.publicUrl);
+    if (signedUrlError || !signedUrlData) {
+      console.error("Signed URL error:", signedUrlError);
+      return new Response(JSON.stringify({ error: "Failed to generate PDF URL" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
-    // Update the permit with the PDF URL
-    await supabase
+    console.log("PDF signed URL generated");
+
+    // Update the permit with the file path (not the signed URL, as it expires)
+    await supabaseAdmin
       .from("work_permits")
-      .update({ pdf_url: urlData.publicUrl })
+      .update({ pdf_url: fileName })
       .eq("id", permitId);
 
     return new Response(
-      JSON.stringify({ pdfUrl: urlData.publicUrl, success: true }),
+      JSON.stringify({ pdfUrl: signedUrlData.signedUrl, filePath: fileName, success: true }),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
