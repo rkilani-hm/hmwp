@@ -37,15 +37,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const token = authHeader.replace("Bearer ", "");
     
     // Create a client with the user's token to verify their identity
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    // Pass the JWT explicitly (edge runtime has no persisted session)
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(token);
     if (authError || !user) {
       console.error("Auth error:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
