@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import {
   LayoutDashboard,
   FileText,
@@ -133,13 +134,11 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-sidebar-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-display font-bold text-lg leading-tight">WorkPermit</h1>
-              <p className="text-xs text-sidebar-foreground/60">Management System</p>
-            </div>
+            <img 
+              src={alHamraLogo} 
+              alt="Al Hamra" 
+              className="h-12 w-auto object-contain"
+            />
           </div>
           <NotificationBell />
         </div>
