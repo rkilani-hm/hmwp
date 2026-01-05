@@ -93,6 +93,33 @@ export type Database = {
           },
         ]
       }
+      permissions: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          label: string
+          name: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          label: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          label?: string
+          name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -125,6 +152,42 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          permission_id: string
+          role_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          permission_id: string
+          role_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          permission_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roles: {
         Row: {

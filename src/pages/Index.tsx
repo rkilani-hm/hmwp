@@ -10,10 +10,10 @@ import ApproverOutbox from './ApproverOutbox';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import RolesManagement from './admin/RolesManagement';
+import PermissionsManagement from './admin/PermissionsManagement';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
 import UserActivityLogs from './admin/UserActivityLogs';
-
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -54,6 +54,10 @@ const Index = () => {
         <Route 
           path="roles" 
           element={isAdmin ? <RolesManagement /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="permissions" 
+          element={isAdmin ? <PermissionsManagement /> : <Navigate to="/" replace />} 
         />
         <Route 
           path="reports" 

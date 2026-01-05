@@ -21,6 +21,7 @@ import {
   Timer,
   Send,
   Activity,
+  Key,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -73,6 +74,7 @@ const navigationItems = {
     { icon: Activity, label: 'Activity Logs', path: '/activity-logs' },
     { icon: Users, label: 'User Management', path: '/approvers' },
     { icon: Shield, label: 'Roles', path: '/roles' },
+    { icon: Key, label: 'Permissions', path: '/permissions' },
     { icon: Settings, label: 'Work Types', path: '/work-types' },
   ],
   approver: [
