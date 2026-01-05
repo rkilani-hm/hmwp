@@ -1,19 +1,39 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface ApprovalRequest {
-  permitId: string;
-  role: string;
-  comments: string;
-  signature: string | null;
-  approved: boolean;
-  password: string;
-}
+// Valid roles for approval workflow
+const validApprovalRoles = [
+  'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
+  'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'
+] as const;
+
+// Input validation schema
+const ApprovalSchema = z.object({
+  permitId: z.string()
+    .uuid("Invalid permit ID format"),
+  role: z.enum(validApprovalRoles, {
+    errorMap: () => ({ message: "Invalid approval role" })
+  }),
+  comments: z.string()
+    .max(1000, "Comments must be less than 1000 characters")
+    .transform(val => val.trim()),
+  signature: z.string()
+    .max(100000, "Signature data too large") // Base64 signatures can be large
+    .nullable(),
+  approved: z.boolean({
+    required_error: "Approved status is required",
+    invalid_type_error: "Approved must be a boolean"
+  }),
+  password: z.string()
+    .min(1, "Password is required")
+    .max(100, "Password too long"),
+});
 
 interface WorkType {
   id: string;
@@ -106,14 +126,20 @@ const handler = async (req: Request): Promise<Response> => {
     // Create user client for password verification
     const userClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    const {
-      permitId,
-      role,
-      comments,
-      signature,
-      approved,
-      password,
-    }: ApprovalRequest = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const parseResult = ApprovalSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.errors.map(e => e.message).join(", ");
+      console.error("Validation failed:", parseResult.error.errors);
+      return new Response(JSON.stringify({ error: `Validation failed: ${errorMessages}` }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { permitId, role, comments, signature, approved, password } = parseResult.data;
 
     console.log("Processing approval for permit:", permitId, "role:", role, "approved:", approved);
 
@@ -220,6 +246,13 @@ const handler = async (req: Request): Promise<Response> => {
       `)
       .eq("id", permitId)
       .single();
+
+    if (!currentPermit) {
+      return new Response(JSON.stringify({ error: "Permit not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     // Update the permit
     const roleField = role.toLowerCase().replace(" ", "_");

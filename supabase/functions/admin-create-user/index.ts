@@ -1,18 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface CreateUserRequest {
-  email: string;
-  password: string;
-  fullName: string;
-  companyName?: string;
-  roles: string[];
-}
+// Valid roles enum matching the database app_role type
+const validRoles = [
+  'contractor', 'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
+  'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service', 'admin'
+] as const;
+
+// Input validation schema
+const CreateUserSchema = z.object({
+  email: z.string()
+    .email("Invalid email format")
+    .max(255, "Email must be less than 255 characters")
+    .transform(val => val.toLowerCase().trim()),
+  password: z.string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be less than 100 characters"),
+  fullName: z.string()
+    .min(1, "Full name is required")
+    .max(100, "Full name must be less than 100 characters")
+    .transform(val => val.trim()),
+  companyName: z.string()
+    .max(100, "Company name must be less than 100 characters")
+    .transform(val => val.trim())
+    .optional(),
+  roles: z.array(z.enum(validRoles))
+    .min(1, "At least one role is required")
+    .max(5, "Maximum 5 roles allowed"),
+});
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -65,23 +86,22 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body
-    const { email, password, fullName, companyName, roles }: CreateUserRequest = await req.json();
-
-    if (!email || !password || !fullName) {
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const parseResult = CreateUserSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.errors.map(e => e.message).join(", ");
+      console.error("Validation failed:", parseResult.error.errors);
       return new Response(
-        JSON.stringify({ error: "Email, password, and full name are required" }),
+        JSON.stringify({ error: `Validation failed: ${errorMessages}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate password length
-    if (password.length < 6) {
-      return new Response(
-        JSON.stringify({ error: "Password must be at least 6 characters" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const { email, password, fullName, companyName, roles } = parseResult.data;
+    
+    console.log("Creating user:", email, "with roles:", roles);
 
     // Create the user using admin API
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -131,6 +151,8 @@ serve(async (req) => {
           .insert({ user_id: newUser.user.id, role });
       }
     }
+
+    console.log("User created successfully:", newUser.user?.id);
 
     return new Response(
       JSON.stringify({ 

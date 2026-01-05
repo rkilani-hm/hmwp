@@ -1,16 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface ResetPasswordRequest {
-  userId: string;
-  newPassword?: string;
-  sendResetEmail?: boolean;
-}
+// Input validation schema
+const ResetPasswordSchema = z.object({
+  userId: z.string()
+    .uuid("Invalid user ID format"),
+  newPassword: z.string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be less than 100 characters")
+    .optional(),
+  sendResetEmail: z.boolean()
+    .optional(),
+}).refine(
+  data => data.newPassword || data.sendResetEmail,
+  { message: "Must provide either newPassword or sendResetEmail" }
+);
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -61,7 +71,20 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const { userId, newPassword, sendResetEmail }: ResetPasswordRequest = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const parseResult = ResetPasswordSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.errors.map(e => e.message).join(", ");
+      console.error("Validation failed:", parseResult.error.errors);
+      return new Response(JSON.stringify({ error: `Validation failed: ${errorMessages}` }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { userId, newPassword, sendResetEmail } = parseResult.data;
 
     console.log("Admin password reset request for user:", userId, "by admin:", user.id);
 
@@ -131,6 +154,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // This shouldn't be reached due to the refine validation, but keeping as fallback
     return new Response(JSON.stringify({ error: "Must provide newPassword or sendResetEmail" }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...corsHeaders },
