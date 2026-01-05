@@ -11,6 +11,7 @@ import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
+import UserActivityLogs from './admin/UserActivityLogs';
 
 const Index = () => {
   const { roles, hasRole } = useAuth();
@@ -56,6 +57,10 @@ const Index = () => {
         <Route 
           path="sla-dashboard" 
           element={isAdmin ? <SLADashboard /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="activity-logs" 
+          element={isAdmin ? <UserActivityLogs /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>

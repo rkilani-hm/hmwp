@@ -101,15 +101,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const logActivity = async (userId: string, userEmail: string, actionType: string, details?: string) => {
+    try {
+      await supabase.from('user_activity_logs').insert({
+        user_id: userId,
+        user_email: userEmail,
+        action_type: actionType,
+        details,
+        user_agent: navigator.userAgent,
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) {
+        // Log failed login attempt
+        await supabase.from('user_activity_logs').insert({
+          user_id: '00000000-0000-0000-0000-000000000000',
+          user_email: email,
+          action_type: 'login_failed',
+          details: error.message,
+          user_agent: navigator.userAgent,
+        });
         toast.error(error.message);
         return { error };
+      }
+      // Log successful login
+      if (data.user) {
+        await logActivity(data.user.id, email, 'login');
       }
       toast.success('Signed in successfully');
       return { error: null };
@@ -148,6 +174,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Log logout before signing out
+    if (user) {
+      await logActivity(user.id, user.email || '', 'logout');
+    }
     await supabase.auth.signOut();
     setProfile(null);
     setRoles([]);
