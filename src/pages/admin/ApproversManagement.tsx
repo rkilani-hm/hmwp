@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useUsersWithRoles, useAddUserRole, useRemoveUserRole, UserWithRoles } from '@/hooks/useAdmin';
 import { useUpdateUserStatus, useUpdateUserCompany, useResetUserPassword, useSyncUserProfiles } from '@/hooks/useUserManagement';
+import { useRoles } from '@/hooks/useRoles';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,32 +12,27 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserCheck, UserX, Plus, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserX, Plus, RefreshCw } from 'lucide-react';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
-import { roleLabels } from '@/types/workPermit';
-
-const approverRoles = [
-  { value: 'helpdesk', label: 'Helpdesk' },
-  { value: 'pm', label: 'Property Management' },
-  { value: 'pd', label: 'Project Development' },
-  { value: 'bdcr', label: 'BDCR' },
-  { value: 'mpr', label: 'MPR' },
-  { value: 'it', label: 'IT Department' },
-  { value: 'fitout', label: 'Fit-Out' },
-  { value: 'soft_facilities', label: 'Soft Facilities' },
-  { value: 'hard_facilities', label: 'Hard Facilities' },
-  { value: 'pm_service', label: 'PM Service Provider' },
-  { value: 'admin', label: 'Administrator' },
-];
 
 export default function ApproversManagement() {
-  const { data: users, isLoading } = useUsersWithRoles();
+  const { data: users, isLoading: usersLoading } = useUsersWithRoles();
+  const { data: roles, isLoading: rolesLoading } = useRoles();
   const addRole = useAddUserRole();
   const removeRole = useRemoveUserRole();
   const updateStatus = useUpdateUserStatus();
   const updateCompany = useUpdateUserCompany();
   const resetPassword = useResetUserPassword();
   const syncProfiles = useSyncUserProfiles();
+
+  // Create a map of role name -> label from the roles table
+  const roleLabelsMap = roles?.reduce((acc, role) => {
+    acc[role.name] = role.label;
+    return acc;
+  }, {} as Record<string, string>) || {};
+
+  // Get active roles for the dropdown
+  const availableRoles = roles?.filter(role => role.is_active) || [];
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
@@ -123,6 +119,8 @@ export default function ApproversManagement() {
     if (role === 'contractor') return 'secondary';
     return 'default';
   };
+
+  const isLoading = usersLoading || rolesLoading;
 
   if (isLoading) {
     return (
@@ -225,7 +223,7 @@ export default function ApproversManagement() {
                             className="cursor-pointer group"
                             onClick={() => handleRemoveRole(user.id, role)}
                           >
-                            {roleLabels[role as keyof typeof roleLabels] || role}
+                            {roleLabelsMap[role] || role}
                             <Trash2 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Badge>
                         ))}
@@ -266,10 +264,10 @@ export default function ApproversManagement() {
                                   <SelectValue placeholder="Select a role..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {approverRoles
-                                    .filter((role) => !user.roles.includes(role.value))
+                                  {availableRoles
+                                    .filter((role) => !user.roles.includes(role.name))
                                     .map((role) => (
-                                      <SelectItem key={role.value} value={role.value}>
+                                      <SelectItem key={role.name} value={role.name}>
                                         {role.label}
                                       </SelectItem>
                                     ))}

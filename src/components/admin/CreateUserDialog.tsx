@@ -8,21 +8,7 @@ import { Loader2, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-
-const availableRoles = [
-  { value: 'contractor', label: 'Contractor' },
-  { value: 'helpdesk', label: 'Helpdesk' },
-  { value: 'pm', label: 'Property Management' },
-  { value: 'pd', label: 'Project Development' },
-  { value: 'bdcr', label: 'BDCR' },
-  { value: 'mpr', label: 'MPR' },
-  { value: 'it', label: 'IT Department' },
-  { value: 'fitout', label: 'Fit-Out' },
-  { value: 'soft_facilities', label: 'Soft Facilities' },
-  { value: 'hard_facilities', label: 'Hard Facilities' },
-  { value: 'pm_service', label: 'PM Service Provider' },
-  { value: 'admin', label: 'Administrator' },
-];
+import { useRoles } from '@/hooks/useRoles';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -31,8 +17,12 @@ interface CreateUserDialogProps {
 
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const queryClient = useQueryClient();
+  const { data: roles } = useRoles();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Get active roles for selection
+  const availableRoles = roles?.filter(role => role.is_active) || [];
   
   const [formData, setFormData] = useState({
     email: '',
@@ -203,14 +193,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             <Label>Roles *</Label>
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
               {availableRoles.map((role) => (
-                <div key={role.value} className="flex items-center space-x-2">
+                <div key={role.name} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`role-${role.value}`}
-                    checked={formData.roles.includes(role.value)}
-                    onCheckedChange={() => handleRoleToggle(role.value)}
+                    id={`role-${role.name}`}
+                    checked={formData.roles.includes(role.name)}
+                    onCheckedChange={() => handleRoleToggle(role.name)}
                   />
                   <Label
-                    htmlFor={`role-${role.value}`}
+                    htmlFor={`role-${role.name}`}
                     className="text-sm font-normal cursor-pointer"
                   >
                     {role.label}
