@@ -8,6 +8,7 @@ import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { CancelPermitDialog } from '@/components/CancelPermitDialog';
+import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,7 @@ import {
   CheckCircle,
   XCircle,
   Download,
+  Eye,
   Loader2,
   FileText,
   AlertTriangle,
@@ -57,6 +59,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
@@ -68,21 +72,27 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     if (pdfUrl) {
       // Refetch permit to get the updated pdf_url
       queryClient.invalidateQueries({ queryKey: ['work-permit', id] });
-      // Trigger download
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `${permit.permit_no.replace(/\//g, '-')}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Open preview dialog with the generated PDF
+      setPreviewPdfUrl(pdfUrl);
+      setPdfPreviewOpen(true);
+    }
+  };
+
+  const handlePreviewPdf = async () => {
+    if (!permit) return;
+    // Generate a fresh signed URL for preview
+    const pdfUrl = await generatePdf(permit.id);
+    if (pdfUrl) {
+      setPreviewPdfUrl(pdfUrl);
+      setPdfPreviewOpen(true);
     }
   };
 
   const handleDownloadPdf = () => {
-    if (permit?.pdf_url) {
+    const url = previewPdfUrl || permit?.pdf_url;
+    if (url && permit) {
       const link = document.createElement('a');
-      link.href = permit.pdf_url;
+      link.href = url;
       link.download = `${permit.permit_no.replace(/\//g, '-')}.pdf`;
       link.target = '_blank';
       document.body.appendChild(link);
@@ -261,9 +271,17 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </Button>
           )}
           {permit.pdf_url && (
-            <Button variant="outline" onClick={handleDownloadPdf}>
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
+            <Button 
+              variant="outline" 
+              onClick={handlePreviewPdf}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Eye className="w-4 h-4 mr-2" />
+              )}
+              View PDF
             </Button>
           )}
         </div>
@@ -594,6 +612,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           </Card>
         </div>
       </div>
+      {/* PDF Preview Dialog */}
+      <PdfPreviewDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        pdfUrl={previewPdfUrl}
+        fileName={`${permit.permit_no.replace(/\//g, '-')}.pdf`}
+        onDownload={handleDownloadPdf}
+      />
     </motion.div>
   );
 }
