@@ -72,3 +72,23 @@ export function useResetUserPassword() {
     },
   });
 }
+
+export function useSyncUserProfiles() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sync-user-profiles');
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast.success(data?.message || 'User profiles synced successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to sync profiles: ' + error.message);
+    },
+  });
+}
