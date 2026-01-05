@@ -20,6 +20,7 @@ import {
   BarChart3,
   Timer,
   Send,
+  Activity,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -69,6 +70,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: Timer, label: 'SLA Dashboard', path: '/sla-dashboard' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
+    { icon: Activity, label: 'Activity Logs', path: '/activity-logs' },
     { icon: Users, label: 'User Management', path: '/approvers' },
     { icon: Settings, label: 'Work Types', path: '/work-types' },
   ],
