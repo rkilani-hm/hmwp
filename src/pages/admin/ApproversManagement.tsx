@@ -11,7 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserCheck, UserX } from 'lucide-react';
+import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserCheck, UserX, Plus } from 'lucide-react';
+import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { roleLabels } from '@/types/workPermit';
 
 const approverRoles = [
@@ -41,6 +42,7 @@ export default function ApproversManagement() {
   const [selectedRole, setSelectedRole] = useState('');
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [editCompany, setEditCompany] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
@@ -159,6 +161,10 @@ export default function ApproversManagement() {
                 className="pl-9"
               />
             </div>
+            <Button onClick={() => setIsCreateUserDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
           </div>
 
           <div className="rounded-md border">
@@ -374,6 +380,12 @@ export default function ApproversManagement() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* Create User Dialog */}
+      <CreateUserDialog
+        open={isCreateUserDialogOpen}
+        onOpenChange={setIsCreateUserDialogOpen}
+      />
     </div>
   );
 }
