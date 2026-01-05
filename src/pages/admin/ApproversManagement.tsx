@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useUsersWithRoles, useAddUserRole, useRemoveUserRole, UserWithRoles } from '@/hooks/useAdmin';
-import { useUpdateUserStatus, useUpdateUserCompany, useResetUserPassword } from '@/hooks/useUserManagement';
+import { useUpdateUserStatus, useUpdateUserCompany, useResetUserPassword, useSyncUserProfiles } from '@/hooks/useUserManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserCheck, UserX, Plus } from 'lucide-react';
+import { Loader2, Search, Shield, Trash2, UserPlus, Building2, Key, UserCheck, UserX, Plus, RefreshCw } from 'lucide-react';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { roleLabels } from '@/types/workPermit';
 
@@ -36,6 +36,7 @@ export default function ApproversManagement() {
   const updateStatus = useUpdateUserStatus();
   const updateCompany = useUpdateUserCompany();
   const resetPassword = useResetUserPassword();
+  const syncProfiles = useSyncUserProfiles();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
@@ -161,6 +162,18 @@ export default function ApproversManagement() {
                 className="pl-9"
               />
             </div>
+            <Button 
+              variant="outline" 
+              onClick={() => syncProfiles.mutate()}
+              disabled={syncProfiles.isPending}
+            >
+              {syncProfiles.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sync Users
+            </Button>
             <Button onClick={() => setIsCreateUserDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create User
@@ -172,7 +185,8 @@ export default function ApproversManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>Full Name</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Roles</TableHead>
                   <TableHead className="w-[180px]">Actions</TableHead>
@@ -193,11 +207,11 @@ export default function ApproversManagement() {
                         {(user as any).is_active === false && (
                           <UserX className="h-4 w-4 text-destructive" />
                         )}
-                        <div>
-                          <p className="font-medium">{user.full_name || 'No name'}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
+                        <p className="font-medium">{user.full_name || '-'}</p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm">{user.email}</p>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{user.company_name || '-'}</span>
@@ -288,7 +302,7 @@ export default function ApproversManagement() {
                 ))}
                 {filteredUsers?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No users found
                     </TableCell>
                   </TableRow>
