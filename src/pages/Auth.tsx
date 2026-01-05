@@ -6,12 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
 import { Shield, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Please enter a valid email');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/\d/, 'Password must contain a number')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character');
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -227,6 +233,7 @@ export default function Auth() {
                       onChange={(e) => setSignUpPassword(e.target.value)}
                       className={signUpErrors.password ? 'border-destructive' : ''}
                     />
+                    <PasswordStrengthIndicator password={signUpPassword} />
                     {signUpErrors.password && (
                       <p className="text-sm text-destructive">{signUpErrors.password}</p>
                     )}
