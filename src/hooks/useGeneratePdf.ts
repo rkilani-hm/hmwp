@@ -8,8 +8,19 @@ export function useGeneratePdf() {
   const generatePdf = async (permitId: string): Promise<string | null> => {
     setIsGenerating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        toast.error('Your session has expired. Please sign in again.');
+        return null;
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-permit-pdf', {
         body: { permitId },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       if (error) {
