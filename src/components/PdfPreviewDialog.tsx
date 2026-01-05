@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2 } from 'lucide-react';
+import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2, AlertCircle } from 'lucide-react';
 
 interface PdfPreviewDialogProps {
   open: boolean;
@@ -25,6 +25,8 @@ export function PdfPreviewDialog({
 }: PdfPreviewDialogProps) {
   const [zoom, setZoom] = useState(100);
   const [isLoading, setIsLoading] = useState(true);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
@@ -35,6 +37,43 @@ export function PdfPreviewDialog({
       window.open(pdfUrl, '_blank');
     }
   };
+
+  // Fetch PDF and create blob URL to bypass iframe restrictions
+  useEffect(() => {
+    if (!open || !pdfUrl) {
+      setBlobUrl(null);
+      setError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    fetch(pdfUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch PDF');
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error loading PDF:', err);
+        setError('Failed to load PDF preview');
+        setIsLoading(false);
+      });
+
+    // Cleanup blob URL when dialog closes
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [open, pdfUrl]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,23 +126,32 @@ export function PdfPreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto bg-muted/30 p-4">
+        <div className="flex-1 overflow-auto bg-muted/30 p-4 relative">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           )}
-          {pdfUrl && (
+          {error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10 gap-4">
+              <AlertCircle className="h-12 w-12 text-destructive" />
+              <p className="text-muted-foreground">{error}</p>
+              <Button variant="outline" onClick={handleOpenInNewTab}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab Instead
+              </Button>
+            </div>
+          )}
+          {blobUrl && !error && (
             <div
               className="flex justify-center transition-transform duration-200"
               style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
             >
               <iframe
-                src={`${pdfUrl}#toolbar=0&navpanes=0`}
+                src={`${blobUrl}#toolbar=0&navpanes=0`}
                 className="w-full min-h-[70vh] rounded-lg border shadow-sm bg-white"
                 style={{ height: `${70 * (100 / zoom)}vh` }}
                 title="PDF Preview"
-                onLoad={() => setIsLoading(false)}
               />
             </div>
           )}
