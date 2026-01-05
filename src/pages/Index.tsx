@@ -9,6 +9,7 @@ import ApproverInbox from './ApproverInbox';
 import ApproverOutbox from './ApproverOutbox';
 import ApproversManagement from './admin/ApproversManagement';
 import WorkTypesManagement from './admin/WorkTypesManagement';
+import RolesManagement from './admin/RolesManagement';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
 import UserActivityLogs from './admin/UserActivityLogs';
@@ -49,6 +50,10 @@ const Index = () => {
         <Route 
           path="work-types" 
           element={isAdmin ? <WorkTypesManagement /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="roles" 
+          element={isAdmin ? <RolesManagement /> : <Navigate to="/" replace />} 
         />
         <Route 
           path="reports" 
