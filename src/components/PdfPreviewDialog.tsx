@@ -1,0 +1,114 @@
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2 } from 'lucide-react';
+
+interface PdfPreviewDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  pdfUrl: string | null;
+  fileName: string;
+  onDownload: () => void;
+}
+
+export function PdfPreviewDialog({
+  open,
+  onOpenChange,
+  pdfUrl,
+  fileName,
+  onDownload,
+}: PdfPreviewDialogProps) {
+  const [zoom, setZoom] = useState(100);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
+  const handleResetZoom = () => setZoom(100);
+
+  const handleOpenInNewTab = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="font-display">{fileName}</DialogTitle>
+            <div className="flex items-center gap-2">
+              {/* Zoom controls */}
+              <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/50">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleZoomOut}
+                  disabled={zoom <= 50}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium w-12 text-center">{zoom}%</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleZoomIn}
+                  disabled={zoom >= 200}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleResetZoom}
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Action buttons */}
+              <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab
+              </Button>
+              <Button size="sm" onClick={onDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-auto bg-muted/30 p-4">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {pdfUrl && (
+            <div
+              className="flex justify-center transition-transform duration-200"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+            >
+              <iframe
+                src={`${pdfUrl}#toolbar=0&navpanes=0`}
+                className="w-full min-h-[70vh] rounded-lg border shadow-sm bg-white"
+                style={{ height: `${70 * (100 / zoom)}vh` }}
+                title="PDF Preview"
+                onLoad={() => setIsLoading(false)}
+              />
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
