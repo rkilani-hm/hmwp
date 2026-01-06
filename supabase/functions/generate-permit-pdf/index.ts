@@ -495,8 +495,24 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Add page numbers to all pages
+    const pages = pdfDoc.getPages();
+    const totalPages = pages.length;
+    for (let i = 0; i < totalPages; i++) {
+      const currentPage = pages[i];
+      const pageNumText = `Page ${i + 1} of ${totalPages}`;
+      const textWidth = helvetica.widthOfTextAtSize(pageNumText, 9);
+      currentPage.drawText(pageNumText, {
+        x: (pageWidth - textWidth) / 2,
+        y: 20,
+        size: 9,
+        font: helvetica,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    }
+
     const pdfBytes = await pdfDoc.save();
-    console.log("PDF generated, size:", pdfBytes.length, "bytes, pages:", pdfDoc.getPageCount());
+    console.log("PDF generated, size:", pdfBytes.length, "bytes, pages:", totalPages);
 
     // Upload to storage
     const fileName = `${permit.permit_no.replace(/\//g, "-")}.pdf`;
