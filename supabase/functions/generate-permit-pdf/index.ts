@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
-import QRCode from "https://esm.sh/qrcode@1.5.4";
+import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -237,26 +237,18 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // ===== PAGE 1: Main Permit Details =====
     let { page, yPos } = createPage();
     
-    // Generate QR code linking to digital permit for verification
-    let qrCodeImage: any = null;
+    // Generate QR code containing the Work Permit Number
+    // (We draw it directly into the PDF to avoid PNG/canvas dependencies in the runtime)
+    let qrCode: any = null;
     try {
-      // Construct the verification URL (permit detail page)
-      const appUrl = "https://hmwp.lovable.app";
-      const verificationUrl = `${appUrl}/permits/${permitId}`;
+      const permitNoForQr = String(permit.permit_no || "").trim();
+      if (!permitNoForQr) throw new Error("Missing permit number for QR code");
 
-      // Generate QR code as PNG data URL (compatible with pdf-lib embedPng)
-      const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
-        errorCorrectionLevel: "M",
-        margin: 0,
-        width: 256,
-      });
+      qrCode = qrcode(0, "M");
+      qrCode.addData(permitNoForQr);
+      qrCode.make();
 
-      const match = qrDataUrl.match(/^data:image\/png;base64,(.*)$/);
-      if (!match) throw new Error("Unexpected QR data URL format");
-
-      const qrBytes = Uint8Array.from(atob(match[1]), (c) => c.charCodeAt(0));
-      qrCodeImage = await pdfDoc.embedPng(qrBytes);
-      console.log("QR code generated for verification URL:", verificationUrl);
+      console.log("QR code matrix generated for permit number:", permitNoForQr);
     } catch (qrError) {
       console.error("Error generating QR code:", qrError);
     }
@@ -602,20 +594,31 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
       
       // Add QR code to footer (right side) on all pages
-      if (qrCodeImage) {
+      if (qrCode) {
         const qrSize = 45;
         const qrX = pageWidth - margin - qrSize;
         const qrY = 20;
-        
-        currentPage.drawImage(qrCodeImage, {
-          x: qrX,
-          y: qrY,
-          width: qrSize,
-          height: qrSize,
-        });
-        
-        // Add "Scan to verify" label above permit number
-        const qrLabel = "Scan to verify";
+
+        const moduleCount = qrCode.getModuleCount();
+        const cellSize = qrSize / moduleCount;
+
+        // Draw modules (bottom-left origin in PDF coordinates)
+        for (let row = 0; row < moduleCount; row++) {
+          for (let col = 0; col < moduleCount; col++) {
+            if (qrCode.isDark(row, col)) {
+              currentPage.drawRectangle({
+                x: qrX + col * cellSize,
+                y: qrY + (moduleCount - 1 - row) * cellSize,
+                width: cellSize,
+                height: cellSize,
+                color: rgb(0, 0, 0),
+              });
+            }
+          }
+        }
+
+        // Add label under QR
+        const qrLabel = "Scan for permit no";
         const labelWidth = helvetica.widthOfTextAtSize(qrLabel, 6);
         currentPage.drawText(qrLabel, {
           x: qrX + (qrSize - labelWidth) / 2,
@@ -624,7 +627,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
           font: helvetica,
           color: rgb(0.4, 0.4, 0.4),
         });
-        
+
         // Add permit number below for manual verification
         const permitNo = permit.permit_no || "";
         const permitNoWidth = helvetica.widthOfTextAtSize(permitNo, 5);
