@@ -21,8 +21,8 @@ export interface WorkTypeData {
   requires_mpr: boolean;
   requires_it: boolean;
   requires_fitout: boolean;
-  requires_soft_facilities: boolean;
-  requires_hard_facilities: boolean;
+  requires_ecovert_supervisor: boolean;
+  requires_pmd_coordinator: boolean;
   created_at: string;
 }
 
@@ -73,7 +73,7 @@ export function useAddUserRole() {
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       // Cast to the expected enum type
-      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'hard_facilities' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pm_service' | 'soft_facilities';
+      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'ecovert_supervisor' | 'pmd_coordinator';
       const { data, error } = await supabase
         .from('user_roles')
         .insert({ user_id: userId, role: role as AppRole })
@@ -103,7 +103,7 @@ export function useRemoveUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'hard_facilities' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pm_service' | 'soft_facilities';
+      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'ecovert_supervisor' | 'pmd_coordinator';
       const { error } = await supabase
         .from('user_roles')
         .delete()

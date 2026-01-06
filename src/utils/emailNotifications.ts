@@ -61,11 +61,11 @@ export async function sendEmailNotification(
 }
 
 // Get emails for users with specific roles
-export async function getEmailsForRole(role: 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin'): Promise<string[]> {
+export async function getEmailsForRole(role: 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin'): Promise<string[]> {
   const { data: userRoles } = await supabase
     .from('user_roles')
     .select('user_id')
-    .eq('role', role);
+    .eq('role', role as any);
 
   if (!userRoles || userRoles.length === 0) return [];
 
@@ -89,9 +89,8 @@ export function getNextApproverRole(currentStatus: string, workType: any): strin
     { status: 'pending_mpr', role: 'mpr', field: 'requires_mpr' },
     { status: 'pending_it', role: 'it', field: 'requires_it' },
     { status: 'pending_fitout', role: 'fitout', field: 'requires_fitout' },
-    { status: 'pending_soft_facilities', role: 'soft_facilities', field: 'requires_soft_facilities' },
-    { status: 'pending_hard_facilities', role: 'hard_facilities', field: 'requires_hard_facilities' },
-    { status: 'pending_pm_service', role: 'pm_service', field: null },
+    { status: 'pending_ecovert_supervisor', role: 'ecovert_supervisor', field: 'requires_ecovert_supervisor' },
+    { status: 'pending_pmd_coordinator', role: 'pmd_coordinator', field: 'requires_pmd_coordinator' },
   ];
 
   const currentIndex = approvalOrder.findIndex(a => a.status === currentStatus);

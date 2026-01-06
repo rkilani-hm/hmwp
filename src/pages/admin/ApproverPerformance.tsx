@@ -44,9 +44,8 @@ const roleLabels: Record<string, string> = {
   mpr: 'MPR',
   it: 'IT',
   fitout: 'Fit-Out',
-  soft_facilities: 'Soft Facilities',
-  hard_facilities: 'Hard Facilities',
-  pm_service: 'PM Service',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
 };
 
 const roleColors: Record<string, string> = {
@@ -57,9 +56,8 @@ const roleColors: Record<string, string> = {
   mpr: '#ef4444',
   it: '#06b6d4',
   fitout: '#ec4899',
-  soft_facilities: '#84cc16',
-  hard_facilities: '#f97316',
-  pm_service: '#6366f1',
+  ecovert_supervisor: '#84cc16',
+  pmd_coordinator: '#6366f1',
 };
 
 export default function ApproverPerformance() {

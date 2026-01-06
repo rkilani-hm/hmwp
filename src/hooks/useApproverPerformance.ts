@@ -149,12 +149,11 @@ export function useMyPerformance() {
         mpr: 'pending_mpr',
         it: 'pending_it',
         fitout: 'pending_fitout',
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
+        ecovert_supervisor: 'pending_ecovert_supervisor',
+        pmd_coordinator: 'pending_pmd_coordinator',
       };
       
-      const pendingStatus = statusMap[approverRole] as 'submitted' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | undefined;
+      const pendingStatus = statusMap[approverRole] as any;
       if (pendingStatus) {
         const { count } = await supabase
           .from('work_permits')
@@ -197,7 +196,7 @@ export function useAllApproversPerformance() {
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service']);
+        .in('role', ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'] as any);
       
       if (rolesError) throw rolesError;
       
@@ -294,12 +293,11 @@ export function useAllApproversPerformance() {
           mpr: 'pending_mpr',
           it: 'pending_it',
           fitout: 'pending_fitout',
-          soft_facilities: 'pending_soft_facilities',
-          hard_facilities: 'pending_hard_facilities',
-          pm_service: 'pending_pm_service',
+          ecovert_supervisor: 'pending_ecovert_supervisor',
+          pmd_coordinator: 'pending_pmd_coordinator',
         };
         
-        const pendingStatus = statusMap[userRole.role] as 'submitted' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | undefined;
+        const pendingStatus = statusMap[userRole.role] as any;
         if (pendingStatus) {
           const { count } = await supabase
             .from('work_permits')

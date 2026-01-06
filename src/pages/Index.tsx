@@ -23,7 +23,7 @@ const Index = () => {
   const getPrimaryRole = () => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('helpdesk')) return 'helpdesk';
-    const approverRoles = ['pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'] as const;
+    const approverRoles = ['pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'] as const;
     for (const role of approverRoles) {
       if (roles.includes(role)) return role;
     }
@@ -32,7 +32,7 @@ const Index = () => {
 
   const currentRole = getPrimaryRole();
   const isAdmin = hasRole('admin');
-  const isApprover = roles.some(r => ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'].includes(r));
+  const isApprover = roles.some(r => ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'].includes(r));
 
   return (
     <AppLayout currentRole={currentRole}>

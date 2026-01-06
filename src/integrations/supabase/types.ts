@@ -346,6 +346,12 @@ export type Database = {
           contact_mobile: string
           contractor_name: string
           created_at: string
+          ecovert_supervisor_approver_email: string | null
+          ecovert_supervisor_approver_name: string | null
+          ecovert_supervisor_comments: string | null
+          ecovert_supervisor_date: string | null
+          ecovert_supervisor_signature: string | null
+          ecovert_supervisor_status: string | null
           fitout_approver_email: string | null
           fitout_approver_name: string | null
           fitout_comments: string | null
@@ -353,12 +359,6 @@ export type Database = {
           fitout_signature: string | null
           fitout_status: string | null
           floor: string
-          hard_facilities_approver_email: string | null
-          hard_facilities_approver_name: string | null
-          hard_facilities_comments: string | null
-          hard_facilities_date: string | null
-          hard_facilities_signature: string | null
-          hard_facilities_status: string | null
           helpdesk_approver_email: string | null
           helpdesk_approver_name: string | null
           helpdesk_comments: string | null
@@ -390,25 +390,19 @@ export type Database = {
           pm_approver_name: string | null
           pm_comments: string | null
           pm_date: string | null
-          pm_service_approver_email: string | null
-          pm_service_approver_name: string | null
-          pm_service_comments: string | null
-          pm_service_date: string | null
-          pm_service_signature: string | null
-          pm_service_status: string | null
           pm_signature: string | null
           pm_status: string | null
+          pmd_coordinator_approver_email: string | null
+          pmd_coordinator_approver_name: string | null
+          pmd_coordinator_comments: string | null
+          pmd_coordinator_date: string | null
+          pmd_coordinator_signature: string | null
+          pmd_coordinator_status: string | null
           requester_email: string
           requester_id: string | null
           requester_name: string
           sla_breached: boolean | null
           sla_deadline: string | null
-          soft_facilities_approver_email: string | null
-          soft_facilities_approver_name: string | null
-          soft_facilities_comments: string | null
-          soft_facilities_date: string | null
-          soft_facilities_signature: string | null
-          soft_facilities_status: string | null
           status: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at: string
@@ -437,6 +431,12 @@ export type Database = {
           contact_mobile: string
           contractor_name: string
           created_at?: string
+          ecovert_supervisor_approver_email?: string | null
+          ecovert_supervisor_approver_name?: string | null
+          ecovert_supervisor_comments?: string | null
+          ecovert_supervisor_date?: string | null
+          ecovert_supervisor_signature?: string | null
+          ecovert_supervisor_status?: string | null
           fitout_approver_email?: string | null
           fitout_approver_name?: string | null
           fitout_comments?: string | null
@@ -444,12 +444,6 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor: string
-          hard_facilities_approver_email?: string | null
-          hard_facilities_approver_name?: string | null
-          hard_facilities_comments?: string | null
-          hard_facilities_date?: string | null
-          hard_facilities_signature?: string | null
-          hard_facilities_status?: string | null
           helpdesk_approver_email?: string | null
           helpdesk_approver_name?: string | null
           helpdesk_comments?: string | null
@@ -481,25 +475,19 @@ export type Database = {
           pm_approver_name?: string | null
           pm_comments?: string | null
           pm_date?: string | null
-          pm_service_approver_email?: string | null
-          pm_service_approver_name?: string | null
-          pm_service_comments?: string | null
-          pm_service_date?: string | null
-          pm_service_signature?: string | null
-          pm_service_status?: string | null
           pm_signature?: string | null
           pm_status?: string | null
+          pmd_coordinator_approver_email?: string | null
+          pmd_coordinator_approver_name?: string | null
+          pmd_coordinator_comments?: string | null
+          pmd_coordinator_date?: string | null
+          pmd_coordinator_signature?: string | null
+          pmd_coordinator_status?: string | null
           requester_email: string
           requester_id?: string | null
           requester_name: string
           sla_breached?: boolean | null
           sla_deadline?: string | null
-          soft_facilities_approver_email?: string | null
-          soft_facilities_approver_name?: string | null
-          soft_facilities_comments?: string | null
-          soft_facilities_date?: string | null
-          soft_facilities_signature?: string | null
-          soft_facilities_status?: string | null
           status?: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at?: string
@@ -528,6 +516,12 @@ export type Database = {
           contact_mobile?: string
           contractor_name?: string
           created_at?: string
+          ecovert_supervisor_approver_email?: string | null
+          ecovert_supervisor_approver_name?: string | null
+          ecovert_supervisor_comments?: string | null
+          ecovert_supervisor_date?: string | null
+          ecovert_supervisor_signature?: string | null
+          ecovert_supervisor_status?: string | null
           fitout_approver_email?: string | null
           fitout_approver_name?: string | null
           fitout_comments?: string | null
@@ -535,12 +529,6 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor?: string
-          hard_facilities_approver_email?: string | null
-          hard_facilities_approver_name?: string | null
-          hard_facilities_comments?: string | null
-          hard_facilities_date?: string | null
-          hard_facilities_signature?: string | null
-          hard_facilities_status?: string | null
           helpdesk_approver_email?: string | null
           helpdesk_approver_name?: string | null
           helpdesk_comments?: string | null
@@ -572,25 +560,19 @@ export type Database = {
           pm_approver_name?: string | null
           pm_comments?: string | null
           pm_date?: string | null
-          pm_service_approver_email?: string | null
-          pm_service_approver_name?: string | null
-          pm_service_comments?: string | null
-          pm_service_date?: string | null
-          pm_service_signature?: string | null
-          pm_service_status?: string | null
           pm_signature?: string | null
           pm_status?: string | null
+          pmd_coordinator_approver_email?: string | null
+          pmd_coordinator_approver_name?: string | null
+          pmd_coordinator_comments?: string | null
+          pmd_coordinator_date?: string | null
+          pmd_coordinator_signature?: string | null
+          pmd_coordinator_status?: string | null
           requester_email?: string
           requester_id?: string | null
           requester_name?: string
           sla_breached?: boolean | null
           sla_deadline?: string | null
-          soft_facilities_approver_email?: string | null
-          soft_facilities_approver_name?: string | null
-          soft_facilities_comments?: string | null
-          soft_facilities_date?: string | null
-          soft_facilities_signature?: string | null
-          soft_facilities_status?: string | null
           status?: Database["public"]["Enums"]["permit_status"]
           unit?: string
           updated_at?: string
@@ -619,39 +601,39 @@ export type Database = {
           id: string
           name: string
           requires_bdcr: boolean
+          requires_ecovert_supervisor: boolean | null
           requires_fitout: boolean
-          requires_hard_facilities: boolean
           requires_it: boolean
           requires_mpr: boolean
           requires_pd: boolean
           requires_pm: boolean
-          requires_soft_facilities: boolean
+          requires_pmd_coordinator: boolean | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           requires_bdcr?: boolean
+          requires_ecovert_supervisor?: boolean | null
           requires_fitout?: boolean
-          requires_hard_facilities?: boolean
           requires_it?: boolean
           requires_mpr?: boolean
           requires_pd?: boolean
           requires_pm?: boolean
-          requires_soft_facilities?: boolean
+          requires_pmd_coordinator?: boolean | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           requires_bdcr?: boolean
+          requires_ecovert_supervisor?: boolean | null
           requires_fitout?: boolean
-          requires_hard_facilities?: boolean
           requires_it?: boolean
           requires_mpr?: boolean
           requires_pd?: boolean
           requires_pm?: boolean
-          requires_soft_facilities?: boolean
+          requires_pmd_coordinator?: boolean | null
         }
         Relationships: []
       }
@@ -683,6 +665,8 @@ export type Database = {
         | "hard_facilities"
         | "pm_service"
         | "admin"
+        | "ecovert_supervisor"
+        | "pmd_coordinator"
       permit_status:
         | "draft"
         | "submitted"
@@ -840,6 +824,8 @@ export const Constants = {
         "hard_facilities",
         "pm_service",
         "admin",
+        "ecovert_supervisor",
+        "pmd_coordinator",
       ],
       permit_status: [
         "draft",

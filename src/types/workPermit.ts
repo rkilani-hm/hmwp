@@ -8,9 +8,8 @@ export type PermitStatus =
   | 'pending_mpr' 
   | 'pending_it' 
   | 'pending_fitout' 
-  | 'pending_soft_facilities' 
-  | 'pending_hard_facilities' 
-  | 'pending_pm_service' 
+  | 'pending_ecovert_supervisor' 
+  | 'pending_pmd_coordinator' 
   | 'approved' 
   | 'rejected' 
   | 'closed'
@@ -25,9 +24,8 @@ export type UserRole =
   | 'mpr' 
   | 'it' 
   | 'fitout' 
-  | 'soft_facilities' 
-  | 'hard_facilities' 
-  | 'pm_service' 
+  | 'ecovert_supervisor' 
+  | 'pmd_coordinator' 
   | 'admin';
 
 export interface WorkType {
@@ -39,8 +37,8 @@ export interface WorkType {
   requiresMPR: boolean;
   requiresIT: boolean;
   requiresFitOut: boolean;
-  requiresSoftFacilities: boolean;
-  requiresHardFacilities: boolean;
+  requiresEcovertSupervisor: boolean;
+  requiresPMDCoordinator: boolean;
 }
 
 export interface ApprovalRecord {
@@ -80,9 +78,8 @@ export interface WorkPermit {
   mprApproval: ApprovalRecord;
   itApproval: ApprovalRecord;
   fitoutApproval: ApprovalRecord;
-  softFacilitiesApproval: ApprovalRecord;
-  hardFacilitiesApproval: ApprovalRecord;
-  pmServiceApproval: ApprovalRecord;
+  ecovertSupervisorApproval: ApprovalRecord;
+  pmdCoordinatorApproval: ApprovalRecord;
   
   // Closing info
   closingRemarks: string | null;
@@ -125,9 +122,8 @@ export const statusLabels: Record<PermitStatus, string> = {
   pending_mpr: 'Pending MPR',
   pending_it: 'Pending IT',
   pending_fitout: 'Pending Fit-Out',
-  pending_soft_facilities: 'Pending Soft Facilities',
-  pending_hard_facilities: 'Pending Hard Facilities',
-  pending_pm_service: 'Pending PM Service',
+  pending_ecovert_supervisor: 'Pending Ecovert Supervisor',
+  pending_pmd_coordinator: 'Pending PMD Coordinator',
   approved: 'Approved',
   rejected: 'Rejected',
   closed: 'Closed',
@@ -143,8 +139,7 @@ export const roleLabels: Record<UserRole, string> = {
   mpr: 'MPR',
   it: 'IT Department',
   fitout: 'Fit-Out',
-  soft_facilities: 'Soft Facilities',
-  hard_facilities: 'Hard Facilities',
-  pm_service: 'PM Service Provider',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
   admin: 'Administrator',
 };

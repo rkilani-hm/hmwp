@@ -28,7 +28,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin';
+type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
 
 const roleLabels: Record<UserRole, string> = {
   contractor: 'Contractor',
@@ -39,9 +39,8 @@ const roleLabels: Record<UserRole, string> = {
   mpr: 'MPR',
   it: 'IT Department',
   fitout: 'Fit-Out',
-  soft_facilities: 'Soft Facilities',
-  hard_facilities: 'Hard Facilities',
-  pm_service: 'PM Service Provider',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
   admin: 'Administrator',
 };
 
@@ -98,9 +97,8 @@ const getRoleIcon = (role: UserRole) => {
     mpr: Zap,
     it: Cog,
     fitout: Wrench,
-    soft_facilities: Leaf,
-    hard_facilities: Cog,
-    pm_service: UserCheck,
+    ecovert_supervisor: Leaf,
+    pmd_coordinator: UserCheck,
     admin: Settings,
   };
   return icons[role];

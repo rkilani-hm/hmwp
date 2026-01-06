@@ -10,7 +10,7 @@ const corsHeaders = {
 // Valid roles for approval workflow
 const validApprovalRoles = [
   'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
-  'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'
+  'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'
 ] as const;
 
 // Input validation schema
@@ -24,7 +24,7 @@ const ApprovalSchema = z.object({
     .max(1000, "Comments must be less than 1000 characters")
     .transform(val => val.trim()),
   signature: z.string()
-    .max(100000, "Signature data too large") // Base64 signatures can be large
+    .max(100000, "Signature data too large")
     .nullable(),
   approved: z.boolean({
     required_error: "Approved status is required",
@@ -44,8 +44,8 @@ interface WorkType {
   requires_mpr: boolean;
   requires_it: boolean;
   requires_fitout: boolean;
-  requires_soft_facilities: boolean;
-  requires_hard_facilities: boolean;
+  requires_ecovert_supervisor: boolean;
+  requires_pmd_coordinator: boolean;
 }
 
 // Define the approval workflow order
@@ -56,10 +56,9 @@ const APPROVAL_ORDER = [
   { role: 'bdcr', status: 'pending_bdcr', nextStatus: 'pending_mpr', requiresField: 'requires_bdcr' },
   { role: 'mpr', status: 'pending_mpr', nextStatus: 'pending_it', requiresField: 'requires_mpr' },
   { role: 'it', status: 'pending_it', nextStatus: 'pending_fitout', requiresField: 'requires_it' },
-  { role: 'fitout', status: 'pending_fitout', nextStatus: 'pending_soft_facilities', requiresField: 'requires_fitout' },
-  { role: 'soft_facilities', status: 'pending_soft_facilities', nextStatus: 'pending_hard_facilities', requiresField: 'requires_soft_facilities' },
-  { role: 'hard_facilities', status: 'pending_hard_facilities', nextStatus: 'pending_pm_service', requiresField: 'requires_hard_facilities' },
-  { role: 'pm_service', status: 'pending_pm_service', nextStatus: 'approved', requiresField: null },
+  { role: 'fitout', status: 'pending_fitout', nextStatus: 'pending_ecovert_supervisor', requiresField: 'requires_fitout' },
+  { role: 'ecovert_supervisor', status: 'pending_ecovert_supervisor', nextStatus: 'pending_pmd_coordinator', requiresField: 'requires_ecovert_supervisor' },
+  { role: 'pmd_coordinator', status: 'pending_pmd_coordinator', nextStatus: 'approved', requiresField: 'requires_pmd_coordinator' },
 ];
 
 // Get the next required approval step based on work type
@@ -240,8 +239,8 @@ const handler = async (req: Request): Promise<Response> => {
           requires_mpr,
           requires_it,
           requires_fitout,
-          requires_soft_facilities,
-          requires_hard_facilities
+          requires_ecovert_supervisor,
+          requires_pmd_coordinator
         )
       `)
       .eq("id", permitId)
