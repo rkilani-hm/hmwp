@@ -48,9 +48,8 @@ const statusToRole: Record<string, string> = {
   'pending_mpr': 'mpr',
   'pending_it': 'it',
   'pending_fitout': 'fitout',
-  'pending_soft_facilities': 'soft_facilities',
-  'pending_hard_facilities': 'hard_facilities',
-  'pending_pm_service': 'pm_service',
+  'pending_ecovert_supervisor': 'ecovert_supervisor',
+  'pending_pmd_coordinator': 'pmd_coordinator',
 };
 
 export default function ApproverInbox() {
@@ -95,7 +94,7 @@ export default function ApproverInbox() {
       return roleFromStatus;
     }
     // Fallback: return the first matching approver role the user has
-    const approverRoles = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service'];
+    const approverRoles = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'];
     return roles.find(r => approverRoles.includes(r)) || 'helpdesk';
   };
 

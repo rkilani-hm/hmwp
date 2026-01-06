@@ -220,9 +220,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
       { name: 'MPR', status: permit.mpr_status, approver: permit.mpr_approver_name, date: permit.mpr_date },
       { name: 'IT', status: permit.it_status, approver: permit.it_approver_name, date: permit.it_date },
       { name: 'Fit-Out', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date },
-      { name: 'Soft Facilities', status: permit.soft_facilities_status, approver: permit.soft_facilities_approver_name, date: permit.soft_facilities_date },
-      { name: 'Hard Facilities', status: permit.hard_facilities_status, approver: permit.hard_facilities_approver_name, date: permit.hard_facilities_date },
-      { name: 'PM Service', status: permit.pm_service_status, approver: permit.pm_service_approver_name, date: permit.pm_service_date },
+      { name: 'Ecovert Supervisor', status: permit.ecovert_supervisor_status, approver: permit.ecovert_supervisor_approver_name, date: permit.ecovert_supervisor_date },
+      { name: 'PMD Coordinator', status: permit.pmd_coordinator_status, approver: permit.pmd_coordinator_approver_name, date: permit.pmd_coordinator_date },
     ];
     
     for (const approval of approvals) {

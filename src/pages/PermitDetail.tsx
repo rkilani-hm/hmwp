@@ -128,9 +128,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     if (roles.includes('mpr') && permit.status === 'pending_mpr') return true;
     if (roles.includes('it') && permit.status === 'pending_it') return true;
     if (roles.includes('fitout') && permit.status === 'pending_fitout') return true;
-    if (roles.includes('soft_facilities') && permit.status === 'pending_soft_facilities') return true;
-    if (roles.includes('hard_facilities') && permit.status === 'pending_hard_facilities') return true;
-    if (roles.includes('pm_service') && permit.status === 'pending_pm_service') return true;
+    if (roles.includes('ecovert_supervisor') && permit.status === 'pending_ecovert_supervisor') return true;
+    if (roles.includes('pmd_coordinator') && permit.status === 'pending_pmd_coordinator') return true;
     return false;
   };
 
@@ -142,9 +141,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     if (permit.status === 'pending_mpr') return 'mpr';
     if (permit.status === 'pending_it') return 'it';
     if (permit.status === 'pending_fitout') return 'fitout';
-    if (permit.status === 'pending_soft_facilities') return 'soft_facilities';
-    if (permit.status === 'pending_hard_facilities') return 'hard_facilities';
-    if (permit.status === 'pending_pm_service') return 'pm_service';
+    if (permit.status === 'pending_ecovert_supervisor') return 'ecovert_supervisor';
+    if (permit.status === 'pending_pmd_coordinator') return 'pmd_coordinator';
     return 'helpdesk';
   };
 
@@ -212,14 +210,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     fitoutApproval: {
       status: (permit.fitout_status as 'pending' | 'approved' | 'rejected') || 'pending',
     },
-    softFacilitiesApproval: {
-      status: (permit.soft_facilities_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    ecovertSupervisorApproval: {
+      status: (permit.ecovert_supervisor_status as 'pending' | 'approved' | 'rejected') || 'pending',
     },
-    hardFacilitiesApproval: {
-      status: (permit.hard_facilities_status as 'pending' | 'approved' | 'rejected') || 'pending',
-    },
-    pmServiceApproval: {
-      status: (permit.pm_service_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    pmdCoordinatorApproval: {
+      status: (permit.pmd_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
     },
   };
 
@@ -405,11 +400,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                       {workType.requires_fitout && (
                         <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
                       )}
-                      {workType.requires_soft_facilities && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Soft Facilities</span>
+                      {workType.requires_ecovert_supervisor && (
+                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Ecovert Supervisor</span>
                       )}
-                      {workType.requires_hard_facilities && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Hard Facilities</span>
+                      {workType.requires_pmd_coordinator && (
+                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PMD Coordinator</span>
                       )}
                     </div>
                   </CardContent>
@@ -604,8 +599,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   requires_mpr: workType.requires_mpr,
                   requires_it: workType.requires_it,
                   requires_fitout: workType.requires_fitout,
-                  requires_soft_facilities: workType.requires_soft_facilities,
-                  requires_hard_facilities: workType.requires_hard_facilities,
+                  requires_ecovert_supervisor: workType.requires_ecovert_supervisor,
+                  requires_pmd_coordinator: workType.requires_pmd_coordinator,
                 } : null}
               />
             </CardContent>

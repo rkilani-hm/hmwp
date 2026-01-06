@@ -24,7 +24,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select("id, permit_no, requester_id, sla_deadline, urgency, status")
       .lt("sla_deadline", new Date().toISOString())
       .eq("sla_breached", false)
-      .in("status", ["submitted", "pending_pm", "pending_pd", "pending_bdcr", "pending_mpr", "pending_it", "pending_fitout", "pending_soft_facilities", "pending_hard_facilities", "pending_pm_service", "under_review"]);
+      .in("status", ["submitted", "pending_pm", "pending_pd", "pending_bdcr", "pending_mpr", "pending_it", "pending_fitout", "pending_ecovert_supervisor", "pending_pmd_coordinator", "under_review"]);
 
     if (fetchError) {
       console.error("Error fetching permits:", fetchError);

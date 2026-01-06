@@ -18,8 +18,8 @@ const approverFields = [
   { key: 'requires_mpr', label: 'MPR' },
   { key: 'requires_it', label: 'IT Department' },
   { key: 'requires_fitout', label: 'Fit-Out' },
-  { key: 'requires_soft_facilities', label: 'Soft Facilities' },
-  { key: 'requires_hard_facilities', label: 'Hard Facilities' },
+  { key: 'requires_ecovert_supervisor', label: 'Ecovert Supervisor' },
+  { key: 'requires_pmd_coordinator', label: 'PMD Coordinator' },
 ];
 
 const emptyWorkType = {
@@ -30,8 +30,8 @@ const emptyWorkType = {
   requires_mpr: false,
   requires_it: false,
   requires_fitout: false,
-  requires_soft_facilities: false,
-  requires_hard_facilities: false,
+  requires_ecovert_supervisor: false,
+  requires_pmd_coordinator: false,
 };
 
 export default function WorkTypesManagement() {
@@ -81,8 +81,8 @@ export default function WorkTypesManagement() {
       requires_mpr: workType.requires_mpr,
       requires_it: workType.requires_it,
       requires_fitout: workType.requires_fitout,
-      requires_soft_facilities: workType.requires_soft_facilities,
-      requires_hard_facilities: workType.requires_hard_facilities,
+      requires_ecovert_supervisor: workType.requires_ecovert_supervisor,
+      requires_pmd_coordinator: workType.requires_pmd_coordinator,
     });
   };
 

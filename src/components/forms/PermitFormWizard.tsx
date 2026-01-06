@@ -543,13 +543,12 @@ export function PermitFormWizard() {
                         {selectedWorkType.requires_fitout && (
                           <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
                         )}
-                        {selectedWorkType.requires_soft_facilities && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Soft Facilities</span>
+                        {selectedWorkType.requires_ecovert_supervisor && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Ecovert Supervisor</span>
                         )}
-                        {selectedWorkType.requires_hard_facilities && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Hard Facilities</span>
+                        {selectedWorkType.requires_pmd_coordinator && (
+                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PMD Coordinator</span>
                         )}
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM Service</span>
                       </div>
                     </div>
                   )}

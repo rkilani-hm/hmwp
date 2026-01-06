@@ -17,8 +17,8 @@ export interface WorkTypeRequirements {
   requires_mpr: boolean;
   requires_it: boolean;
   requires_fitout: boolean;
-  requires_soft_facilities: boolean;
-  requires_hard_facilities: boolean;
+  requires_ecovert_supervisor: boolean;
+  requires_pmd_coordinator: boolean;
 }
 
 export interface WorkflowPermit {
@@ -31,9 +31,8 @@ export interface WorkflowPermit {
   mprApproval: ApprovalRecord;
   itApproval: ApprovalRecord;
   fitoutApproval: ApprovalRecord;
-  softFacilitiesApproval: ApprovalRecord;
-  hardFacilitiesApproval: ApprovalRecord;
-  pmServiceApproval: ApprovalRecord;
+  ecovertSupervisorApproval: ApprovalRecord;
+  pmdCoordinatorApproval: ApprovalRecord;
 }
 
 interface WorkflowTimelineProps {
@@ -61,8 +60,8 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
 
   // Determine if a step is required based on work type requirements
   const isStepRequired = (key: string): boolean => {
-    // Submitted, Helpdesk, and PM Service are always required
-    if (key === 'submitted' || key === 'helpdesk' || key === 'pm_service') return true;
+    // Submitted and Helpdesk are always required
+    if (key === 'submitted' || key === 'helpdesk') return true;
     
     if (!workTypeRequirements) {
       // If no work type requirements, check if the approval status is not null (legacy behavior)
@@ -73,8 +72,8 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
         mpr: permit.mprApproval,
         it: permit.itApproval,
         fitout: permit.fitoutApproval,
-        soft_facilities: permit.softFacilitiesApproval,
-        hard_facilities: permit.hardFacilitiesApproval,
+        ecovert_supervisor: permit.ecovertSupervisorApproval,
+        pmd_coordinator: permit.pmdCoordinatorApproval,
       };
       const approval = approvalMap[key];
       return approval?.status !== null && approval?.status !== undefined;
@@ -88,8 +87,8 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
       mpr: workTypeRequirements.requires_mpr,
       it: workTypeRequirements.requires_it,
       fitout: workTypeRequirements.requires_fitout,
-      soft_facilities: workTypeRequirements.requires_soft_facilities,
-      hard_facilities: workTypeRequirements.requires_hard_facilities,
+      ecovert_supervisor: workTypeRequirements.requires_ecovert_supervisor,
+      pmd_coordinator: workTypeRequirements.requires_pmd_coordinator,
     };
     
     return requirementMap[key] ?? false;
@@ -159,28 +158,20 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
       date: permit.fitoutApproval.date,
     },
     {
-      key: 'soft_facilities',
-      label: 'Soft Facilities',
-      required: isStepRequired('soft_facilities'),
-      status: isStepRequired('soft_facilities') ? getStepStatus(permit.softFacilitiesApproval) : 'skipped',
-      approver: permit.softFacilitiesApproval.approverName,
-      date: permit.softFacilitiesApproval.date,
+      key: 'ecovert_supervisor',
+      label: 'Ecovert Supervisor',
+      required: isStepRequired('ecovert_supervisor'),
+      status: isStepRequired('ecovert_supervisor') ? getStepStatus(permit.ecovertSupervisorApproval) : 'skipped',
+      approver: permit.ecovertSupervisorApproval.approverName,
+      date: permit.ecovertSupervisorApproval.date,
     },
     {
-      key: 'hard_facilities',
-      label: 'Hard Facilities',
-      required: isStepRequired('hard_facilities'),
-      status: isStepRequired('hard_facilities') ? getStepStatus(permit.hardFacilitiesApproval) : 'skipped',
-      approver: permit.hardFacilitiesApproval.approverName,
-      date: permit.hardFacilitiesApproval.date,
-    },
-    {
-      key: 'pm_service',
-      label: 'PM Service Provider',
-      required: true,
-      status: getStepStatus(permit.pmServiceApproval),
-      approver: permit.pmServiceApproval.approverName,
-      date: permit.pmServiceApproval.date,
+      key: 'pmd_coordinator',
+      label: 'PMD Coordinator',
+      required: isStepRequired('pmd_coordinator'),
+      status: isStepRequired('pmd_coordinator') ? getStepStatus(permit.pmdCoordinatorApproval) : 'skipped',
+      approver: permit.pmdCoordinatorApproval.approverName,
+      date: permit.pmdCoordinatorApproval.date,
     },
   ];
 

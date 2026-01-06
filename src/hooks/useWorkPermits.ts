@@ -53,9 +53,8 @@ export interface WorkPermit {
   mpr_status: string | null;
   it_status: string | null;
   fitout_status: string | null;
-  soft_facilities_status: string | null;
-  hard_facilities_status: string | null;
-  pm_service_status: string | null;
+  ecovert_supervisor_status: string | null;
+  pmd_coordinator_status: string | null;
   
   pdf_url: string | null;
   created_at: string;
@@ -71,8 +70,8 @@ export interface WorkPermit {
     requires_mpr: boolean;
     requires_it: boolean;
     requires_fitout: boolean;
-    requires_soft_facilities: boolean;
-    requires_hard_facilities: boolean;
+    requires_ecovert_supervisor: boolean;
+    requires_pmd_coordinator: boolean;
   } | null;
 }
 
@@ -85,8 +84,8 @@ export interface WorkType {
   requires_mpr: boolean;
   requires_it: boolean;
   requires_fitout: boolean;
-  requires_soft_facilities: boolean;
-  requires_hard_facilities: boolean;
+  requires_ecovert_supervisor: boolean;
+  requires_pmd_coordinator: boolean;
 }
 
 export function useWorkPermits() {
@@ -131,8 +130,8 @@ export function useWorkPermits() {
             requires_mpr,
             requires_it,
             requires_fitout,
-            requires_soft_facilities,
-            requires_hard_facilities
+            requires_ecovert_supervisor,
+            requires_pmd_coordinator
           )
         `)
         .order('created_at', { ascending: false });
@@ -165,8 +164,8 @@ export function useWorkPermit(id: string | undefined) {
             requires_mpr,
             requires_it,
             requires_fitout,
-            requires_soft_facilities,
-            requires_hard_facilities
+            requires_ecovert_supervisor,
+            requires_pmd_coordinator
           )
         `)
         .eq('id', id)
@@ -466,7 +465,7 @@ export function usePendingPermitsForApprover() {
     queryKey: ['pending-permits-approver', roles],
     queryFn: async () => {
       // Map roles to their pending statuses
-      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
+      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
       
       const statusMap: Record<string, PermitStatus> = {
         helpdesk: 'submitted',
@@ -476,9 +475,8 @@ export function usePendingPermitsForApprover() {
         mpr: 'pending_mpr',
         it: 'pending_it',
         fitout: 'pending_fitout',
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
+        ecovert_supervisor: 'pending_ecovert_supervisor',
+        pmd_coordinator: 'pending_pmd_coordinator',
       };
 
       const relevantStatuses = roles
@@ -490,7 +488,7 @@ export function usePendingPermitsForApprover() {
       const { data, error } = await supabase
         .from('work_permits')
         .select('*, work_types(*)')
-        .in('status', relevantStatuses)
+        .in('status', relevantStatuses as any)
         .order('sla_deadline', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
@@ -507,7 +505,7 @@ export function usePendingPermitsCount() {
   return useQuery({
     queryKey: ['pending-permits-count', roles],
     queryFn: async () => {
-      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
+      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
       
       const statusMap: Record<string, PermitStatus> = {
         helpdesk: 'submitted',
@@ -517,9 +515,8 @@ export function usePendingPermitsCount() {
         mpr: 'pending_mpr',
         it: 'pending_it',
         fitout: 'pending_fitout',
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
+        ecovert_supervisor: 'pending_ecovert_supervisor',
+        pmd_coordinator: 'pending_pmd_coordinator',
       };
 
       const relevantStatuses = roles
@@ -531,7 +528,7 @@ export function usePendingPermitsCount() {
       const { count, error } = await supabase
         .from('work_permits')
         .select('*', { count: 'exact', head: true })
-        .in('status', relevantStatuses);
+        .in('status', relevantStatuses as any);
 
       if (error) return 0;
       return count || 0;
@@ -610,8 +607,8 @@ export function useForwardPermit() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
 
-  type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_soft_facilities' | 'pending_hard_facilities' | 'pending_pm_service' | 'approved' | 'rejected' | 'closed';
-  type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'hard_facilities' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pm_service' | 'soft_facilities';
+  type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
+  type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'ecovert_supervisor' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pmd_coordinator';
 
   return useMutation({
     mutationFn: async ({
@@ -631,9 +628,8 @@ export function useForwardPermit() {
         mpr: 'pending_mpr',
         it: 'pending_it',
         fitout: 'pending_fitout',
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
+        ecovert_supervisor: 'pending_ecovert_supervisor',
+        pmd_coordinator: 'pending_pmd_coordinator',
       };
 
       const newStatus = statusMap[targetRole];
@@ -641,7 +637,7 @@ export function useForwardPermit() {
 
       const { data, error } = await supabase
         .from('work_permits')
-        .update({ status: newStatus })
+        .update({ status: newStatus as any })
         .eq('id', permitId)
         .select()
         .single();
@@ -661,7 +657,7 @@ export function useForwardPermit() {
       const { data: targetUsers } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', targetRole);
+        .eq('role', targetRole as any);
 
       if (targetUsers) {
         for (const tu of targetUsers) {
@@ -677,7 +673,7 @@ export function useForwardPermit() {
 
       // Send email notification to target approvers
       try {
-        const targetEmails = await getEmailsForRole(targetRole);
+        const targetEmails = await getEmailsForRole(targetRole as any);
         if (targetEmails.length > 0) {
           await sendEmailNotification(
             targetEmails,

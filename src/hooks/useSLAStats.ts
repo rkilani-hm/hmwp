@@ -89,7 +89,7 @@ export function useSLAStats() {
     let totalResolutionHours = 0;
     let completedCount = 0;
 
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_soft_facilities', 'pending_hard_facilities', 'pending_pm_service'];
+    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
     const completedStatuses = ['approved', 'closed'];
 
     permits.forEach((permit) => {
@@ -153,7 +153,7 @@ export function useSLAStats() {
     if (!permits) return [];
 
     const now = new Date();
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_soft_facilities', 'pending_hard_facilities', 'pending_pm_service'];
+    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
     return permits
       .filter((permit) => {
@@ -179,7 +179,7 @@ export function useSLAStats() {
     if (!permits) return [];
 
     const now = new Date();
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_soft_facilities', 'pending_hard_facilities', 'pending_pm_service'];
+    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
     return permits
       .filter((permit) => {

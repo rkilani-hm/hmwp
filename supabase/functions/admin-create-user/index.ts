@@ -10,7 +10,7 @@ const corsHeaders = {
 // Valid roles enum matching the database app_role type
 const validRoles = [
   'contractor', 'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
-  'it', 'fitout', 'soft_facilities', 'hard_facilities', 'pm_service', 'admin'
+  'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator', 'admin'
 ] as const;
 
 // Input validation schema

@@ -18,7 +18,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin';
+type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
 
 const roleLabels: Record<UserRole, string> = {
   contractor: 'Contractor',
@@ -29,9 +29,8 @@ const roleLabels: Record<UserRole, string> = {
   mpr: 'MPR',
   it: 'IT Department',
   fitout: 'Fit-Out',
-  soft_facilities: 'Soft Facilities',
-  hard_facilities: 'Hard Facilities',
-  pm_service: 'PM Service Provider',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
   admin: 'Administrator',
 };
 

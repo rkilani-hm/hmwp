@@ -38,9 +38,8 @@ const roleLabels: Record<string, string> = {
   mpr: 'MPR',
   it: 'IT Department',
   fitout: 'Fit-Out',
-  soft_facilities: 'Soft Facilities',
-  hard_facilities: 'Hard Facilities',
-  pm_service: 'PM Service Provider',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
   admin: 'Administrator',
 };
 
