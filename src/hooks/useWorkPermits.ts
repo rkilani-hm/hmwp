@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { sendEmailNotification, getEmailsForRole } from '@/utils/emailNotifications';
 
 export interface WorkPermit {
   id: string;
@@ -310,6 +311,28 @@ export function useCreatePermit() {
             message: `${permitNo} requires your review. ${urgency === 'urgent' ? '4-hour SLA' : '48-hour SLA'}`,
           });
         }
+      }
+
+      // Send email notification to helpdesk
+      try {
+        const helpdeskEmails = await getEmailsForRole('helpdesk');
+        if (helpdeskEmails.length > 0) {
+          await sendEmailNotification(
+            helpdeskEmails,
+            'new_permit',
+            `New ${urgency === 'urgent' ? 'URGENT ' : ''}Work Permit: ${permitNo}`,
+            {
+              permitId: data.id,
+              permitNo,
+              workType: permitData.work_description,
+              requesterName: profile?.full_name || user?.email,
+              urgency,
+            }
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't fail the permit creation if email fails
       }
 
       return data;
@@ -652,6 +675,25 @@ export function useForwardPermit() {
         }
       }
 
+      // Send email notification to target approvers
+      try {
+        const targetEmails = await getEmailsForRole(targetRole);
+        if (targetEmails.length > 0) {
+          await sendEmailNotification(
+            targetEmails,
+            'forwarded',
+            `Work Permit Forwarded: ${data.permit_no}`,
+            {
+              permitId,
+              permitNo: data.permit_no,
+              comments: reason,
+            }
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send forwarded email notification:', emailError);
+      }
+
       return data;
     },
     onSuccess: (_, variables) => {
@@ -706,6 +748,24 @@ export function useRequestRework() {
           title: 'Rework Requested',
           message: `Your permit ${data.permit_no} requires changes. Reason: ${reason}`,
         });
+      }
+
+      // Send email notification to requester
+      try {
+        if (data.requester_email) {
+          await sendEmailNotification(
+            [data.requester_email],
+            'rework',
+            `Work Permit Rework Required: ${data.permit_no}`,
+            {
+              permitId,
+              permitNo: data.permit_no,
+              comments: reason,
+            }
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send rework email notification:', emailError);
       }
 
       return data;

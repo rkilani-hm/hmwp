@@ -312,6 +312,35 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Send email notification to requester
+    if (updatedPermit.requester_email) {
+      try {
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: [updatedPermit.requester_email],
+            notificationType: approved ? 'approved' : 'rejected',
+            subject: `Work Permit ${approved ? 'Approved' : 'Rejected'}: ${updatedPermit.permit_no}`,
+            permitNo: updatedPermit.permit_no,
+            permitId: permitId,
+            details: {
+              permitId: permitId,
+              workType: currentPermit?.work_types?.name,
+              approverName: userName,
+              reason: comments,
+            },
+          }),
+        });
+        console.log("Email notification sent to requester:", emailResponse.ok);
+      } catch (emailError) {
+        console.error("Failed to send email notification to requester:", emailError);
+      }
+    }
+
     // If approved and not final approval, notify the next approvers
     if (approved && updatedPermit.status !== 'approved') {
       const workType = currentPermit?.work_types as WorkType | null;
@@ -326,6 +355,8 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (nextApprovers && nextApprovers.length > 0) {
           const roleLabel = nextRole.toUpperCase().replace('_', ' ');
+          const approverIds: string[] = [];
+          
           for (const approver of nextApprovers) {
             await serviceClient.from("notifications").insert({
               user_id: approver.user_id,
@@ -334,7 +365,47 @@ const handler = async (req: Request): Promise<Response> => {
               title: `Permit Pending Your Approval`,
               message: `Permit ${updatedPermit.permit_no} requires your review as ${roleLabel}.`,
             });
+            approverIds.push(approver.user_id);
           }
+          
+          // Get emails for next approvers and send email notifications
+          if (approverIds.length > 0) {
+            const { data: approverProfiles } = await serviceClient
+              .from("profiles")
+              .select("email")
+              .in("id", approverIds);
+            
+            const approverEmails = approverProfiles?.map(p => p.email).filter(Boolean) || [];
+            
+            if (approverEmails.length > 0) {
+              try {
+                const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    to: approverEmails,
+                    notificationType: 'approval_required',
+                    subject: `Work Permit Awaiting Approval: ${updatedPermit.permit_no}`,
+                    permitNo: updatedPermit.permit_no,
+                    permitId: permitId,
+                    details: {
+                      permitId: permitId,
+                      workType: currentPermit?.work_types?.name,
+                      requesterName: updatedPermit.requester_name,
+                      urgency: updatedPermit.urgency,
+                    },
+                  }),
+                });
+                console.log("Email notification sent to next approvers:", emailResponse.ok);
+              } catch (emailError) {
+                console.error("Failed to send email notification to next approvers:", emailError);
+              }
+            }
+          }
+          
           console.log(`Notified ${nextApprovers.length} ${nextRole} approvers`);
         }
       }
