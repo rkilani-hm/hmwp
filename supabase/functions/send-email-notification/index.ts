@@ -75,7 +75,7 @@ async function getMicrosoftToken(): Promise<string> {
 // Send email via Microsoft Graph API
 async function sendEmail(accessToken: string, to: string[], subject: string, body: string, senderEmail?: string): Promise<void> {
   // Use a configured sender or the first admin email
-  const fromEmail = senderEmail || Deno.env.get("MS_SENDER_EMAIL") || "noreply@alhamra.com";
+  const fromEmail = senderEmail || Deno.env.get("MS_SENDER_EMAIL") || "rkilani@alhamra.com.kw";
   
   const emailPayload = {
     message: {
