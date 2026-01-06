@@ -7,6 +7,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_RESETS_PER_WINDOW = 5;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkPasswordResetRateLimit(adminId: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(adminId);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(adminId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_RESETS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
 // Input validation schema
 const ResetPasswordSchema = z.object({
   userId: z.string()
@@ -69,6 +92,23 @@ const handler = async (req: Request): Promise<Response> => {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
+    }
+
+    // Check rate limit for password reset operations
+    const rateLimitResult = checkPasswordResetRateLimit(user.id);
+    if (!rateLimitResult.allowed) {
+      console.warn("Rate limit exceeded for admin password reset:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Too many password reset attempts. Please wait before trying again." }),
+        { 
+          status: 429, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimitResult.retryAfter),
+            ...corsHeaders 
+          } 
+        }
+      );
     }
 
     // Parse and validate request body

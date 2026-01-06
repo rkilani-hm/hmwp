@@ -7,6 +7,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration for admin operations
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_OPERATIONS_PER_WINDOW = 10;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkAdminRateLimit(adminId: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(adminId);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(adminId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_OPERATIONS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
 // Valid roles enum matching the database app_role type
 const validRoles = [
   'contractor', 'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
@@ -83,6 +106,23 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Forbidden - Admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check rate limit for admin
+    const rateLimitResult = checkAdminRateLimit(user.id);
+    if (!rateLimitResult.allowed) {
+      console.warn("Rate limit exceeded for admin:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please wait before creating more users." }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimitResult.retryAfter)
+          } 
+        }
       );
     }
 
