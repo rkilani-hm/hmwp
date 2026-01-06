@@ -192,17 +192,17 @@ export default function ApproversManagement() {
               </TableHeader>
               <TableBody>
                 {filteredUsers?.map((user) => (
-                  <TableRow key={user.id} className={(user as any).is_active === false ? 'opacity-50' : ''}>
+                  <TableRow key={user.id} className={!user.is_active ? 'opacity-50' : ''}>
                     <TableCell>
                       <Switch
-                        checked={(user as any).is_active !== false}
+                        checked={user.is_active}
                         onCheckedChange={(checked) => handleToggleUserStatus(user, checked)}
                         disabled={updateStatus.isPending}
                       />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {(user as any).is_active === false && (
+                        {!user.is_active && (
                           <UserX className="h-4 w-4 text-destructive" />
                         )}
                         <p className="font-medium">{user.full_name || '-'}</p>

@@ -9,6 +9,7 @@ export interface UserWithRoles {
   full_name: string | null;
   company_name: string | null;
   phone: string | null;
+  is_active: boolean;
   roles: string[];
 }
 
@@ -55,6 +56,7 @@ export function useUsersWithRoles() {
         full_name: profile.full_name,
         company_name: profile.company_name,
         phone: profile.phone,
+        is_active: profile.is_active !== false,
         roles: userRoles
           .filter((ur) => ur.user_id === profile.id)
           .map((ur) => ur.role),
