@@ -71,31 +71,62 @@ serve(async (req) => {
       );
     }
 
-    // Update profiles with real email and names from auth.users
+    // Sync profiles - create missing ones and update existing ones
+    let createdCount = 0;
     let updatedCount = 0;
+    
     for (const authUser of authUsers.users) {
       const fullName = authUser.user_metadata?.full_name || 
                        `${authUser.user_metadata?.first_name || ''} ${authUser.user_metadata?.last_name || ''}`.trim() ||
                        null;
       
-      const { error: updateError } = await supabaseAdmin
+      // First try to update existing profile
+      const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
-        .update({
-          email: authUser.email,
-          full_name: fullName || undefined,
-        })
-        .eq("id", authUser.id);
+        .select("id")
+        .eq("id", authUser.id)
+        .single();
+      
+      if (existingProfile) {
+        // Update existing profile
+        const { error: updateError } = await supabaseAdmin
+          .from("profiles")
+          .update({
+            email: authUser.email,
+            full_name: fullName || undefined,
+          })
+          .eq("id", authUser.id);
 
-      if (!updateError) {
-        updatedCount++;
+        if (!updateError) {
+          updatedCount++;
+        }
+      } else {
+        // Create missing profile
+        const { error: insertError } = await supabaseAdmin
+          .from("profiles")
+          .insert({
+            id: authUser.id,
+            email: authUser.email || 'unknown@email.com',
+            full_name: fullName,
+            is_active: true,
+          });
+
+        if (!insertError) {
+          createdCount++;
+          console.log(`Created profile for user: ${authUser.email}`);
+        } else {
+          console.error(`Error creating profile for ${authUser.email}:`, insertError);
+        }
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Synced ${updatedCount} user profiles`,
-        totalUsers: authUsers.users.length 
+        message: `Synced profiles: ${createdCount} created, ${updatedCount} updated`,
+        totalUsers: authUsers.users.length,
+        created: createdCount,
+        updated: updatedCount
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
