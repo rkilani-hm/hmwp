@@ -1,0 +1,109 @@
+import { supabase } from '@/integrations/supabase/client';
+
+export type NotificationType = 
+  | 'new_permit' 
+  | 'approval_required' 
+  | 'approved' 
+  | 'rejected' 
+  | 'rework' 
+  | 'forwarded' 
+  | 'closed' 
+  | 'sla_warning' 
+  | 'sla_breach';
+
+interface EmailDetails {
+  permitId?: string;
+  permitNo?: string;
+  workType?: string;
+  requesterName?: string;
+  urgency?: string;
+  approverName?: string;
+  reason?: string;
+  comments?: string;
+}
+
+export async function sendEmailNotification(
+  to: string[],
+  notificationType: NotificationType,
+  subject: string,
+  details: EmailDetails
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-email-notification', {
+      body: {
+        to,
+        notificationType,
+        subject,
+        permitNo: details.permitNo,
+        permitId: details.permitId,
+        details: {
+          permitId: details.permitId,
+          workType: details.workType,
+          requesterName: details.requesterName,
+          urgency: details.urgency,
+          approverName: details.approverName,
+          reason: details.reason,
+          comments: details.comments,
+        },
+      },
+    });
+
+    if (error) {
+      console.error('Email notification error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Email notification exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Get emails for users with specific roles
+export async function getEmailsForRole(role: 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'soft_facilities' | 'hard_facilities' | 'pm_service' | 'admin'): Promise<string[]> {
+  const { data: userRoles } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', role);
+
+  if (!userRoles || userRoles.length === 0) return [];
+
+  const userIds = userRoles.map(ur => ur.user_id);
+  
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('email')
+    .in('id', userIds);
+
+  return profiles?.map(p => p.email).filter(Boolean) || [];
+}
+
+// Get next approver role based on current status
+export function getNextApproverRole(currentStatus: string, workType: any): string | null {
+  const approvalOrder = [
+    { status: 'submitted', role: 'helpdesk', field: null },
+    { status: 'pending_pm', role: 'pm', field: 'requires_pm' },
+    { status: 'pending_pd', role: 'pd', field: 'requires_pd' },
+    { status: 'pending_bdcr', role: 'bdcr', field: 'requires_bdcr' },
+    { status: 'pending_mpr', role: 'mpr', field: 'requires_mpr' },
+    { status: 'pending_it', role: 'it', field: 'requires_it' },
+    { status: 'pending_fitout', role: 'fitout', field: 'requires_fitout' },
+    { status: 'pending_soft_facilities', role: 'soft_facilities', field: 'requires_soft_facilities' },
+    { status: 'pending_hard_facilities', role: 'hard_facilities', field: 'requires_hard_facilities' },
+    { status: 'pending_pm_service', role: 'pm_service', field: null },
+  ];
+
+  const currentIndex = approvalOrder.findIndex(a => a.status === currentStatus);
+  if (currentIndex === -1) return null;
+
+  // Find next required approval
+  for (let i = currentIndex + 1; i < approvalOrder.length; i++) {
+    const nextApproval = approvalOrder[i];
+    if (!nextApproval.field || (workType && workType[nextApproval.field])) {
+      return nextApproval.role;
+    }
+  }
+
+  return null;
+}

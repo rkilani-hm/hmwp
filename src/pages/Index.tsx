@@ -14,6 +14,8 @@ import PermissionsManagement from './admin/PermissionsManagement';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
 import UserActivityLogs from './admin/UserActivityLogs';
+import MyPerformance from './MyPerformance';
+import ApproverPerformance from './admin/ApproverPerformance';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -70,6 +72,14 @@ const Index = () => {
         <Route 
           path="activity-logs" 
           element={isAdmin ? <UserActivityLogs /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="my-performance" 
+          element={isApprover ? <MyPerformance /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="approver-performance" 
+          element={isAdmin ? <ApproverPerformance /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>

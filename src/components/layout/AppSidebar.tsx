@@ -70,6 +70,7 @@ const navigationItems = {
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: Timer, label: 'SLA Dashboard', path: '/sla-dashboard' },
+    { icon: BarChart3, label: 'Approver Performance', path: '/approver-performance' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Activity, label: 'Activity Logs', path: '/activity-logs' },
     { icon: Users, label: 'User Management', path: '/approvers' },
@@ -83,6 +84,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
+    { icon: BarChart3, label: 'My Performance', path: '/my-performance' },
   ],
 };
 
