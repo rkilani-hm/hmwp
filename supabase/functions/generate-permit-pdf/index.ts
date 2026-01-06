@@ -202,10 +202,58 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const formatDateTime = (date: string) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
 
+    // Try to fetch company logo from storage
+    let companyLogo: any = null;
+    try {
+      const { data: logoData, error: logoError } = await supabaseAdmin.storage
+        .from("company-assets")
+        .download("company-logo.jpg");
+      
+      if (!logoError && logoData) {
+        const arrayBuffer = await logoData.arrayBuffer();
+        const logoBytes = new Uint8Array(arrayBuffer);
+        companyLogo = await pdfDoc.embedJpg(logoBytes);
+        console.log("Company logo embedded successfully");
+      } else {
+        // Try PNG format
+        const { data: logoPngData, error: logoPngError } = await supabaseAdmin.storage
+          .from("company-assets")
+          .download("company-logo.png");
+        
+        if (!logoPngError && logoPngData) {
+          const arrayBuffer = await logoPngData.arrayBuffer();
+          const logoBytes = new Uint8Array(arrayBuffer);
+          companyLogo = await pdfDoc.embedPng(logoBytes);
+          console.log("Company logo (PNG) embedded successfully");
+        } else {
+          console.log("No company logo found in storage");
+        }
+      }
+    } catch (logoErr) {
+      console.error("Error loading company logo:", logoErr);
+    }
+
     // ===== PAGE 1: Main Permit Details =====
     let { page, yPos } = createPage();
     
-    // Header
+    // Header with logo
+    if (companyLogo) {
+      // Scale logo to fit header (max height 50px)
+      const maxLogoHeight = 50;
+      const maxLogoWidth = 120;
+      const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
+      const logoWidth = companyLogo.width * logoScale;
+      const logoHeight = companyLogo.height * logoScale;
+      
+      // Draw logo on the right side of header
+      page.drawImage(companyLogo, {
+        x: pageWidth - margin - logoWidth,
+        y: yPos - logoHeight + 10,
+        width: logoWidth,
+        height: logoHeight,
+      });
+    }
+    
     drawText(page, 'WORK PERMIT', margin, yPos, 24, helveticaBold);
     yPos -= 30;
     drawText(page, permit.permit_no || '', margin, yPos, 16, helveticaBold);
