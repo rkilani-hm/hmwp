@@ -241,7 +241,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     let qrCodeImage: any = null;
     try {
       // Construct the verification URL (permit detail page)
-      const appUrl = "https://hmwp.lovable.dev";
+      const appUrl = "https://hmwp.lovable.app";
       const verificationUrl = `${appUrl}/permits/${permitId}`;
       
       // Generate QR code using qrcode-generator (works in Deno without canvas)

@@ -113,7 +113,7 @@ async function sendEmail(accessToken: string, to: string[], subject: string, bod
 
 // Generate email HTML template
 function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: string, details: Record<string, string>): string {
-  const baseUrl = "https://hmwp.lovable.dev";
+  const baseUrl = "https://hmwp.lovable.app";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   // Public URL for company logo from company-assets bucket
   const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
