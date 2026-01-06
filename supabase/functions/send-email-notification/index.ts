@@ -114,6 +114,9 @@ async function sendEmail(accessToken: string, to: string[], subject: string, bod
 // Generate email HTML template
 function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: string, details: Record<string, string>): string {
   const baseUrl = "https://hmwp.lovable.dev";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  // Public URL for company logo from company-assets bucket
+  const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
   
   const templates: Record<EmailRequest['notificationType'], { title: string; content: string; color: string }> = {
     new_permit: {
@@ -179,10 +182,17 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
+          <!-- Logo Header -->
           <tr>
-            <td style="background-color: ${template.color}; padding: 30px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${template.title}</h1>
+            <td style="background-color: #ffffff; padding: 24px 40px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+              <img src="${logoUrl}" alt="Al Hamra" style="max-height: 60px; max-width: 200px;" />
+            </td>
+          </tr>
+          
+          <!-- Title Header -->
+          <tr>
+            <td style="background-color: ${template.color}; padding: 24px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;">${template.title}</h1>
             </td>
           </tr>
           
