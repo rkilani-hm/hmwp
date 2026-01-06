@@ -605,7 +605,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (qrCodeImage) {
         const qrSize = 45;
         const qrX = pageWidth - margin - qrSize;
-        const qrY = 15;
+        const qrY = 20;
         
         currentPage.drawImage(qrCodeImage, {
           x: qrX,
@@ -614,7 +614,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
           height: qrSize,
         });
         
-        // Add label under QR code
+        // Add "Scan to verify" label above permit number
         const qrLabel = "Scan to verify";
         const labelWidth = helvetica.widthOfTextAtSize(qrLabel, 6);
         currentPage.drawText(qrLabel, {
@@ -623,6 +623,17 @@ const serve_handler = async (req: Request): Promise<Response> => {
           size: 6,
           font: helvetica,
           color: rgb(0.4, 0.4, 0.4),
+        });
+        
+        // Add permit number below for manual verification
+        const permitNo = permit.permit_no || "";
+        const permitNoWidth = helvetica.widthOfTextAtSize(permitNo, 5);
+        currentPage.drawText(permitNo, {
+          x: qrX + (qrSize - permitNoWidth) / 2,
+          y: qrY - 15,
+          size: 5,
+          font: helvetica,
+          color: rgb(0.3, 0.3, 0.3),
         });
       }
       
