@@ -543,11 +543,29 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Add page numbers to all pages
+    // Add page numbers and company logo to all pages
     const pages = pdfDoc.getPages();
     const totalPages = pages.length;
     for (let i = 0; i < totalPages; i++) {
       const currentPage = pages[i];
+      
+      // Add company logo to header (skip first page as it already has it)
+      if (companyLogo && i > 0) {
+        const maxLogoHeight = 50;
+        const maxLogoWidth = 120;
+        const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
+        const logoWidth = companyLogo.width * logoScale;
+        const logoHeight = companyLogo.height * logoScale;
+        
+        currentPage.drawImage(companyLogo, {
+          x: pageWidth - margin - logoWidth,
+          y: pageHeight - margin - logoHeight + 10,
+          width: logoWidth,
+          height: logoHeight,
+        });
+      }
+      
+      // Add page number to footer
       const pageNumText = `Page ${i + 1} of ${totalPages}`;
       const textWidth = helvetica.widthOfTextAtSize(pageNumText, 9);
       currentPage.drawText(pageNumText, {
