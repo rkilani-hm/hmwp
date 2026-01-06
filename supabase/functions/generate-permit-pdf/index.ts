@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -543,11 +543,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Add page numbers and company logo to all pages
+    // Add page numbers, company logo, and watermark to all pages
     const pages = pdfDoc.getPages();
     const totalPages = pages.length;
     for (let i = 0; i < totalPages; i++) {
       const currentPage = pages[i];
+      
+      // Add CONFIDENTIAL watermark (diagonal across page)
+      currentPage.drawText('CONFIDENTIAL', {
+        x: pageWidth / 2 - 150,
+        y: pageHeight / 2 - 20,
+        size: 60,
+        font: helveticaBold,
+        color: rgb(0.9, 0.9, 0.9),
+        rotate: degrees(45),
+        opacity: 0.3,
+      });
       
       // Add company logo to header (skip first page as it already has it)
       if (companyLogo && i > 0) {
