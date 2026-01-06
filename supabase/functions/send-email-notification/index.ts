@@ -6,6 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting for email sending
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_EMAILS_PER_WINDOW = 20;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkEmailRateLimit(identifier: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(identifier);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(identifier, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_EMAILS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
 interface EmailRequest {
   to: string[];
   subject: string;
@@ -230,6 +253,24 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { to, subject, body, permitId, notificationType, permitNo, details } = await req.json();
+
+    // Rate limit by permit ID or a global key for system emails
+    const rateLimitKey = permitId || "system";
+    const rateLimitResult = checkEmailRateLimit(rateLimitKey);
+    if (!rateLimitResult.allowed) {
+      console.warn("Rate limit exceeded for email sending:", rateLimitKey);
+      return new Response(
+        JSON.stringify({ error: "Too many email requests. Please wait before sending more." }),
+        { 
+          status: 429, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimitResult.retryAfter),
+            ...corsHeaders 
+          } 
+        }
+      );
+    }
 
     console.log(`Sending ${notificationType} email to:`, to);
 

@@ -7,6 +7,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting for PDF generation (resource-intensive operation)
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_PDF_GENERATIONS_PER_WINDOW = 10;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkPdfRateLimit(userId: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(userId);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_PDF_GENERATIONS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
 interface GeneratePdfRequest {
   permitId: string;
 }
@@ -50,6 +73,23 @@ const serve_handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Authenticated user:", user.id, user.email);
+
+    // Check rate limit for PDF generation
+    const rateLimitResult = checkPdfRateLimit(user.id);
+    if (!rateLimitResult.allowed) {
+      console.warn("Rate limit exceeded for PDF generation:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Too many PDF generation requests. Please wait before trying again." }),
+        { 
+          status: 429, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimitResult.retryAfter),
+            ...corsHeaders 
+          } 
+        }
+      );
+    }
 
     const { permitId }: GeneratePdfRequest = await req.json();
     console.log("Generating PDF for permit:", permitId);

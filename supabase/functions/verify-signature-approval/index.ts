@@ -7,6 +7,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_ATTEMPTS_PER_WINDOW = 5;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Check rate limit for user/IP combination
+function checkRateLimit(userId: string, ipAddress: string): { allowed: boolean; retryAfter?: number } {
+  const key = `${userId}:${ipAddress}`;
+  const now = Date.now();
+  
+  const record = rateLimitStore.get(key);
+  
+  if (!record || now > record.resetTime) {
+    // Reset or create new record
+    rateLimitStore.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_ATTEMPTS_PER_WINDOW) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
+// Add consistent delay to prevent timing attacks (always takes ~500ms)
+async function constantTimePasswordCheck(
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  email: string,
+  password: string
+): Promise<boolean> {
+  const startTime = Date.now();
+  const MIN_RESPONSE_TIME = 500; // Minimum 500ms response time
+  
+  let isValid = false;
+  try {
+    const userClient = createClient(supabaseUrl, supabaseAnonKey);
+    const { error: signInError } = await userClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+    isValid = !signInError;
+  } catch {
+    isValid = false;
+  }
+  
+  // Ensure consistent response time to prevent timing attacks
+  const elapsed = Date.now() - startTime;
+  if (elapsed < MIN_RESPONSE_TIME) {
+    await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
+  }
+  
+  return isValid;
+}
+
 // Valid roles for approval workflow
 const validApprovalRoles = [
   'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
@@ -140,16 +198,40 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { permitId, role, comments, signature, approved, password } = parseResult.data;
 
+    // Extract IP address early for rate limiting
+    const ipAddress = req.headers.get("x-forwarded-for") || 
+                      req.headers.get("x-real-ip") || 
+                      req.headers.get("cf-connecting-ip") ||
+                      "unknown";
+
     console.log("Processing approval for permit:", permitId, "role:", role, "approved:", approved);
 
-    // Verify password by attempting to sign in
-    const { error: signInError } = await userClient.auth.signInWithPassword({
-      email: user.email!,
-      password: password,
-    });
+    // Check rate limit before password verification
+    const rateLimitResult = checkRateLimit(user.id, ipAddress);
+    if (!rateLimitResult.allowed) {
+      console.warn("Rate limit exceeded for user:", user.email, "IP:", ipAddress);
+      return new Response(
+        JSON.stringify({ 
+          error: "Too many password verification attempts. Please try again later.",
+          retryAfter: rateLimitResult.retryAfter 
+        }), 
+        {
+          status: 429,
+          headers: { 
+            "Content-Type": "application/json", 
+            "Retry-After": String(rateLimitResult.retryAfter),
+            ...corsHeaders 
+          },
+        }
+      );
+    }
 
-    if (signInError) {
-      console.error("Password verification failed:", signInError);
+    // Verify password with constant-time check to prevent timing attacks
+    const isPasswordValid = await constantTimePasswordCheck(supabaseUrl, supabaseAnonKey, user.email!, password);
+
+    if (!isPasswordValid) {
+      console.error("Password verification failed for user:", user.email);
+      // Generic error message - don't reveal specific failure reason
       return new Response(JSON.stringify({ error: "Invalid password. Please enter your correct password to confirm approval." }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -157,12 +239,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Password verified successfully for user:", user.email);
-
-    // Extract device info from request
-    const ipAddress = req.headers.get("x-forwarded-for") || 
-                      req.headers.get("x-real-ip") || 
-                      req.headers.get("cf-connecting-ip") ||
-                      "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
     // Parse user agent for device info
