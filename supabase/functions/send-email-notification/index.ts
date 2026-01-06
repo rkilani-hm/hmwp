@@ -113,7 +113,7 @@ async function sendEmail(accessToken: string, to: string[], subject: string, bod
 
 // Generate email HTML template
 function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: string, details: Record<string, string>): string {
-  const baseUrl = Deno.env.get("SITE_URL") || "https://workpermit.alhamra.com";
+  const baseUrl = "https://hmwp.lovable.dev";
   
   const templates: Record<EmailRequest['notificationType'], { title: string; content: string; color: string }> = {
     new_permit: {
