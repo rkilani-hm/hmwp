@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
-import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
+import QRCode from "https://esm.sh/qrcode@1.5.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,24 +243,24 @@ const serve_handler = async (req: Request): Promise<Response> => {
       // Construct the verification URL (permit detail page)
       const appUrl = "https://hmwp.lovable.app";
       const verificationUrl = `${appUrl}/permits/${permitId}`;
-      
-      // Generate QR code using qrcode-generator (works in Deno without canvas)
-      const qr = qrcode(0, 'M');
-      qr.addData(verificationUrl);
-      qr.make();
-      
-      // Get QR code as base64 PNG data URL
-      const qrDataUrl = qr.createDataURL(4, 0); // cell size 4, margin 0
-      
-      // Extract base64 data and embed in PDF
-      const qrBase64 = qrDataUrl.split(',')[1];
-      const qrBytes = Uint8Array.from(atob(qrBase64), c => c.charCodeAt(0));
+
+      // Generate QR code as PNG data URL (compatible with pdf-lib embedPng)
+      const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
+        errorCorrectionLevel: "M",
+        margin: 0,
+        width: 256,
+      });
+
+      const match = qrDataUrl.match(/^data:image\/png;base64,(.*)$/);
+      if (!match) throw new Error("Unexpected QR data URL format");
+
+      const qrBytes = Uint8Array.from(atob(match[1]), (c) => c.charCodeAt(0));
       qrCodeImage = await pdfDoc.embedPng(qrBytes);
       console.log("QR code generated for verification URL:", verificationUrl);
     } catch (qrError) {
       console.error("Error generating QR code:", qrError);
     }
-    
+
     // Header with logo
     if (companyLogo) {
       // Scale logo to fit header (max height 50px)
