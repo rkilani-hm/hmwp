@@ -1,9 +1,9 @@
+import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { PermitStatus, statusLabels } from '@/types/workPermit';
 
-interface StatusBadgeProps {
+interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: PermitStatus;
-  className?: string;
 }
 
 const statusStyles: Record<PermitStatus, string> = {
@@ -24,29 +24,35 @@ const statusStyles: Record<PermitStatus, string> = {
   cancelled: 'bg-muted text-muted-foreground border-muted-foreground/30',
 };
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
-        statusStyles[status],
-        className
-      )}
-    >
+export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
+  ({ status, className, ...props }, ref) => {
+    return (
       <span
+        ref={ref}
         className={cn(
-          'w-1.5 h-1.5 rounded-full mr-1.5',
-          status === 'approved' && 'bg-status-approved',
-          status === 'rejected' && 'bg-status-rejected',
-          status === 'closed' && 'bg-status-closed',
-          status === 'submitted' && 'bg-status-submitted',
-          status === 'draft' && 'bg-status-draft',
-          status === 'cancelled' && 'bg-muted-foreground',
-          status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
-          status === 'under_review' && 'bg-status-review animate-pulse-soft'
+          'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
+          statusStyles[status],
+          className
         )}
-      />
-      {statusLabels[status]}
-    </span>
-  );
-}
+        {...props}
+      >
+        <span
+          className={cn(
+            'w-1.5 h-1.5 rounded-full mr-1.5',
+            status === 'approved' && 'bg-status-approved',
+            status === 'rejected' && 'bg-status-rejected',
+            status === 'closed' && 'bg-status-closed',
+            status === 'submitted' && 'bg-status-submitted',
+            status === 'draft' && 'bg-status-draft',
+            status === 'cancelled' && 'bg-muted-foreground',
+            status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
+            status === 'under_review' && 'bg-status-review animate-pulse-soft'
+          )}
+        />
+        {statusLabels[status]}
+      </span>
+    );
+  }
+);
+
+StatusBadge.displayName = 'StatusBadge';
