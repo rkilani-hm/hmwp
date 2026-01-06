@@ -161,12 +161,21 @@ serve(async (req) => {
       );
     }
 
-    // Update profile with company name if provided
-    if (companyName && newUser.user) {
-      await supabaseAdmin
+    // Ensure profile is updated with correct email and full_name
+    // The trigger may run before the user metadata is fully populated
+    if (newUser.user) {
+      const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .update({ company_name: companyName })
+        .update({ 
+          email: email,
+          full_name: fullName,
+          company_name: companyName || undefined
+        })
         .eq("id", newUser.user.id);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+      }
     }
 
     // The handle_new_user trigger should have created the profile and default contractor role
