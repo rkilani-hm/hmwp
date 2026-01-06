@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
+import QRCode from "https://esm.sh/qrcode@1.5.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,7 +237,33 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // ===== PAGE 1: Main Permit Details =====
     let { page, yPos } = createPage();
     
-    // Header with logo
+    // Generate QR code linking to digital permit for verification
+    let qrCodeImage: any = null;
+    try {
+      // Construct the verification URL (permit detail page)
+      const appUrl = Deno.env.get("APP_URL") || "https://soqesuykbgriweanllzo.lovable.app";
+      const verificationUrl = `${appUrl}/permits/${permitId}`;
+      
+      // Generate QR code as data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
+        width: 100,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+      
+      // Extract base64 data and embed in PDF
+      const qrBase64 = qrCodeDataUrl.split(',')[1];
+      const qrBytes = Uint8Array.from(atob(qrBase64), c => c.charCodeAt(0));
+      qrCodeImage = await pdfDoc.embedPng(qrBytes);
+      console.log("QR code generated for verification URL:", verificationUrl);
+    } catch (qrError) {
+      console.error("Error generating QR code:", qrError);
+    }
+    
+    // Header with logo and QR code
     if (companyLogo) {
       // Scale logo to fit header (max height 50px)
       const maxLogoHeight = 50;
@@ -251,6 +278,31 @@ const serve_handler = async (req: Request): Promise<Response> => {
         y: yPos - logoHeight + 10,
         width: logoWidth,
         height: logoHeight,
+      });
+    }
+    
+    // Draw QR code in the top-right area (below logo if present, or at top-right)
+    if (qrCodeImage) {
+      const qrSize = 60;
+      const qrX = pageWidth - margin - qrSize;
+      const qrY = companyLogo ? yPos - 100 : yPos - qrSize;
+      
+      page.drawImage(qrCodeImage, {
+        x: qrX,
+        y: qrY,
+        width: qrSize,
+        height: qrSize,
+      });
+      
+      // Add label under QR code
+      const qrLabel = "Scan to verify";
+      const labelWidth = helvetica.widthOfTextAtSize(qrLabel, 7);
+      page.drawText(qrLabel, {
+        x: qrX + (qrSize - labelWidth) / 2,
+        y: qrY - 10,
+        size: 7,
+        font: helvetica,
+        color: rgb(0.4, 0.4, 0.4),
       });
     }
     
