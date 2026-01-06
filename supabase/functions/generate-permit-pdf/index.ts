@@ -283,15 +283,15 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     const approvals = [
-      { name: 'Helpdesk', roleKey: 'helpdesk', status: permit.helpdesk_status, approver: permit.helpdesk_approver_name, date: permit.helpdesk_date, signature: permit.helpdesk_signature },
-      { name: 'PM', roleKey: 'pm', status: permit.pm_status, approver: permit.pm_approver_name, date: permit.pm_date, signature: permit.pm_signature },
-      { name: 'PD', roleKey: 'pd', status: permit.pd_status, approver: permit.pd_approver_name, date: permit.pd_date, signature: permit.pd_signature },
-      { name: 'BDCR', roleKey: 'bdcr', status: permit.bdcr_status, approver: permit.bdcr_approver_name, date: permit.bdcr_date, signature: permit.bdcr_signature },
-      { name: 'MPR', roleKey: 'mpr', status: permit.mpr_status, approver: permit.mpr_approver_name, date: permit.mpr_date, signature: permit.mpr_signature },
-      { name: 'IT', roleKey: 'it', status: permit.it_status, approver: permit.it_approver_name, date: permit.it_date, signature: permit.it_signature },
-      { name: 'Fit-Out', roleKey: 'fitout', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date, signature: permit.fitout_signature },
-      { name: 'Ecovert Supervisor', roleKey: 'ecovert_supervisor', status: permit.ecovert_supervisor_status, approver: permit.ecovert_supervisor_approver_name, date: permit.ecovert_supervisor_date, signature: permit.ecovert_supervisor_signature },
-      { name: 'PMD Coordinator', roleKey: 'pmd_coordinator', status: permit.pmd_coordinator_status, approver: permit.pmd_coordinator_approver_name, date: permit.pmd_coordinator_date, signature: permit.pmd_coordinator_signature },
+      { name: 'Helpdesk', roleKey: 'helpdesk', status: permit.helpdesk_status, approver: permit.helpdesk_approver_name, date: permit.helpdesk_date, signature: permit.helpdesk_signature, comments: permit.helpdesk_comments },
+      { name: 'PM', roleKey: 'pm', status: permit.pm_status, approver: permit.pm_approver_name, date: permit.pm_date, signature: permit.pm_signature, comments: permit.pm_comments },
+      { name: 'PD', roleKey: 'pd', status: permit.pd_status, approver: permit.pd_approver_name, date: permit.pd_date, signature: permit.pd_signature, comments: permit.pd_comments },
+      { name: 'BDCR', roleKey: 'bdcr', status: permit.bdcr_status, approver: permit.bdcr_approver_name, date: permit.bdcr_date, signature: permit.bdcr_signature, comments: permit.bdcr_comments },
+      { name: 'MPR', roleKey: 'mpr', status: permit.mpr_status, approver: permit.mpr_approver_name, date: permit.mpr_date, signature: permit.mpr_signature, comments: permit.mpr_comments },
+      { name: 'IT', roleKey: 'it', status: permit.it_status, approver: permit.it_approver_name, date: permit.it_date, signature: permit.it_signature, comments: permit.it_comments },
+      { name: 'Fit-Out', roleKey: 'fitout', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date, signature: permit.fitout_signature, comments: permit.fitout_comments },
+      { name: 'Ecovert Supervisor', roleKey: 'ecovert_supervisor', status: permit.ecovert_supervisor_status, approver: permit.ecovert_supervisor_approver_name, date: permit.ecovert_supervisor_date, signature: permit.ecovert_supervisor_signature, comments: permit.ecovert_supervisor_comments },
+      { name: 'PMD Coordinator', roleKey: 'pmd_coordinator', status: permit.pmd_coordinator_status, approver: permit.pmd_coordinator_approver_name, date: permit.pmd_coordinator_date, signature: permit.pmd_coordinator_signature, comments: permit.pmd_coordinator_comments },
     ];
     
     for (const approval of approvals) {
@@ -310,7 +310,15 @@ const serve_handler = async (req: Request): Promise<Response> => {
         yPos -= 12;
         drawText(page, 'Date: ' + formatDateTime(approval.date), margin, yPos, 9, helvetica, rgb(0.4, 0.4, 0.4));
         drawText(page, 'IP: ' + ipAddress, margin + 200, yPos, 9, helvetica, rgb(0.4, 0.4, 0.4));
-        yPos -= 14;
+        yPos -= 12;
+        
+        // Add comments if present
+        if (approval.comments && approval.comments.trim()) {
+          const commentsText = 'Comments: ' + String(approval.comments).substring(0, 150);
+          drawText(page, commentsText, margin, yPos, 9, helvetica, rgb(0.35, 0.35, 0.35));
+          yPos -= 12;
+        }
+        yPos -= 4;
         
         // Embed signature image if available
         if (approval.signature && approval.signature.startsWith('data:image')) {
