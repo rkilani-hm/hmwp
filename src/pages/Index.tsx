@@ -17,6 +17,7 @@ import UserActivityLogs from './admin/UserActivityLogs';
 import MyPerformance from './MyPerformance';
 import ApproverPerformance from './admin/ApproverPerformance';
 import ScanVerify from './ScanVerify';
+import GenerateVapidKeys from './admin/GenerateVapidKeys';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -83,6 +84,10 @@ const Index = () => {
           element={isAdmin ? <ApproverPerformance /> : <Navigate to="/" replace />} 
         />
         <Route path="scan-verify" element={<ScanVerify />} />
+        <Route 
+          path="vapid-keys" 
+          element={isAdmin ? <GenerateVapidKeys /> : <Navigate to="/" replace />} 
+        />
       </Routes>
     </AppLayout>
   );
