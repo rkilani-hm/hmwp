@@ -301,6 +301,7 @@ export function useCreatePermit() {
         .eq('role', 'helpdesk');
 
       if (helpdeskUsers) {
+        const helpdeskUserIds: string[] = [];
         for (const hd of helpdeskUsers) {
           await supabase.from('notifications').insert({
             user_id: hd.user_id,
@@ -309,6 +310,23 @@ export function useCreatePermit() {
             title: `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit Submitted`,
             message: `${permitNo} requires your review. ${urgency === 'urgent' ? '4-hour SLA' : '48-hour SLA'}`,
           });
+          helpdeskUserIds.push(hd.user_id);
+        }
+
+        // Send push notifications to helpdesk users
+        if (helpdeskUserIds.length > 0) {
+          try {
+            await supabase.functions.invoke('send-push-notification', {
+              body: {
+                userIds: helpdeskUserIds,
+                title: `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit`,
+                message: `${permitNo} requires your review`,
+                data: { url: '/inbox', permitId: data.id },
+              },
+            });
+          } catch (pushError) {
+            console.error('Failed to send push notification:', pushError);
+          }
         }
       }
 

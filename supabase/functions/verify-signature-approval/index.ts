@@ -385,6 +385,26 @@ const handler = async (req: Request): Promise<Response> => {
         title: `Permit ${approved ? "Approved" : "Rejected"} by ${role.toUpperCase()}`,
         message: `Your permit ${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${userName}. ${comments ? `Comments: ${comments}` : ""}`,
       });
+
+      // Send push notification to requester
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: updatedPermit.requester_id,
+            title: `Permit ${approved ? "Approved" : "Rejected"}`,
+            message: `${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${role.toUpperCase()}`,
+            data: { url: `/permits/${permitId}`, permitId },
+          }),
+        });
+        console.log("Push notification sent to requester");
+      } catch (pushError) {
+        console.error("Failed to send push notification to requester:", pushError);
+      }
     }
 
     // Send email notification to requester
@@ -441,6 +461,28 @@ const handler = async (req: Request): Promise<Response> => {
               message: `Permit ${updatedPermit.permit_no} requires your review as ${roleLabel}.`,
             });
             approverIds.push(approver.user_id);
+          }
+          
+          // Send push notifications to next approvers
+          if (approverIds.length > 0) {
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userIds: approverIds,
+                  title: `Permit Awaiting Your Approval`,
+                  message: `${updatedPermit.permit_no} requires your review as ${roleLabel}`,
+                  data: { url: `/inbox`, permitId },
+                }),
+              });
+              console.log(`Push notification sent to ${approverIds.length} next approvers`);
+            } catch (pushError) {
+              console.error("Failed to send push notification to next approvers:", pushError);
+            }
           }
           
           // Get emails for next approvers and send email notifications
