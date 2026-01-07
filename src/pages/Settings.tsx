@@ -62,10 +62,12 @@ export default function Settings() {
 
       if (error) throw error;
 
-      if (data?.results?.[0]?.success) {
+      if (data?.success && data?.sent > 0) {
         toast.success('Test notification sent! Check your device.');
+      } else if (data?.sent === 0) {
+        toast.error('No push subscription found. Try re-enabling notifications.');
       } else {
-        toast.error(data?.results?.[0]?.error || 'Failed to send notification');
+        toast.error(data?.error || 'Failed to send notification');
       }
     } catch (error) {
       console.error('Error sending test notification:', error);
