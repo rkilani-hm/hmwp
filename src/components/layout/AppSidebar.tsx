@@ -22,6 +22,7 @@ import {
   Send,
   Activity,
   Key,
+  QrCode,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -53,6 +54,7 @@ const navigationItems = {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'My Permits', path: '/permits' },
+    { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
   ],
   helpdesk: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -61,6 +63,7 @@ const navigationItems = {
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
+    { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
   ],
   admin: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -68,6 +71,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
+    { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
     { icon: Timer, label: 'SLA Dashboard', path: '/sla-dashboard' },
     { icon: BarChart3, label: 'Approver Performance', path: '/approver-performance' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
@@ -84,6 +88,7 @@ const navigationItems = {
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
     { icon: BarChart3, label: 'My Performance', path: '/my-performance' },
+    { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
   ],
 };
 
