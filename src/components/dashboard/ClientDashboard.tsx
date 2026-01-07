@@ -1,5 +1,6 @@
 import { StatsCard } from '@/components/ui/StatsCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PermitProgressTracker } from '@/components/ui/PermitProgressTracker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -139,22 +140,24 @@ export function ClientDashboard() {
                 pendingPermits.slice(0, 4).map((permit) => (
                   <div
                     key={permit.id}
-                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border cursor-pointer hover:border-accent/30 transition-colors"
+                    className="p-4 bg-muted/50 rounded-lg border cursor-pointer hover:border-accent/30 transition-colors"
                     onClick={() => navigate(`/permits/${permit.id}`)}
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <p className="font-medium text-sm">{permit.permit_no}</p>
                         <StatusBadge status={permit.status as any} />
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1 truncate">
-                        {permit.work_description}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Submitted {format(new Date(permit.created_at), 'MMM d, yyyy')}
-                      </p>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     </div>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground ml-2 shrink-0" />
+                    <p className="text-sm text-muted-foreground truncate mb-3">
+                      {permit.work_description}
+                    </p>
+                    {/* Progress Tracker */}
+                    <PermitProgressTracker permit={permit} compact />
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Submitted {format(new Date(permit.created_at), 'MMM d, yyyy')}
+                    </p>
                   </div>
                 ))
               )}
