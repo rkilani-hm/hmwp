@@ -32,7 +32,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
 
 const roleLabels: Record<UserRole, string> = {
-  contractor: 'Contractor',
+  contractor: 'Client',
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
