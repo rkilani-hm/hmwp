@@ -3,9 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-// You can set this as a build-time env var or hardcode the public key here
-// The VAPID public key is safe to expose - it's meant to be public
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+// VAPID public key - this is safe to expose publicly
+const VAPID_PUBLIC_KEY = 'BBpCI7jKzvj9S9mKUHGMXubvHxc7YXJDeaVcPL94rIVRPLbwTdowgBC0cKb51qVbwOADxFozXOBWRPL7s9_YyUQ';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
