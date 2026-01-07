@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, Search, CheckCircle2, XCircle, Loader2, Printer, LogIn } from 'lucide-react';
+import { QrCode, Search, CheckCircle2, XCircle, Loader2, Printer, LogIn, Camera, CameraOff } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
@@ -30,6 +31,24 @@ const PublicScanVerify = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [permitInfo, setPermitInfo] = useState<PermitInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = 'public-qr-scanner-container';
+
+  const extractPermitNumber = (scannedText: string): string => {
+    // If it's a URL with permit param, extract the permit number
+    try {
+      const url = new URL(scannedText);
+      const permitParam = url.searchParams.get('permit');
+      if (permitParam) {
+        return permitParam;
+      }
+    } catch {
+      // Not a URL, use the text as-is
+    }
+    return scannedText;
+  };
 
   const searchPermit = async (permitNo: string) => {
     const trimmed = permitNo.trim().toUpperCase();
@@ -65,6 +84,61 @@ const PublicScanVerify = () => {
       setIsSearching(false);
     }
   };
+
+  const startCamera = async () => {
+    setCameraError(null);
+    
+    try {
+      const scanner = new Html5Qrcode(scannerContainerId);
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+        },
+        (decodedText) => {
+          // QR code successfully scanned - extract permit number from URL or text
+          stopCamera();
+          const permitNo = extractPermitNumber(decodedText);
+          setManualPermitNo(permitNo);
+          searchPermit(permitNo);
+        },
+        () => {
+          // Ignore scan failures (no QR detected in frame)
+        }
+      );
+
+      setIsCameraActive(true);
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      setCameraError(err?.message || 'Failed to access camera');
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (err) {
+        console.error('Error stopping camera:', err);
+      }
+      scannerRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    };
+  }, []);
 
   // Auto-search if permit param is in URL (from QR code scan)
   useEffect(() => {
@@ -103,7 +177,7 @@ const PublicScanVerify = () => {
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 print:hidden">
           <img 
             src={alHamraLogo} 
             alt="Al Hamra Logo" 
@@ -112,20 +186,67 @@ const PublicScanVerify = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Permit Verification</h1>
             <p className="text-muted-foreground mt-1">
-              Enter a permit number to verify its status
+              Scan a QR code or enter a permit number to verify
             </p>
           </div>
         </div>
 
-        {/* Search Card */}
-        <Card>
+        {/* QR Scanner Card */}
+        <Card className="print:hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              Scan QR Code
+            </CardTitle>
+            <CardDescription>
+              Use your camera to scan the QR code on the permit
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Scanner container */}
+            <div 
+              id={scannerContainerId}
+              className={`w-full rounded-lg overflow-hidden ${isCameraActive ? 'min-h-[300px]' : 'hidden'}`}
+            />
+            
+            {cameraError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                <p className="text-red-600 text-sm">{cameraError}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  Please ensure camera permissions are granted
+                </p>
+              </div>
+            )}
+
+            <Button
+              onClick={isCameraActive ? stopCamera : startCamera}
+              variant={isCameraActive ? 'destructive' : 'default'}
+              className="w-full"
+            >
+              {isCameraActive ? (
+                <>
+                  <CameraOff className="h-4 w-4 mr-2" />
+                  Stop Camera
+                </>
+              ) : (
+                <>
+                  <Camera className="h-4 w-4 mr-2" />
+                  Start Camera
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Manual Search Card */}
+        <Card className="print:hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5" />
-              Verify Work Permit
+              Manual Entry
             </CardTitle>
             <CardDescription>
-              Enter the permit number from the QR code or document
+              Or enter the permit number manually
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
