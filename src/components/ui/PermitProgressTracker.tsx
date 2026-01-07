@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
-import { Check, X, Clock, Circle, ChevronRight } from 'lucide-react';
+import { Check, X, Clock, Circle, Timer } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAverageApprovalTimes } from '@/hooks/useAverageApprovalTimes';
 
 interface ApprovalStep {
   key: string;
@@ -52,11 +53,41 @@ interface PermitProgressTrackerProps {
 }
 
 export function PermitProgressTracker({ permit, compact = false, className }: PermitProgressTrackerProps) {
+  const { data: avgTimes } = useAverageApprovalTimes();
+  
   const getApprovalStatus = (status: string | null | undefined): 'completed' | 'rejected' | 'pending' | 'upcoming' => {
     if (status === 'approved') return 'completed';
     if (status === 'rejected') return 'rejected';
     if (status === 'pending') return 'pending';
     return 'upcoming';
+  };
+
+  // Calculate estimated completion time
+  const calculateEstimatedCompletion = (steps: ApprovalStep[]): { hours: number; display: string } | null => {
+    if (!avgTimes) return null;
+    
+    // Find remaining steps that need approval
+    const remainingSteps = steps.filter(
+      step => step.status === 'pending' || step.status === 'upcoming'
+    );
+    
+    if (remainingSteps.length === 0) return null;
+    
+    let totalHours = 0;
+    remainingSteps.forEach(step => {
+      const avgHours = avgTimes[step.key] || 8; // Default to 8 hours if no data
+      totalHours += avgHours;
+    });
+    
+    // Format display
+    if (totalHours < 1) {
+      return { hours: totalHours, display: `~${Math.round(totalHours * 60)} min` };
+    } else if (totalHours < 24) {
+      return { hours: totalHours, display: `~${Math.round(totalHours)} hrs` };
+    } else {
+      const days = Math.round(totalHours / 24 * 10) / 10;
+      return { hours: totalHours, display: `~${days} days` };
+    }
   };
 
   const workType = permit.work_types;
@@ -161,6 +192,9 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
   // Calculate progress percentage
   const completedSteps = visibleSteps.filter(step => step.status === 'completed').length;
   const progressPercentage = (completedSteps / visibleSteps.length) * 100;
+  
+  // Calculate estimated completion
+  const estimatedCompletion = calculateEstimatedCompletion(visibleSteps);
 
   if (compact) {
     return (
@@ -204,6 +238,20 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
             </TooltipContent>
           </Tooltip>
         ))}
+        {estimatedCompletion && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-primary/10 rounded-full text-xs text-primary">
+                <Timer className="w-3 h-3" />
+                <span>{estimatedCompletion.display}</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Estimated time to completion</p>
+              <p className="text-xs text-muted-foreground">Based on average approval times</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     );
   }
@@ -213,7 +261,23 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
       {/* Progress bar */}
       <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
         <span>Progress</span>
-        <span>{completedSteps} of {visibleSteps.length} steps</span>
+        <div className="flex items-center gap-3">
+          {estimatedCompletion && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 text-primary">
+                  <Timer className="w-3 h-3" />
+                  <span>ETA: {estimatedCompletion.display}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs font-medium">Estimated time to completion</p>
+                <p className="text-xs text-muted-foreground">Based on average approval times for each stage</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <span>{completedSteps} of {visibleSteps.length} steps</span>
+        </div>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div
