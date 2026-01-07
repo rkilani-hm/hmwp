@@ -11,6 +11,7 @@ interface Profile {
   full_name: string | null;
   phone: string | null;
   company_name: string | null;
+  company_logo: string | null;
 }
 
 interface AuthContextType {
