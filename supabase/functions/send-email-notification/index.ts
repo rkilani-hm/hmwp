@@ -34,7 +34,7 @@ interface EmailRequest {
   subject: string;
   body: string;
   permitId?: string;
-  notificationType: 'new_permit' | 'approval_required' | 'approved' | 'rejected' | 'rework' | 'forwarded' | 'closed' | 'sla_warning' | 'sla_breach';
+  notificationType: 'new_permit' | 'approval_required' | 'approved' | 'rejected' | 'rework' | 'forwarded' | 'closed' | 'sla_warning' | 'sla_breach' | 'status_update';
 }
 
 // Get Microsoft Graph access token
@@ -163,6 +163,11 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       title: "SLA Breach Alert",
       content: `Work permit <strong>${permitNo}</strong> has exceeded its SLA deadline.`,
       color: "#ef4444",
+    },
+    status_update: {
+      title: "Work Permit Status Update",
+      content: `Your work permit <strong>${permitNo}</strong> has been updated. ${details.statusMessage || 'It is now being processed by the next approver.'}`,
+      color: "#8b5cf6",
     },
   };
 

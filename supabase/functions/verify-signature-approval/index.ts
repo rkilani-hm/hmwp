@@ -410,6 +410,25 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email notification to requester
     if (updatedPermit.requester_email) {
       try {
+        // Determine notification type based on approval status and final status
+        let emailNotificationType: string;
+        let emailSubject: string;
+        let statusMessage: string = '';
+        
+        if (!approved) {
+          emailNotificationType = 'rejected';
+          emailSubject = `Work Permit Rejected: ${updatedPermit.permit_no}`;
+        } else if (updatedPermit.status === 'approved') {
+          emailNotificationType = 'approved';
+          emailSubject = `Work Permit Approved: ${updatedPermit.permit_no}`;
+        } else {
+          // Permit approved by this role but moving to next stage
+          emailNotificationType = 'status_update';
+          const roleLabel = role.toUpperCase().replace('_', ' ');
+          statusMessage = `It has been approved by ${roleLabel} and is now pending the next approval.`;
+          emailSubject = `Work Permit Progress Update: ${updatedPermit.permit_no}`;
+        }
+
         const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
           method: 'POST',
           headers: {
@@ -418,8 +437,8 @@ const handler = async (req: Request): Promise<Response> => {
           },
           body: JSON.stringify({
             to: [updatedPermit.requester_email],
-            notificationType: approved ? 'approved' : 'rejected',
-            subject: `Work Permit ${approved ? 'Approved' : 'Rejected'}: ${updatedPermit.permit_no}`,
+            notificationType: emailNotificationType,
+            subject: emailSubject,
             permitNo: updatedPermit.permit_no,
             permitId: permitId,
             details: {
@@ -427,10 +446,11 @@ const handler = async (req: Request): Promise<Response> => {
               workType: currentPermit?.work_types?.name,
               approverName: userName,
               reason: comments,
+              statusMessage: statusMessage,
             },
           }),
         });
-        console.log("Email notification sent to requester:", emailResponse.ok);
+        console.log(`Email notification (${emailNotificationType}) sent to requester:`, emailResponse.ok);
       } catch (emailError) {
         console.error("Failed to send email notification to requester:", emailError);
       }
