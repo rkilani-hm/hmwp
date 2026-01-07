@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, Search, Camera, CameraOff, CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { QrCode, Search, Camera, CameraOff, CheckCircle2, XCircle, Loader2, ExternalLink, Printer } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { toast } from 'sonner';
 
@@ -295,14 +295,24 @@ const ScanVerify = () => {
               <p className="text-sm text-muted-foreground">Work Description</p>
               <p className="font-medium">{permitInfo.work_description}</p>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate(`/permits/${permitInfo.id}`)}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              View Full Permit Details
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate(`/permits/${permitInfo.id}`)}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Full Details
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => window.print()}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print Verification
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
