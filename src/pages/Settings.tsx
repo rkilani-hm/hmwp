@@ -1,11 +1,18 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
-import { User, Mail, Phone, Building2 } from 'lucide-react';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Mail, Phone, Building2, Send, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Settings() {
-  const { profile, roles } = useAuth();
+  const { user, profile, roles } = useAuth();
+  const { isSubscribed } = usePushNotifications();
+  const [isSending, setIsSending] = useState(false);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
@@ -29,6 +36,43 @@ export default function Settings() {
     ecovert_supervisor: 'Ecovert Supervisor',
     pmd_coordinator: 'PMD Coordinator',
     admin: 'Administrator',
+  };
+
+  const sendTestNotification = async () => {
+    if (!user) {
+      toast.error('You must be logged in');
+      return;
+    }
+
+    if (!isSubscribed) {
+      toast.error('Please enable push notifications first');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          title: '🔔 Test Notification',
+          message: 'Push notifications are working correctly!',
+          data: { url: '/settings' },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.results?.[0]?.success) {
+        toast.success('Test notification sent! Check your device.');
+      } else {
+        toast.error(data?.results?.[0]?.error || 'Failed to send notification');
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast.error('Failed to send test notification');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -92,7 +136,46 @@ export default function Settings() {
         </Card>
 
         {/* Push Notifications */}
-        <PushNotificationSettings />
+        <div className="space-y-4">
+          <PushNotificationSettings />
+          
+          {/* Test Notification Card */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Send className="h-4 w-4" />
+                Test Push Notification
+              </CardTitle>
+              <CardDescription>
+                Send a test notification to verify your setup
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={sendTestNotification} 
+                disabled={isSending || !isSubscribed}
+                className="w-full"
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send Test Notification
+                  </>
+                )}
+              </Button>
+              {!isSubscribed && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Enable push notifications above to test
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
