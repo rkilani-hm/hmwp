@@ -16,6 +16,7 @@ import SLADashboard from './admin/SLADashboard';
 import UserActivityLogs from './admin/UserActivityLogs';
 import MyPerformance from './MyPerformance';
 import ApproverPerformance from './admin/ApproverPerformance';
+import ScanVerify from './ScanVerify';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -81,6 +82,7 @@ const Index = () => {
           path="approver-performance" 
           element={isAdmin ? <ApproverPerformance /> : <Navigate to="/" replace />} 
         />
+        <Route path="scan-verify" element={<ScanVerify />} />
       </Routes>
     </AppLayout>
   );
