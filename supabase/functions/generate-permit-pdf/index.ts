@@ -237,15 +237,18 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // ===== PAGE 1: Main Permit Details =====
     let { page, yPos } = createPage();
     
-    // Generate QR code containing the Work Permit Number
+    // Generate QR code containing the public verification URL
     // (We draw it directly into the PDF to avoid PNG/canvas dependencies in the runtime)
     let qrCode: any = null;
     try {
       const permitNoForQr = String(permit.permit_no || "").trim();
       if (!permitNoForQr) throw new Error("Missing permit number for QR code");
 
+      // Create the public verification URL
+      const verificationUrl = `https://hmwp.lovable.app/verify?permit=${encodeURIComponent(permitNoForQr)}`;
+      
       qrCode = qrcode(0, "M");
-      qrCode.addData(permitNoForQr);
+      qrCode.addData(verificationUrl);
       qrCode.make();
 
       console.log("QR code matrix generated for permit number:", permitNoForQr);
