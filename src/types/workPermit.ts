@@ -131,7 +131,7 @@ export const statusLabels: Record<PermitStatus, string> = {
 };
 
 export const roleLabels: Record<UserRole, string> = {
-  contractor: 'Contractor',
+  contractor: 'Client',
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
