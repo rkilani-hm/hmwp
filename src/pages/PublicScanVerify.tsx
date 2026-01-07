@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { QrCode, Search, CheckCircle2, XCircle, Loader2, Printer, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 
 interface PermitInfo {
@@ -25,6 +25,7 @@ interface PermitInfo {
 
 const PublicScanVerify = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [manualPermitNo, setManualPermitNo] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [permitInfo, setPermitInfo] = useState<PermitInfo | null>(null);
@@ -64,6 +65,15 @@ const PublicScanVerify = () => {
       setIsSearching(false);
     }
   };
+
+  // Auto-search if permit param is in URL (from QR code scan)
+  useEffect(() => {
+    const permitFromUrl = searchParams.get('permit');
+    if (permitFromUrl) {
+      setManualPermitNo(permitFromUrl);
+      searchPermit(permitFromUrl);
+    }
+  }, [searchParams]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
