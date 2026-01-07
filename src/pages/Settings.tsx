@@ -39,6 +39,8 @@ export default function Settings() {
   };
 
   const sendTestNotification = async () => {
+    if (isSending) return;
+
     if (!user) {
       toast.error('You must be logged in');
       return;
@@ -50,11 +52,13 @@ export default function Settings() {
     }
 
     setIsSending(true);
+    const toastId = toast.loading('Sending test notification...');
+
     try {
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           userId: user.id,
-          title: '🔔 Test Notification',
+          title: 'Test Notification',
           message: 'Push notifications are working correctly!',
           data: { url: '/settings' },
         },
@@ -62,16 +66,21 @@ export default function Settings() {
 
       if (error) throw error;
 
-      if (data?.success && data?.sent > 0) {
-        toast.success('Test notification sent! Check your device.');
-      } else if (data?.sent === 0) {
-        toast.error('No push subscription found. Try re-enabling notifications.');
+      const sent = typeof data?.sent === 'number' ? data.sent : 0;
+      const failed = typeof data?.failed === 'number' ? data.failed : 0;
+
+      if (sent > 0 && failed === 0) {
+        toast.success('Test notification sent! Check your device.', { id: toastId });
+      } else if (sent > 0 && failed > 0) {
+        toast.message(`Sent to ${sent} device(s); ${failed} failed.`, { id: toastId });
+      } else if (sent === 0 && failed > 0) {
+        toast.error('Failed to send notification to your device.', { id: toastId });
       } else {
-        toast.error(data?.error || 'Failed to send notification');
+        toast.error('No push subscription found. Try re-enabling notifications.', { id: toastId });
       }
     } catch (error) {
       console.error('Error sending test notification:', error);
-      toast.error('Failed to send test notification');
+      toast.error('Failed to send test notification', { id: toastId });
     } finally {
       setIsSending(false);
     }
@@ -153,8 +162,9 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={sendTestNotification} 
+              <Button
+                type="button"
+                onClick={sendTestNotification}
                 disabled={isSending || !isSubscribed}
                 className="w-full"
               >
