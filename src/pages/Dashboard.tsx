@@ -17,11 +17,12 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ClientDashboard } from '@/components/dashboard/ClientDashboard';
 
 type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
 
 const roleLabels: Record<UserRole, string> = {
-  contractor: 'Contractor',
+  contractor: 'Client',
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
@@ -82,6 +83,11 @@ export default function Dashboard({ currentRole }: DashboardProps) {
   const navigate = useNavigate();
   const { data: permits, isLoading } = useWorkPermits();
   const stats = usePermitStats();
+
+  // Use dedicated Client dashboard for contractor role
+  if (currentRole === 'contractor') {
+    return <ClientDashboard />;
+  }
   
   const recentPermits = permits?.slice(0, 4) || [];
   const pendingPermits = permits?.filter(
@@ -116,6 +122,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
       </div>
     );
   }
+
 
   return (
     <motion.div
@@ -213,39 +220,8 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
         {/* Quick Actions & Pending */}
         <motion.div variants={itemVariants} className="space-y-6">
-          {/* Quick Actions */}
-          {currentRole === 'contractor' && (
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="font-display text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  asChild
-                >
-                  <Link to="/new-permit">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Submit New Permit
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  asChild
-                >
-                  <Link to="/permits">
-                    <FileText className="w-4 h-4 mr-2" />
-                    View My Permits
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Pending Approvals */}
-          {currentRole !== 'contractor' && pendingPermits.length > 0 && (
+          {pendingPermits.length > 0 && (
             <Card className="border-warning/30 bg-warning/5">
               <CardHeader className="pb-4">
                 <CardTitle className="font-display text-lg flex items-center gap-2">
