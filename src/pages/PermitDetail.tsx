@@ -4,6 +4,7 @@ import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
+import { PermitProgressTracker } from '@/components/ui/PermitProgressTracker';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
@@ -585,9 +586,20 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
         {/* Workflow Timeline Sidebar */}
         <div className="space-y-6">
+          {/* Visual Progress Tracker */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-display">Approval Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PermitProgressTracker permit={permit} />
+            </CardContent>
+          </Card>
+
+          {/* Detailed Workflow Timeline */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-display">Workflow Progress</CardTitle>
+              <CardTitle className="text-lg font-display">Workflow Steps</CardTitle>
             </CardHeader>
             <CardContent>
               <WorkflowTimeline 
