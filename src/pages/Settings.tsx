@@ -21,12 +21,21 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [companyName, setCompanyName] = useState(profile?.company_name || '');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
   // Load company logo URL
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // Sync form state when profile loads/changes (profile may load async)
+  useEffect(() => {
+    if (profile && !isEditing) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+      setCompanyName(profile.company_name || '');
+    }
+  }, [profile, isEditing]);
 
   // Fetch logo URL when profile changes
   useEffect(() => {
