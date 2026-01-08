@@ -71,6 +71,10 @@ const ScanVerify = () => {
 
   const startCamera = async () => {
     setCameraError(null);
+    setIsCameraActive(true); // Set active first so container becomes visible
+    
+    // Small delay to ensure the container element is rendered and visible
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     try {
       const scanner = new Html5Qrcode(scannerContainerId);
@@ -81,6 +85,7 @@ const ScanVerify = () => {
         {
           fps: 10,
           qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
         },
         (decodedText) => {
           // QR code successfully scanned
@@ -92,11 +97,9 @@ const ScanVerify = () => {
           // Ignore scan failures (no QR detected in frame)
         }
       );
-
-      setIsCameraActive(true);
     } catch (err: any) {
       console.error('Camera error:', err);
-      setCameraError(err?.message || 'Failed to access camera');
+      setCameraError(err?.message || 'Failed to access camera. Please ensure camera permissions are granted.');
       setIsCameraActive(false);
     }
   };
@@ -169,17 +172,21 @@ const ScanVerify = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div
-              id={scannerContainerId}
-              className="w-full aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center"
-            >
-              {!isCameraActive && (
+            {/* Camera placeholder when not active */}
+            {!isCameraActive && (
+              <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
                 <div className="text-center text-muted-foreground p-4">
                   <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Camera is not active</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            
+            {/* Scanner container - must be visible when camera starts */}
+            <div
+              id={scannerContainerId}
+              className={`w-full rounded-lg overflow-hidden ${isCameraActive ? 'min-h-[300px]' : 'hidden'}`}
+            />
 
             {cameraError && (
               <p className="text-sm text-destructive">{cameraError}</p>
