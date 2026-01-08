@@ -12,7 +12,7 @@ import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, I
 import { toast } from 'sonner';
 
 export default function Settings() {
-  const { user, profile, roles } = useAuth();
+  const { user, profile, roles, refreshProfile } = useAuth();
   const { isSubscribed } = usePushNotifications();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -140,8 +140,8 @@ export default function Settings() {
       setLogoUrl(data.publicUrl);
       toast.success('Logo uploaded successfully!', { id: toastId });
 
-      // Reload page to refresh profile data
-      window.location.reload();
+      // Refresh profile data
+      await refreshProfile();
     } catch (error) {
       console.error('Error uploading logo:', error);
       toast.error('Failed to upload logo', { id: toastId });
@@ -174,8 +174,8 @@ export default function Settings() {
       toast.success('Profile updated successfully!', { id: toastId });
       setIsEditing(false);
 
-      // Reload page to refresh profile data
-      window.location.reload();
+      // Refresh profile data
+      await refreshProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile', { id: toastId });
