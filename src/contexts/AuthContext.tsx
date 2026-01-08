@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer profile/roles fetch with setTimeout
         if (session?.user) {
           setTimeout(() => {
-            fetchProfileAndRoles(session.user.id);
+            fetchProfileAndRoles(session.user);
           }, 0);
         } else {
           setProfile(null);
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfileAndRoles(session.user.id);
+        fetchProfileAndRoles(session.user);
       } else {
         setLoading(false);
       }
@@ -70,19 +70,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfileAndRoles = async (userId: string) => {
+  const fetchProfileAndRoles = async (authUser: User) => {
+    const userId = authUser.id;
+
     try {
-      // Fetch profile
+      // Fetch profile (use maybeSingle to avoid hard failure when row doesn't exist yet)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-      } else {
+      }
+
+      if (profileData) {
         setProfile(profileData);
+      } else {
+        // Profile row missing: create it so updates actually persist
+        const email = authUser.email;
+        if (!email) {
+          console.error('Cannot create profile: missing auth user email');
+          setProfile(null);
+        } else {
+          const fullName =
+            (typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name.trim())
+              ? authUser.user_metadata.full_name.trim()
+              : email;
+
+          const { data: createdProfile, error: createError } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: userId,
+                email,
+                full_name: fullName,
+              },
+              { onConflict: 'id' }
+            )
+            .select('*')
+            .maybeSingle();
+
+          if (createError) {
+            console.error('Error creating missing profile:', createError);
+            setProfile(null);
+          } else {
+            setProfile(createdProfile ?? null);
+          }
+        }
       }
 
       // Fetch roles
@@ -195,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfileAndRoles(user.id);
+      await fetchProfileAndRoles(user);
     }
   };
 

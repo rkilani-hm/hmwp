@@ -124,11 +124,16 @@ export default function Settings() {
 
       if (uploadError) throw uploadError;
 
-      // Update profile with new logo path
+      // Upsert profile with new logo path (covers cases where profile row doesn't exist yet)
+      const email = profile?.email || user.email;
+      if (!email) throw new Error('Missing email for profile');
+
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ company_logo: fileName })
-        .eq('id', user.id);
+        .upsert(
+          { id: user.id, email, company_logo: fileName },
+          { onConflict: 'id' }
+        );
 
       if (updateError) throw updateError;
 
@@ -160,14 +165,21 @@ export default function Settings() {
     const toastId = toast.loading('Saving profile...');
 
     try {
+      const email = profile?.email || user.email;
+      if (!email) throw new Error('Missing email for profile');
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: fullName.trim(),
-          phone: phone.trim() || null,
-          company_name: companyName.trim() || null,
-        })
-        .eq('id', user.id);
+        .upsert(
+          {
+            id: user.id,
+            email,
+            full_name: fullName.trim(),
+            phone: phone.trim() || null,
+            company_name: companyName.trim() || null,
+          },
+          { onConflict: 'id' }
+        );
 
       if (error) throw error;
 
