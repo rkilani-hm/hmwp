@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PublicScanVerify from "./pages/PublicScanVerify";
 import InstallApp from "./pages/InstallApp";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,14 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/verify" element={<PublicScanVerify />} />
             <Route path="/install" element={<InstallApp />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/*"
               element={
