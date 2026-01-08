@@ -25,6 +25,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isApprover: () => boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -192,6 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return roles.some(r => approverRoles.includes(r));
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfileAndRoles(user.id);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -205,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         hasRole,
         isApprover,
+        refreshProfile,
       }}
     >
       {children}
