@@ -434,6 +434,8 @@ export type Database = {
           requester_email: string
           requester_id: string | null
           requester_name: string
+          rework_comments: string | null
+          rework_version: number | null
           sla_breached: boolean | null
           sla_deadline: string | null
           status: Database["public"]["Enums"]["permit_status"]
@@ -519,6 +521,8 @@ export type Database = {
           requester_email: string
           requester_id?: string | null
           requester_name: string
+          rework_comments?: string | null
+          rework_version?: number | null
           sla_breached?: boolean | null
           sla_deadline?: string | null
           status?: Database["public"]["Enums"]["permit_status"]
@@ -604,6 +608,8 @@ export type Database = {
           requester_email?: string
           requester_id?: string | null
           requester_name?: string
+          rework_comments?: string | null
+          rework_version?: number | null
           sla_breached?: boolean | null
           sla_deadline?: string | null
           status?: Database["public"]["Enums"]["permit_status"]
@@ -704,6 +710,7 @@ export type Database = {
         | "draft"
         | "submitted"
         | "under_review"
+        | "rework_needed"
         | "pending_pm"
         | "pending_pd"
         | "pending_bdcr"
@@ -864,6 +871,7 @@ export const Constants = {
         "draft",
         "submitted",
         "under_review",
+        "rework_needed",
         "pending_pm",
         "pending_pd",
         "pending_bdcr",

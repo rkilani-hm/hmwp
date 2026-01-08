@@ -9,7 +9,8 @@ export type NotificationType =
   | 'forwarded' 
   | 'closed' 
   | 'sla_warning' 
-  | 'sla_breach';
+  | 'sla_breach'
+  | 'resubmitted';
 
 interface EmailDetails {
   permitId?: string;
