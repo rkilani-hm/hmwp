@@ -30,6 +30,7 @@ const ScanVerify = () => {
   const [permitInfo, setPermitInfo] = useState<PermitInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = 'qr-scanner-container';
@@ -71,6 +72,7 @@ const ScanVerify = () => {
 
   const startCamera = async () => {
     setCameraError(null);
+    setIsCameraLoading(true);
     setIsCameraActive(true); // Set active first so container becomes visible
     
     // Small delay to ensure the container element is rendered and visible
@@ -101,6 +103,8 @@ const ScanVerify = () => {
       console.error('Camera error:', err);
       setCameraError(err?.message || 'Failed to access camera. Please ensure camera permissions are granted.');
       setIsCameraActive(false);
+    } finally {
+      setIsCameraLoading(false);
     }
   };
 
@@ -173,11 +177,21 @@ const ScanVerify = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Camera placeholder when not active */}
-            {!isCameraActive && (
+            {!isCameraActive && !isCameraLoading && (
               <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
                 <div className="text-center text-muted-foreground p-4">
                   <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Camera is not active</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Loading spinner while camera initializes */}
+            {isCameraLoading && (
+              <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
+                <div className="text-center text-muted-foreground p-4">
+                  <Loader2 className="h-12 w-12 mx-auto mb-2 animate-spin" />
+                  <p>Initializing camera...</p>
                 </div>
               </div>
             )}
