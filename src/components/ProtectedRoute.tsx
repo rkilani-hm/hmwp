@@ -22,15 +22,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Check if profile is incomplete (missing required fields)
-  const isProfileIncomplete =
-    !profile?.full_name?.trim() ||
-    !profile?.phone?.trim() ||
-    !profile?.company_name?.trim();
+  // Only check profile completeness when profile exists
+  // If profile is null, it's still being created - don't redirect yet
+  if (profile) {
+    const isProfileIncomplete =
+      !profile.full_name?.trim() ||
+      !profile.phone?.trim() ||
+      !profile.company_name?.trim();
 
-  // Redirect to onboarding if profile is incomplete, unless already on onboarding page
-  if (isProfileIncomplete && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />;
+    // Redirect to onboarding if profile is incomplete, unless already on onboarding page
+    if (isProfileIncomplete && location.pathname !== '/onboarding') {
+      return <Navigate to="/onboarding" replace />;
+    }
   }
 
   return <>{children}</>;
