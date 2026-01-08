@@ -10,6 +10,7 @@ const statusStyles: Record<PermitStatus, string> = {
   draft: 'bg-status-draft/10 text-status-draft border-status-draft/30',
   submitted: 'bg-status-submitted/10 text-status-submitted border-status-submitted/30',
   under_review: 'bg-status-review/10 text-status-review border-status-review/30',
+  rework_needed: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
   pending_pm: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_pd: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_bdcr: 'bg-status-review/10 text-status-review border-status-review/30',
@@ -45,6 +46,7 @@ export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
             status === 'submitted' && 'bg-status-submitted',
             status === 'draft' && 'bg-status-draft',
             status === 'cancelled' && 'bg-muted-foreground',
+            status === 'rework_needed' && 'bg-orange-500 animate-pulse-soft',
             status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
             status === 'under_review' && 'bg-status-review animate-pulse-soft'
           )}
