@@ -37,6 +37,7 @@ import {
   Forward,
   RotateCcw,
   Ban,
+  Edit,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { motion } from 'framer-motion';
@@ -234,15 +235,30 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl md:text-3xl font-display font-bold">
               {permit.permit_no}
+              {(permit as any).rework_version > 0 && (
+                <span className="text-lg font-normal text-muted-foreground ml-2">
+                  V{(permit as any).rework_version}
+                </span>
+              )}
             </h1>
             <StatusBadge status={permit.status as PermitStatus} />
           </div>
           <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Edit button for rework_needed permits - only for creators */}
+          {permit.requester_id === user?.id && permit.status === 'rework_needed' && (
+            <Button 
+              variant="default"
+              onClick={() => navigate(`/permits/${permit.id}/edit`)}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit & Resubmit
+            </Button>
+          )}
           {/* Cancel button for creators - only show for active permits */}
           {permit.requester_id === user?.id && 
-           !['cancelled', 'rejected', 'closed', 'approved'].includes(permit.status) && (
+           !['cancelled', 'rejected', 'closed', 'approved', 'rework_needed'].includes(permit.status) && (
             <Button 
               variant="outline" 
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"

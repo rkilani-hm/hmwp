@@ -3,6 +3,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import Dashboard from './Dashboard';
 import NewPermit from './NewPermit';
+import EditPermit from './EditPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
 import ApproverInbox from './ApproverInbox';
@@ -44,6 +45,7 @@ const Index = () => {
         <Route path="new-permit" element={<NewPermit />} />
         <Route path="permits" element={<PermitsList currentRole={currentRole} />} />
         <Route path="permits/:id" element={<PermitDetail currentRole={currentRole} />} />
+        <Route path="permits/:id/edit" element={<EditPermit />} />
         <Route path="inbox" element={isApprover ? <ApproverInbox /> : <Navigate to="/" replace />} />
         <Route path="outbox" element={isApprover ? <ApproverOutbox /> : <Navigate to="/" replace />} />
         <Route path="approvals" element={<PermitsList currentRole={currentRole} />} />

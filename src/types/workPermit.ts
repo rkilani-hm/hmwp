@@ -2,6 +2,7 @@ export type PermitStatus =
   | 'draft' 
   | 'submitted' 
   | 'under_review' 
+  | 'rework_needed'
   | 'pending_pm' 
   | 'pending_pd' 
   | 'pending_bdcr' 
@@ -116,6 +117,7 @@ export const statusLabels: Record<PermitStatus, string> = {
   draft: 'Draft',
   submitted: 'Submitted',
   under_review: 'Under Review',
+  rework_needed: 'Rework Needed',
   pending_pm: 'Pending PM',
   pending_pd: 'Pending PD',
   pending_bdcr: 'Pending BDCR',

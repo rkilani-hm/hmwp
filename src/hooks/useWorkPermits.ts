@@ -30,6 +30,10 @@ export interface WorkPermit {
   sla_deadline: string | null;
   sla_breached: boolean | null;
   
+  // Rework tracking
+  rework_version: number | null;
+  rework_comments: string | null;
+  
   // Approval fields
   helpdesk_status: string | null;
   helpdesk_approver_name: string | null;
@@ -735,9 +739,68 @@ export function useRequestRework() {
       permitId: string;
       reason: string;
     }) => {
+      // Set status to rework_needed and store the comments
       const { data, error } = await supabase
         .from('work_permits')
-        .update({ status: 'draft' })
+        .update({ 
+          status: 'rework_needed' as any,
+          rework_comments: reason,
+          // Reset all approval statuses so workflow starts fresh after resubmit
+          helpdesk_status: 'pending',
+          helpdesk_approver_name: null,
+          helpdesk_approver_email: null,
+          helpdesk_comments: null,
+          helpdesk_signature: null,
+          helpdesk_date: null,
+          pm_status: 'pending',
+          pm_approver_name: null,
+          pm_approver_email: null,
+          pm_comments: null,
+          pm_signature: null,
+          pm_date: null,
+          pd_status: 'pending',
+          pd_approver_name: null,
+          pd_approver_email: null,
+          pd_comments: null,
+          pd_signature: null,
+          pd_date: null,
+          bdcr_status: 'pending',
+          bdcr_approver_name: null,
+          bdcr_approver_email: null,
+          bdcr_comments: null,
+          bdcr_signature: null,
+          bdcr_date: null,
+          mpr_status: 'pending',
+          mpr_approver_name: null,
+          mpr_approver_email: null,
+          mpr_comments: null,
+          mpr_signature: null,
+          mpr_date: null,
+          it_status: 'pending',
+          it_approver_name: null,
+          it_approver_email: null,
+          it_comments: null,
+          it_signature: null,
+          it_date: null,
+          fitout_status: 'pending',
+          fitout_approver_name: null,
+          fitout_approver_email: null,
+          fitout_comments: null,
+          fitout_signature: null,
+          fitout_date: null,
+          ecovert_supervisor_status: 'pending',
+          ecovert_supervisor_approver_name: null,
+          ecovert_supervisor_approver_email: null,
+          ecovert_supervisor_comments: null,
+          ecovert_supervisor_signature: null,
+          ecovert_supervisor_date: null,
+          pmd_coordinator_status: 'pending',
+          pmd_coordinator_approver_name: null,
+          pmd_coordinator_approver_email: null,
+          pmd_coordinator_comments: null,
+          pmd_coordinator_signature: null,
+          pmd_coordinator_date: null,
+        })
         .eq('id', permitId)
         .select()
         .single();
@@ -872,6 +935,149 @@ export function useCancelPermit() {
   });
 }
 
+// Hook to update a permit and resubmit for approval (after rework)
+export function useUpdateAndResubmitPermit() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      updates,
+      newFiles,
+    }: {
+      permitId: string;
+      updates: {
+        contractor_name: string;
+        contact_mobile: string;
+        unit: string;
+        floor: string;
+        work_location: string;
+        work_type_id: string;
+        work_description: string;
+        work_date_from: string;
+        work_date_to: string;
+        work_time_from: string;
+        work_time_to: string;
+        urgency: string;
+      };
+      newFiles: File[];
+    }) => {
+      // First get the current permit to check permissions and get current version
+      const { data: currentPermit } = await supabase
+        .from('work_permits')
+        .select('requester_id, permit_no, rework_version, attachments')
+        .eq('id', permitId)
+        .single();
+
+      if (!currentPermit) throw new Error('Permit not found');
+      if (currentPermit.requester_id !== user?.id) {
+        throw new Error('You can only edit permits you created');
+      }
+
+      // Upload new files if any
+      let newAttachmentPaths: string[] = [];
+      if (newFiles.length > 0) {
+        for (const file of newFiles) {
+          const fileName = `${permitId}/${Date.now()}-${encodeURIComponent(file.name)}`;
+          const { error: uploadError } = await supabase.storage
+            .from('permit-attachments')
+            .upload(fileName, file);
+          
+          if (!uploadError) {
+            newAttachmentPaths.push(fileName);
+          }
+        }
+      }
+
+      // Combine existing and new attachments
+      const allAttachments = [...(currentPermit.attachments || []), ...newAttachmentPaths];
+      const newVersion = (currentPermit.rework_version || 0) + 1;
+
+      // Calculate new SLA deadline
+      const slaHours = updates.urgency === 'urgent' ? 4 : 48;
+      const slaDeadline = new Date();
+      slaDeadline.setHours(slaDeadline.getHours() + slaHours);
+
+      // Update the permit with new data and set status to submitted
+      const { data, error } = await supabase
+        .from('work_permits')
+        .update({
+          ...updates,
+          attachments: allAttachments,
+          status: 'submitted' as any,
+          rework_version: newVersion,
+          rework_comments: null, // Clear rework comments after resubmission
+          sla_deadline: slaDeadline.toISOString(),
+          sla_breached: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', permitId)
+        .eq('requester_id', user?.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        permit_id: permitId,
+        action: 'Resubmitted',
+        performed_by: profile?.full_name || user?.email || 'Unknown',
+        performed_by_id: user?.id,
+        details: `Permit resubmitted after rework (Version ${newVersion})`,
+      });
+
+      // Notify helpdesk for review
+      const { data: helpdeskUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'helpdesk');
+
+      if (helpdeskUsers) {
+        for (const hd of helpdeskUsers) {
+          await supabase.from('notifications').insert({
+            user_id: hd.user_id,
+            permit_id: permitId,
+            type: 'resubmitted',
+            title: 'Permit Resubmitted',
+            message: `Permit ${data.permit_no} (V${newVersion}) has been updated and resubmitted for review.`,
+          });
+        }
+      }
+
+      // Send email notification to helpdesk
+      try {
+        const helpdeskEmails = await getEmailsForRole('helpdesk');
+        if (helpdeskEmails.length > 0) {
+          await sendEmailNotification(
+            helpdeskEmails,
+            'resubmitted',
+            `Work Permit Resubmitted: ${data.permit_no} (V${newVersion})`,
+            {
+              permitId,
+              permitNo: `${data.permit_no} (V${newVersion})`,
+              comments: `Updated and resubmitted after rework`,
+            }
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send resubmit email notification:', emailError);
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      toast.success('Permit updated and resubmitted successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to resubmit permit: ' + error.message);
+    },
+  });
+}
+
 export function usePermitStats() {
   const { data: permits } = useWorkPermits();
 
@@ -892,7 +1098,8 @@ export function usePermitStats() {
     pending: permits.filter(p => 
       p.status.startsWith('pending') || 
       p.status === 'submitted' || 
-      p.status === 'under_review'
+      p.status === 'under_review' ||
+      p.status === 'rework_needed'
     ).length,
     approved: permits.filter(p => p.status === 'approved').length,
     rejected: permits.filter(p => p.status === 'rejected').length,
