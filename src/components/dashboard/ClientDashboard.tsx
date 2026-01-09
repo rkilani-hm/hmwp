@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Activity,
   Send,
+  RotateCcw,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -27,6 +28,9 @@ export function ClientDashboard() {
   const pendingPermits = permits?.filter(
     (p) => p.status.startsWith('pending') || p.status === 'submitted' || p.status === 'under_review'
   ) || [];
+
+  // Get rework needed permits
+  const reworkPermits = permits?.filter((p) => p.status === 'rework_needed') || [];
 
   // Get recent activity (last 5 permits sorted by updated_at)
   const recentActivity = permits?.slice(0, 5) || [];
@@ -112,8 +116,59 @@ export function ClientDashboard() {
 
       {/* Main Content Grid */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Pending Permits */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
+        {/* Pending & Rework Permits */}
+        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+          {/* Rework Needed Section */}
+          {reworkPermits.length > 0 && (
+            <Card className="border-orange-500/30 bg-orange-500/5">
+              <CardHeader className="flex flex-row items-center justify-between pb-4">
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5 text-orange-500" />
+                  Rework Needed
+                </CardTitle>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/permits?status=rework_needed" className="text-orange-600">
+                    View all
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {reworkPermits.slice(0, 3).map((permit) => (
+                  <div
+                    key={permit.id}
+                    className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800/50 cursor-pointer hover:border-orange-400 transition-colors"
+                    onClick={() => navigate(`/permits/${permit.id}/edit`)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <p className="font-medium text-sm">{permit.permit_no}</p>
+                        {permit.rework_version && permit.rework_version > 0 && (
+                          <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">
+                            V{permit.rework_version + 1}
+                          </span>
+                        )}
+                        <StatusBadge status={permit.status as any} />
+                      </div>
+                      <Button size="sm" variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white">
+                        Edit & Resubmit
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {permit.work_description}
+                    </p>
+                    {permit.rework_comments && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-2 italic">
+                        "{permit.rework_comments}"
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pending Permits */}
           <Card className={pendingPermits.length > 0 ? "border-warning/30" : ""}>
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <CardTitle className="font-display text-lg flex items-center gap-2">
