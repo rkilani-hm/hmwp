@@ -2,9 +2,10 @@ import { PermitStatus } from '@/types/workPermit';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, User, Clock, ChevronRight, Building2 } from 'lucide-react';
+import { Calendar, MapPin, User, Clock, ChevronRight, Building2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 export interface PermitCardData {
   id: string;
@@ -31,6 +32,14 @@ interface PermitCardProps {
 }
 
 export function PermitCard({ permit, onClick, className }: PermitCardProps) {
+  const navigate = useNavigate();
+  const isReworkNeeded = permit.status === 'rework_needed';
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/permits/${permit.id}/edit`);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -40,6 +49,7 @@ export function PermitCard({ permit, onClick, className }: PermitCardProps) {
       <Card
         className={cn(
           'group cursor-pointer transition-all hover:shadow-card-hover hover:border-accent/30',
+          isReworkNeeded && 'border-orange-500/50 bg-orange-500/5',
           className
         )}
         onClick={onClick}
@@ -53,13 +63,26 @@ export function PermitCard({ permit, onClick, className }: PermitCardProps) {
               </div>
               <p className="text-sm text-muted-foreground truncate">{permit.workTypeName}</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {isReworkNeeded && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white"
+                  onClick={handleEditClick}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
