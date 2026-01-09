@@ -190,18 +190,33 @@ export default function EditPermit() {
         </div>
       </div>
 
-      {/* Rework Comments Alert */}
+      {/* Rework Comments Alert - Prominent Banner */}
       {permit.rework_comments && (
-        <Alert className="border-warning bg-warning/10">
-          <RotateCcw className="h-4 w-4 text-warning" />
-          <AlertTitle className="text-warning">Rework Requested</AlertTitle>
-          <AlertDescription className="text-muted-foreground">
-            <p className="font-medium mt-1">Approver's feedback:</p>
-            <p className="mt-2 p-3 bg-background rounded-md border">
-              {permit.rework_comments}
-            </p>
-          </AlertDescription>
-        </Alert>
+        <div className="rounded-lg border-2 border-orange-500 bg-orange-500/10 p-6 shadow-lg">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 rounded-full bg-orange-500 p-3">
+              <RotateCcw className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h3 className="text-lg font-semibold text-orange-600">
+                  ⚠️ Rework Required
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  An approver has requested changes to this permit. Please review the feedback below and make the necessary updates.
+                </p>
+              </div>
+              <div className="rounded-md border-2 border-orange-300 bg-white p-4 dark:bg-background">
+                <p className="text-xs font-semibold uppercase tracking-wide text-orange-600 mb-2">
+                  Approver's Feedback
+                </p>
+                <p className="text-foreground font-medium text-base whitespace-pre-wrap">
+                  {permit.rework_comments}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="max-w-3xl space-y-6">
