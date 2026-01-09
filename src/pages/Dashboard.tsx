@@ -14,6 +14,7 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  RotateCcw,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -59,6 +60,7 @@ const toPermitCardFormat = (permit: WorkPermit) => ({
   attachments: permit.attachments || [],
   workTypeId: permit.work_type_id || '',
   workTypeName: permit.work_types?.name,
+  reworkVersion: permit.rework_version,
   helpdeskApproval: { status: permit.helpdesk_status as any, approverName: permit.helpdesk_approver_name, approverEmail: null, date: permit.helpdesk_date, comments: permit.helpdesk_comments, signature: permit.helpdesk_signature },
   pmApproval: { status: permit.pm_status as any, approverName: permit.pm_approver_name, approverEmail: null, date: permit.pm_date, comments: permit.pm_comments, signature: permit.pm_signature },
   pdApproval: { status: permit.pd_status as any, approverName: permit.pd_approver_name, approverEmail: null, date: permit.pd_date, comments: permit.pd_comments, signature: permit.pd_signature },
@@ -93,6 +95,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
   const pendingPermits = permits?.filter(
     (p) => p.status.startsWith('pending') || p.status === 'submitted' || p.status === 'under_review'
   ).slice(0, 3) || [];
+  const reworkPermits = permits?.filter((p) => p.status === 'rework_needed').slice(0, 3) || [];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -220,6 +223,42 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
         {/* Quick Actions & Pending */}
         <motion.div variants={itemVariants} className="space-y-6">
+          {/* Rework Needed */}
+          {reworkPermits.length > 0 && (
+            <Card className="border-orange-500/30 bg-orange-500/5">
+              <CardHeader className="pb-4">
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5 text-orange-500" />
+                  Rework Needed
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {reworkPermits.map((permit) => (
+                  <div
+                    key={permit.id}
+                    className="flex items-center justify-between p-3 bg-card rounded-lg border border-orange-200 dark:border-orange-800/50 cursor-pointer hover:border-orange-400 transition-colors"
+                    onClick={() => navigate(`/permits/${permit.id}/edit`)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{permit.permit_no}</p>
+                        {permit.rework_version && permit.rework_version > 0 && (
+                          <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">
+                            V{permit.rework_version + 1}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {permit.contractor_name}
+                      </p>
+                    </div>
+                    <StatusBadge status={permit.status as any} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Pending Approvals */}
           {pendingPermits.length > 0 && (
             <Card className="border-warning/30 bg-warning/5">
