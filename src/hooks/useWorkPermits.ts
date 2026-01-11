@@ -211,6 +211,8 @@ export function useCreatePermit() {
       unit: string;
       floor: string;
       work_location: string;
+      work_location_id?: string | null;
+      work_location_other?: string | null;
       work_type_id: string;
       work_description: string;
       work_date_from: string;
