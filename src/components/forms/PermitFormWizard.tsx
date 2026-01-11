@@ -15,7 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWorkTypes, useCreatePermit } from '@/hooks/useWorkPermits';
+import { useWorkLocations, WorkLocation } from '@/hooks/useWorkLocations';
 import { useAuth } from '@/contexts/AuthContext';
+import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -49,7 +51,8 @@ interface FormData {
   contactMobile: string;
   unit: string;
   floor: string;
-  workLocation: string;
+  workLocationId: string;
+  workLocationOther: string;
   workTypeId: string;
   workDescription: string;
   workDateFrom: string;
@@ -64,6 +67,7 @@ export function PermitFormWizard() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { data: workTypes, isLoading: workTypesLoading } = useWorkTypes();
+  const { data: workLocations, isLoading: workLocationsLoading } = useWorkLocations();
   const createPermit = useCreatePermit();
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -74,7 +78,8 @@ export function PermitFormWizard() {
     contactMobile: '',
     unit: '',
     floor: '',
-    workLocation: '',
+    workLocationId: '',
+    workLocationOther: '',
     workTypeId: '',
     workDescription: '',
     workDateFrom: '',
@@ -104,12 +109,20 @@ export function PermitFormWizard() {
   };
 
   const handleSubmit = async () => {
+    // Determine work location text
+    const selectedLocation = workLocations?.find(loc => loc.id === formData.workLocationId);
+    const workLocationText = formData.workLocationId === 'other' 
+      ? formData.workLocationOther.trim()
+      : selectedLocation?.name || '';
+
     createPermit.mutate({
       contractor_name: formData.contractorName.trim(),
       contact_mobile: formData.contactMobile.trim(),
       unit: formData.unit.trim(),
       floor: formData.floor.trim(),
-      work_location: formData.workLocation.trim(),
+      work_location: workLocationText,
+      work_location_id: formData.workLocationId === 'other' ? null : formData.workLocationId || null,
+      work_location_other: formData.workLocationId === 'other' ? formData.workLocationOther.trim() : null,
       work_type_id: formData.workTypeId,
       work_description: formData.workDescription.trim(),
       work_date_from: formData.workDateFrom,
@@ -130,7 +143,10 @@ export function PermitFormWizard() {
       case 1:
         return formData.requesterName && formData.requesterEmail && formData.contractorName && formData.contactMobile;
       case 2:
-        return formData.unit && formData.floor && formData.workLocation && formData.workTypeId && formData.workDescription;
+        const hasLocation = formData.workLocationId === 'other' 
+          ? formData.workLocationOther.trim() !== ''
+          : formData.workLocationId !== '';
+        return formData.unit && formData.floor && hasLocation && formData.workTypeId && formData.workDescription;
       case 3:
         return formData.workDateFrom && formData.workDateTo && formData.workTimeFrom && formData.workTimeTo;
       case 4:
@@ -141,6 +157,11 @@ export function PermitFormWizard() {
   };
 
   const selectedWorkType = workTypes?.find(wt => wt.id === formData.workTypeId);
+  const selectedWorkLocation = workLocations?.find(loc => loc.id === formData.workLocationId);
+  const isOtherLocation = formData.workLocationId === 'other';
+  const workLocationDisplayName = isOtherLocation 
+    ? formData.workLocationOther 
+    : selectedWorkLocation?.name || '';
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -272,14 +293,39 @@ export function PermitFormWizard() {
                         placeholder="10"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-3">
                       <Label htmlFor="workLocation">Work Location *</Label>
-                      <Input
-                        id="workLocation"
-                        value={formData.workLocation}
-                        onChange={(e) => updateField('workLocation', e.target.value)}
-                        placeholder="Server Room"
-                      />
+                      <Select
+                        value={formData.workLocationId}
+                        onValueChange={(value) => updateField('workLocationId', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select work location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {workLocationsLoading ? (
+                            <SelectItem value="" disabled>Loading...</SelectItem>
+                          ) : (
+                            <>
+                              {(workLocations || []).map((loc) => (
+                                <SelectItem key={loc.id} value={loc.id}>
+                                  {loc.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="other">Other (specify below)</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {formData.workLocationId === 'other' && (
+                        <Input
+                          id="workLocationOther"
+                          value={formData.workLocationOther}
+                          onChange={(e) => updateField('workLocationOther', e.target.value)}
+                          placeholder="Enter custom location"
+                          className="mt-2"
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -314,6 +360,16 @@ export function PermitFormWizard() {
                       rows={4}
                     />
                   </div>
+                  
+                  {/* Workflow Preview */}
+                  {(formData.workLocationId || formData.workTypeId) && (
+                    <WorkflowPreview 
+                      workType={selectedWorkType}
+                      workLocation={selectedWorkLocation}
+                      isOtherLocation={isOtherLocation}
+                      className="mt-4 p-4 bg-muted/30 rounded-lg"
+                    />
+                  )}
                 </div>
               )}
 
@@ -493,7 +549,7 @@ export function PermitFormWizard() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Location</p>
-                      <p className="text-sm">{formData.workLocation}</p>
+                      <p className="text-sm">{workLocationDisplayName}</p>
                       <p className="text-sm text-muted-foreground">Unit {formData.unit}, Floor {formData.floor}</p>
                     </div>
                     <div>

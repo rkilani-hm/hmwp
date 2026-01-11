@@ -23,6 +23,7 @@ import {
   Activity,
   Key,
   QrCode,
+  MapPin,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -82,6 +83,7 @@ const navigationItems = {
     { icon: Shield, label: 'Roles', path: '/roles' },
     { icon: Key, label: 'Permissions', path: '/permissions' },
     { icon: Cog, label: 'Work Types', path: '/work-types' },
+    { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
   approver: [

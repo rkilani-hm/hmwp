@@ -362,6 +362,36 @@ export type Database = {
         }
         Relationships: []
       }
+      work_locations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          location_type: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_type?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_type?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       work_permits: {
         Row: {
           attachments: string[] | null
@@ -446,6 +476,8 @@ export type Database = {
           work_date_to: string
           work_description: string
           work_location: string
+          work_location_id: string | null
+          work_location_other: string | null
           work_time_from: string
           work_time_to: string
           work_type_id: string | null
@@ -533,6 +565,8 @@ export type Database = {
           work_date_to: string
           work_description: string
           work_location: string
+          work_location_id?: string | null
+          work_location_other?: string | null
           work_time_from: string
           work_time_to: string
           work_type_id?: string | null
@@ -620,11 +654,20 @@ export type Database = {
           work_date_to?: string
           work_description?: string
           work_location?: string
+          work_location_id?: string | null
+          work_location_other?: string | null
           work_time_from?: string
           work_time_to?: string
           work_type_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_permits_work_location_id_fkey"
+            columns: ["work_location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_permits_work_type_id_fkey"
             columns: ["work_type_id"]

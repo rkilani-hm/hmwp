@@ -106,11 +106,17 @@ interface WorkType {
   requires_pmd_coordinator: boolean;
 }
 
-// Define the approval workflow order
+interface WorkLocation {
+  id: string;
+  name: string;
+  location_type: 'shop' | 'common';
+}
+
+// Define the approval workflow order - PM and PD are location-based
 const APPROVAL_ORDER = [
   { role: 'helpdesk', status: 'submitted', nextStatus: 'pending_pm', requiresField: null },
-  { role: 'pm', status: 'pending_pm', nextStatus: 'pending_pd', requiresField: 'requires_pm' },
-  { role: 'pd', status: 'pending_pd', nextStatus: 'pending_bdcr', requiresField: 'requires_pd' },
+  { role: 'pm', status: 'pending_pm', nextStatus: 'pending_pd', requiresField: 'requires_pm', locationType: 'shop' },
+  { role: 'pd', status: 'pending_pd', nextStatus: 'pending_bdcr', requiresField: 'requires_pd', locationType: 'common' },
   { role: 'bdcr', status: 'pending_bdcr', nextStatus: 'pending_mpr', requiresField: 'requires_bdcr' },
   { role: 'mpr', status: 'pending_mpr', nextStatus: 'pending_it', requiresField: 'requires_mpr' },
   { role: 'it', status: 'pending_it', nextStatus: 'pending_fitout', requiresField: 'requires_it' },
@@ -119,16 +125,45 @@ const APPROVAL_ORDER = [
   { role: 'pmd_coordinator', status: 'pending_pmd_coordinator', nextStatus: 'approved', requiresField: 'requires_pmd_coordinator' },
 ];
 
-// Get the next required approval step based on work type
-function getNextApprovalStep(currentRole: string, workType: WorkType | null): { nextStatus: string; nextRole: string | null } {
+// Get the next required approval step based on work type and location
+function getNextApprovalStep(
+  currentRole: string, 
+  workType: WorkType | null, 
+  locationType: 'shop' | 'common' | null
+): { nextStatus: string; nextRole: string | null } {
   const currentIndex = APPROVAL_ORDER.findIndex(step => step.role === currentRole);
   if (currentIndex === -1) {
     return { nextStatus: 'approved', nextRole: null };
   }
 
+  // After helpdesk, route based on location type
+  if (currentRole === 'helpdesk') {
+    const effectiveLocationType = locationType || 'shop'; // Default to shop (PM) if no location
+    if (effectiveLocationType === 'shop') {
+      return { nextStatus: 'pending_pm', nextRole: 'pm' };
+    } else {
+      return { nextStatus: 'pending_pd', nextRole: 'pd' };
+    }
+  }
+
   // Look for the next required step
   for (let i = currentIndex + 1; i < APPROVAL_ORDER.length; i++) {
     const step = APPROVAL_ORDER[i];
+    
+    // Skip location-based steps that don't match
+    if (step.locationType) {
+      const effectiveLocationType = locationType || 'shop';
+      // PM is required for shop locations (as first after helpdesk) but can also be in work type
+      // PD is required for common locations (as first after helpdesk) but can also be in work type
+      if (currentRole === 'pm' && step.role === 'pd') {
+        // After PM, check if PD is required by work type (not just location)
+        if (!workType?.requires_pd) continue;
+      }
+      if (currentRole === 'pd' && step.role === 'pm') {
+        // This shouldn't happen in normal flow, skip
+        continue;
+      }
+    }
     
     // If no requiresField or no workType, include the step
     if (!step.requiresField || !workType) {
@@ -301,7 +336,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Audit log created for user:", user.email, "IP:", ipAddress);
 
-    // Get the current permit with work type to determine next step
+    // Get the current permit with work type and location to determine next step
     const { data: currentPermit } = await serviceClient
       .from("work_permits")
       .select(`
@@ -317,6 +352,11 @@ const handler = async (req: Request): Promise<Response> => {
           requires_fitout,
           requires_ecovert_supervisor,
           requires_pmd_coordinator
+        ),
+        work_locations (
+          id,
+          name,
+          location_type
         )
       `)
       .eq("id", permitId)
@@ -328,6 +368,10 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    // Get location type for routing
+    const workLocation = currentPermit?.work_locations as WorkLocation | null;
+    const locationType = workLocation?.location_type || (currentPermit.work_location_other ? 'shop' : null);
 
     // Update the permit
     const roleField = role.toLowerCase().replace(" ", "_");
@@ -345,10 +389,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (!approved) {
       updateData.status = "rejected";
     } else {
-      // Determine next step based on work type requirements
+      // Determine next step based on work type requirements AND location
       const workType = currentPermit?.work_types as WorkType | null;
-      const { nextStatus, nextRole } = getNextApprovalStep(roleField, workType);
+      const { nextStatus, nextRole } = getNextApprovalStep(roleField, workType, locationType);
       updateData.status = nextStatus;
+      console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole}, location: ${locationType})`);
       console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole})`);
     }
 
@@ -459,7 +504,7 @@ const handler = async (req: Request): Promise<Response> => {
     // If approved and not final approval, notify the next approvers
     if (approved && updatedPermit.status !== 'approved') {
       const workType = currentPermit?.work_types as WorkType | null;
-      const { nextRole } = getNextApprovalStep(roleField, workType);
+      const { nextRole } = getNextApprovalStep(roleField, workType, locationType);
       
       if (nextRole) {
         // Get users with the next role
