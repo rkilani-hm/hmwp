@@ -20,6 +20,7 @@ import MyPerformance from './MyPerformance';
 import ApproverPerformance from './admin/ApproverPerformance';
 import ScanVerify from './ScanVerify';
 import GenerateVapidKeys from './admin/GenerateVapidKeys';
+import QRCodePoster from './admin/QRCodePoster';
 import Settings from './Settings';
 const Index = () => {
   const { roles, hasRole } = useAuth();
@@ -96,6 +97,10 @@ const Index = () => {
         <Route 
           path="vapid-keys" 
           element={isAdmin ? <GenerateVapidKeys /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="qr-poster" 
+          element={isAdmin ? <QRCodePoster /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>
