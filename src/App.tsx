@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PublicScanVerify from "./pages/PublicScanVerify";
+import PublicPermitRequest from "./pages/PublicPermitRequest";
 import InstallApp from "./pages/InstallApp";
 import Onboarding from "./pages/Onboarding";
 
@@ -24,6 +25,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/verify" element={<PublicScanVerify />} />
+            <Route path="/request-permit" element={<PublicPermitRequest />} />
             <Route path="/install" element={<InstallApp />} />
             <Route
               path="/onboarding"

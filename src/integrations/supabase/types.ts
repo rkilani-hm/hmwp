@@ -415,6 +415,8 @@ export type Database = {
           ecovert_supervisor_date: string | null
           ecovert_supervisor_signature: string | null
           ecovert_supervisor_status: string | null
+          external_company_name: string | null
+          external_contact_person: string | null
           fitout_approver_email: string | null
           fitout_approver_name: string | null
           fitout_comments: string | null
@@ -429,6 +431,7 @@ export type Database = {
           helpdesk_signature: string | null
           helpdesk_status: string | null
           id: string
+          is_internal: boolean | null
           it_approver_email: string | null
           it_approver_name: string | null
           it_comments: string | null
@@ -504,6 +507,8 @@ export type Database = {
           ecovert_supervisor_date?: string | null
           ecovert_supervisor_signature?: string | null
           ecovert_supervisor_status?: string | null
+          external_company_name?: string | null
+          external_contact_person?: string | null
           fitout_approver_email?: string | null
           fitout_approver_name?: string | null
           fitout_comments?: string | null
@@ -518,6 +523,7 @@ export type Database = {
           helpdesk_signature?: string | null
           helpdesk_status?: string | null
           id?: string
+          is_internal?: boolean | null
           it_approver_email?: string | null
           it_approver_name?: string | null
           it_comments?: string | null
@@ -593,6 +599,8 @@ export type Database = {
           ecovert_supervisor_date?: string | null
           ecovert_supervisor_signature?: string | null
           ecovert_supervisor_status?: string | null
+          external_company_name?: string | null
+          external_contact_person?: string | null
           fitout_approver_email?: string | null
           fitout_approver_name?: string | null
           fitout_comments?: string | null
@@ -607,6 +615,7 @@ export type Database = {
           helpdesk_signature?: string | null
           helpdesk_status?: string | null
           id?: string
+          is_internal?: boolean | null
           it_approver_email?: string | null
           it_approver_name?: string | null
           it_comments?: string | null
