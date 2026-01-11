@@ -84,6 +84,7 @@ const navigationItems = {
     { icon: Key, label: 'Permissions', path: '/permissions' },
     { icon: Cog, label: 'Work Types', path: '/work-types' },
     { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
+    { icon: QrCode, label: 'QR Code Poster', path: '/qr-poster' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
   approver: [
