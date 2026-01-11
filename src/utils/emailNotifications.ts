@@ -10,7 +10,8 @@ export type NotificationType =
   | 'closed' 
   | 'sla_warning' 
   | 'sla_breach'
-  | 'resubmitted';
+  | 'resubmitted'
+  | 'permit_submitted';
 
 interface EmailDetails {
   permitId?: string;
@@ -21,6 +22,10 @@ interface EmailDetails {
   approverName?: string;
   reason?: string;
   comments?: string;
+  isInternal?: boolean;
+  workDescription?: string;
+  workLocation?: string;
+  workDates?: string;
 }
 
 export async function sendEmailNotification(
