@@ -45,12 +45,12 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin
+    // Check if user is admin using role_id architecture
     const { data: adminRole } = await supabaseAdmin
       .from("user_roles")
-      .select("role")
+      .select("role_id, roles!inner(name)")
       .eq("user_id", user.id)
-      .eq("role", "admin")
+      .eq("roles.name", "admin")
       .single();
 
     if (!adminRole) {
