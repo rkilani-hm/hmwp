@@ -30,13 +30,7 @@ function checkAdminRateLimit(adminId: string): { allowed: boolean; retryAfter?: 
   return { allowed: true };
 }
 
-// Valid roles enum matching the database app_role type
-const validRoles = [
-  'contractor', 'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
-  'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator', 'admin'
-] as const;
-
-// Input validation schema
+// Input validation schema - roles validated dynamically from database
 const CreateUserSchema = z.object({
   email: z.string()
     .email("Invalid email format")
@@ -53,9 +47,9 @@ const CreateUserSchema = z.object({
     .max(100, "Company name must be less than 100 characters")
     .transform(val => val.trim())
     .optional(),
-  roles: z.array(z.enum(validRoles))
+  roles: z.array(z.string())
     .min(1, "At least one role is required")
-    .max(5, "Maximum 5 roles allowed"),
+    .max(10, "Maximum 10 roles allowed"),
 });
 
 serve(async (req) => {
@@ -140,6 +134,31 @@ serve(async (req) => {
     }
 
     const { email, password, fullName, companyName, roles } = parseResult.data;
+    
+    // Validate that all roles exist in the database
+    const { data: validRolesData, error: rolesQueryError } = await supabaseAdmin
+      .from("roles")
+      .select("name")
+      .in("name", roles);
+    
+    if (rolesQueryError) {
+      console.error("Error fetching roles:", rolesQueryError);
+      return new Response(
+        JSON.stringify({ error: "Failed to validate roles" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const validRoleNames = new Set(validRolesData?.map(r => r.name) || []);
+    const invalidRoles = roles.filter(r => !validRoleNames.has(r));
+    
+    if (invalidRoles.length > 0) {
+      console.error("Invalid roles provided:", invalidRoles);
+      return new Response(
+        JSON.stringify({ error: `Invalid roles: ${invalidRoles.join(", ")}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
     console.log("Creating user:", email, "with roles:", roles);
 
