@@ -192,13 +192,18 @@ export function useAllApproversPerformance() {
   return useQuery({
     queryKey: ['all-approvers-performance'],
     queryFn: async () => {
-      // Get all users with approver roles
-      const { data: userRoles, error: rolesError } = await supabase
+      // Get all users with approver roles - join with roles table to get role names
+      const { data: userRolesRaw, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'] as any);
+        .select('user_id, role_id, roles:role_id(name)');
       
       if (rolesError) throw rolesError;
+
+      // Filter to only approver roles
+      const approverRoleNames = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'];
+      const userRoles = userRolesRaw
+        ?.filter(ur => approverRoleNames.includes((ur.roles as any)?.name))
+        .map(ur => ({ user_id: ur.user_id, role: (ur.roles as any)?.name as string })) || [];
       
       // Get all profiles
       const userIds = [...new Set(userRoles?.map(ur => ur.user_id) || [])];

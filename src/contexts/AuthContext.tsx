@@ -124,13 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role_id, roles:role_id(name)')
         .eq('user_id', userId);
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
       } else {
-        setRoles(rolesData?.map(r => r.role as AppRole) || []);
+        setRoles(rolesData?.map(r => (r.roles as any)?.name as AppRole).filter(Boolean) || []);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
