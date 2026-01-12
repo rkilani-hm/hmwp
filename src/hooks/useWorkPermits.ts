@@ -301,10 +301,16 @@ export function useCreatePermit() {
       });
 
       // Create notifications for relevant approvers (helpdesk first)
-      const { data: helpdeskUsers } = await supabase
+      const { data: helpdeskRole } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'helpdesk')
+        .single();
+      
+      const { data: helpdeskUsers } = helpdeskRole ? await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'helpdesk');
+        .eq('role_id', helpdeskRole.id) : { data: null };
 
       if (helpdeskUsers) {
         const helpdeskUserIds: string[] = [];
@@ -678,10 +684,16 @@ export function useForwardPermit() {
       });
 
       // Create notification for target approvers
-      const { data: targetUsers } = await supabase
+      const { data: targetRoleData } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', targetRole)
+        .single();
+
+      const { data: targetUsers } = targetRoleData ? await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', targetRole as any);
+        .eq('role_id', targetRoleData.id) : { data: null };
 
       if (targetUsers) {
         for (const tu of targetUsers) {
@@ -906,10 +918,16 @@ export function useCancelPermit() {
       });
 
       // Notify approvers that the permit was cancelled
-      const { data: helpdeskUsers } = await supabase
+      const { data: helpdeskRoleData } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'helpdesk')
+        .single();
+
+      const { data: helpdeskUsers } = helpdeskRoleData ? await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'helpdesk');
+        .eq('role_id', helpdeskRoleData.id) : { data: null };
 
       if (helpdeskUsers) {
         for (const hd of helpdeskUsers) {
@@ -1031,10 +1049,16 @@ export function useUpdateAndResubmitPermit() {
       });
 
       // Notify helpdesk for review
-      const { data: helpdeskUsers } = await supabase
+      const { data: helpdeskRoleData } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'helpdesk')
+        .single();
+
+      const { data: helpdeskUsers } = helpdeskRoleData ? await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'helpdesk');
+        .eq('role_id', helpdeskRoleData.id) : { data: null };
 
       if (helpdeskUsers) {
         for (const hd of helpdeskUsers) {

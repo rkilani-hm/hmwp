@@ -42,10 +42,10 @@ export function useUsersWithRoles() {
 
       if (profilesError) throw profilesError;
 
-      // Then get all user roles
+      // Then get all user roles with role names
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('*');
+        .select('user_id, role_id, roles:role_id(name)');
 
       if (rolesError) throw rolesError;
 
@@ -59,7 +59,8 @@ export function useUsersWithRoles() {
         is_active: profile.is_active !== false,
         roles: userRoles
           .filter((ur) => ur.user_id === profile.id)
-          .map((ur) => ur.role),
+          .map((ur) => (ur.roles as any)?.name)
+          .filter(Boolean),
       }));
 
       return usersWithRoles;
@@ -74,11 +75,18 @@ export function useAddUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      // Cast to the expected enum type
-      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'ecovert_supervisor' | 'pmd_coordinator';
+      // First find the role_id from the roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', role)
+        .single();
+
+      if (roleError) throw new Error(`Role "${role}" not found`);
+
       const { data, error } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: role as AppRole })
+        .insert({ user_id: userId, role_id: roleData.id })
         .select()
         .single();
 
@@ -105,12 +113,20 @@ export function useRemoveUserRole() {
 
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'ecovert_supervisor' | 'pmd_coordinator';
+      // First find the role_id from the roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', role)
+        .single();
+
+      if (roleError) throw new Error(`Role "${role}" not found`);
+
       const { error } = await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', userId)
-        .eq('role', role as AppRole);
+        .eq('role_id', roleData.id);
 
       if (error) throw error;
     },
