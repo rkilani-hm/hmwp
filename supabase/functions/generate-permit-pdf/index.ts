@@ -351,6 +351,11 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     const approvals = [
+      // Client workflow roles
+      { name: 'Customer Service', roleKey: 'customer_service', status: permit.customer_service_status, approver: permit.customer_service_approver_name, date: permit.customer_service_date, signature: permit.customer_service_signature, comments: permit.customer_service_comments },
+      { name: 'CR Coordinator', roleKey: 'cr_coordinator', status: permit.cr_coordinator_status, approver: permit.cr_coordinator_approver_name, date: permit.cr_coordinator_date, signature: permit.cr_coordinator_signature, comments: permit.cr_coordinator_comments },
+      { name: 'Head CR', roleKey: 'head_cr', status: permit.head_cr_status, approver: permit.head_cr_approver_name, date: permit.head_cr_date, signature: permit.head_cr_signature, comments: permit.head_cr_comments },
+      // Internal workflow roles
       { name: 'Helpdesk', roleKey: 'helpdesk', status: permit.helpdesk_status, approver: permit.helpdesk_approver_name, date: permit.helpdesk_date, signature: permit.helpdesk_signature, comments: permit.helpdesk_comments },
       { name: 'PM', roleKey: 'pm', status: permit.pm_status, approver: permit.pm_approver_name, date: permit.pm_date, signature: permit.pm_signature, comments: permit.pm_comments },
       { name: 'PD', roleKey: 'pd', status: permit.pd_status, approver: permit.pd_approver_name, date: permit.pd_date, signature: permit.pd_signature, comments: permit.pd_comments },
@@ -360,6 +365,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
       { name: 'Fit-Out', roleKey: 'fitout', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date, signature: permit.fitout_signature, comments: permit.fitout_comments },
       { name: 'Ecovert Supervisor', roleKey: 'ecovert_supervisor', status: permit.ecovert_supervisor_status, approver: permit.ecovert_supervisor_approver_name, date: permit.ecovert_supervisor_date, signature: permit.ecovert_supervisor_signature, comments: permit.ecovert_supervisor_comments },
       { name: 'PMD Coordinator', roleKey: 'pmd_coordinator', status: permit.pmd_coordinator_status, approver: permit.pmd_coordinator_approver_name, date: permit.pmd_coordinator_date, signature: permit.pmd_coordinator_signature, comments: permit.pmd_coordinator_comments },
+      // FMSP Approval (final step)
+      { name: 'FMSP Approval', roleKey: 'fmsp_approval', status: permit.fmsp_approval_status, approver: permit.fmsp_approval_approver_name, date: permit.fmsp_approval_date, signature: permit.fmsp_approval_signature, comments: permit.fmsp_approval_comments },
     ];
     
     for (const approval of approvals) {
