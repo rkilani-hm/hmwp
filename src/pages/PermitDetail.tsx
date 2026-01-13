@@ -121,31 +121,44 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
   const workType = permit.work_types;
 
+  // Dynamic status-to-role mapping for all workflow types
+  const statusToRole: Record<string, string> = {
+    // Legacy internal workflow
+    'submitted': 'helpdesk',
+    'under_review': 'helpdesk',
+    'pending_pm': 'pm',
+    'pending_pd': 'pd',
+    'pending_bdcr': 'bdcr',
+    'pending_mpr': 'mpr',
+    'pending_it': 'it',
+    'pending_fitout': 'fitout',
+    'pending_ecovert_supervisor': 'ecovert_supervisor',
+    'pending_pmd_coordinator': 'pmd_coordinator',
+    // Client workflow roles
+    'pending_customer_service': 'customer_service',
+    'pending_cr_coordinator': 'cr_coordinator',
+    'pending_head_cr': 'head_cr',
+    // Soft/Hard Facilities and PM Service
+    'pending_soft_facilities': 'soft_facilities',
+    'pending_hard_facilities': 'hard_facilities',
+    'pending_pm_service': 'pm_service',
+  };
+
   const canApprove = () => {
     if (currentRole === 'contractor') return false;
-    if (roles.includes('helpdesk') && permit.status === 'submitted') return true;
-    if (roles.includes('pm') && permit.status === 'pending_pm') return true;
-    if (roles.includes('pd') && permit.status === 'pending_pd') return true;
-    if (roles.includes('bdcr') && permit.status === 'pending_bdcr') return true;
-    if (roles.includes('mpr') && permit.status === 'pending_mpr') return true;
-    if (roles.includes('it') && permit.status === 'pending_it') return true;
-    if (roles.includes('fitout') && permit.status === 'pending_fitout') return true;
-    if (roles.includes('ecovert_supervisor') && permit.status === 'pending_ecovert_supervisor') return true;
-    if (roles.includes('pmd_coordinator') && permit.status === 'pending_pmd_coordinator') return true;
-    return false;
+    const requiredRole = statusToRole[permit.status];
+    if (!requiredRole) return false;
+    return roles.includes(requiredRole as any);
   };
 
   const getApprovalRole = (): string => {
-    if (permit.status === 'submitted') return 'helpdesk';
-    if (permit.status === 'pending_pm') return 'pm';
-    if (permit.status === 'pending_pd') return 'pd';
-    if (permit.status === 'pending_bdcr') return 'bdcr';
-    if (permit.status === 'pending_mpr') return 'mpr';
-    if (permit.status === 'pending_it') return 'it';
-    if (permit.status === 'pending_fitout') return 'fitout';
-    if (permit.status === 'pending_ecovert_supervisor') return 'ecovert_supervisor';
-    if (permit.status === 'pending_pmd_coordinator') return 'pmd_coordinator';
-    return 'helpdesk';
+    const role = statusToRole[permit.status];
+    if (role && roles.includes(role as any)) {
+      return role;
+    }
+    // Fallback: return the first matching approver role the user has
+    const allApproverRoles = Object.values(statusToRole);
+    return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
   };
 
   const handleApprove = () => {
