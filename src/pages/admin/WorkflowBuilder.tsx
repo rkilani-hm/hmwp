@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Loader2, ChevronUp, ChevronDown, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { 
   useWorkflowTemplates, 
   useWorkflowSteps,
@@ -21,10 +21,12 @@ import {
   useUpdateWorkflowStep,
   useDeleteWorkflowStep,
   useReorderWorkflowSteps,
+  useValidateWorkflowTemplate,
   WorkflowTemplate,
   WorkflowStep
 } from '@/hooks/useWorkflowTemplates';
 import { useRoles } from '@/hooks/useRoles';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function WorkflowBuilder() {
   const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
@@ -225,10 +227,16 @@ function WorkflowEditor({
   const updateStep = useUpdateWorkflowStep();
   const deleteStep = useDeleteWorkflowStep();
   const reorderSteps = useReorderWorkflowSteps();
+  const validateTemplate = useValidateWorkflowTemplate();
 
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(template.name);
   const [description, setDescription] = useState(template.description || '');
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  } | null>(null);
 
   const handleSaveDetails = () => {
     updateTemplate.mutate({
@@ -237,6 +245,11 @@ function WorkflowEditor({
       description,
     });
     setEditingName(false);
+  };
+
+  const handleValidate = async () => {
+    const result = await validateTemplate.mutateAsync(template.id);
+    setValidationResult(result);
   };
 
   const handleMoveStep = (stepId: string, direction: 'up' | 'down') => {
@@ -257,6 +270,7 @@ function WorkflowEditor({
     }));
 
     reorderSteps.mutate({ templateId: template.id, steps: reorderedSteps });
+    setValidationResult(null); // Clear validation on changes
   };
 
   return (
@@ -335,12 +349,67 @@ function WorkflowEditor({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {/* Validation Results */}
+          {validationResult && (
+            <div className="space-y-2">
+              {validationResult.valid ? (
+                <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertTitle className="text-green-800 dark:text-green-200">Workflow Valid</AlertTitle>
+                  <AlertDescription className="text-green-700 dark:text-green-300">
+                    All roles exist and the workflow is properly configured.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>Validation Failed</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc list-inside mt-1">
+                      {validationResult.errors.map((error, i) => (
+                        <li key={i}>{error}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {validationResult.warnings.length > 0 && (
+                <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <AlertTitle className="text-yellow-800 dark:text-yellow-200">Warnings</AlertTitle>
+                  <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                    <ul className="list-disc list-inside mt-1">
+                      {validationResult.warnings.map((warning, i) => (
+                        <li key={i}>{warning}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Approval Steps</h3>
-            <Button size="sm" onClick={onAddStep}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add Step
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleValidate}
+                disabled={validateTemplate.isPending}
+              >
+                {validateTemplate.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Validate
+              </Button>
+              <Button size="sm" onClick={onAddStep}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Step
+              </Button>
+            </div>
           </div>
 
           {isLoading ? (

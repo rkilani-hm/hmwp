@@ -173,6 +173,14 @@ export function useUpdateWorkflowTemplate() {
       is_active?: boolean;
       is_default?: boolean;
     }) => {
+      // If activating the template, validate it first
+      if (updates.is_active === true) {
+        const validation = await validateWorkflowTemplate(id);
+        if (!validation.valid) {
+          throw new Error('Cannot activate workflow: ' + validation.errors.join(', '));
+        }
+      }
+
       const { data, error } = await supabase
         .from('workflow_templates')
         .update(updates)
@@ -217,6 +225,77 @@ export function useDeleteWorkflowTemplate() {
   });
 }
 
+// Validate workflow template - check all roles exist and are active
+export async function validateWorkflowTemplate(templateId: string): Promise<{
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Fetch workflow steps with roles
+  const { data: steps, error: stepsError } = await supabase
+    .from('workflow_steps')
+    .select(`
+      *,
+      role:roles(id, name, label, is_active)
+    `)
+    .eq('workflow_template_id', templateId)
+    .order('step_order');
+
+  if (stepsError) {
+    errors.push('Failed to fetch workflow steps: ' + stepsError.message);
+    return { valid: false, errors, warnings };
+  }
+
+  if (!steps || steps.length === 0) {
+    errors.push('Workflow has no steps defined');
+    return { valid: false, errors, warnings };
+  }
+
+  // Check each step has a valid role
+  for (const step of steps) {
+    if (!step.role) {
+      errors.push(`Step ${step.step_order}: Role not found (ID: ${step.role_id})`);
+    } else if (step.role.is_active === false) {
+      warnings.push(`Step ${step.step_order} (${step.role.label}): Role is inactive`);
+    }
+  }
+
+  // Check for duplicate step orders
+  const orderCounts = new Map<number, number>();
+  for (const step of steps) {
+    orderCounts.set(step.step_order, (orderCounts.get(step.step_order) || 0) + 1);
+  }
+  for (const [order, count] of orderCounts) {
+    if (count > 1) {
+      errors.push(`Multiple steps have the same order (${order})`);
+    }
+  }
+
+  // Check for at least one required step
+  const hasRequiredStep = steps.some(s => s.is_required_default);
+  if (!hasRequiredStep) {
+    warnings.push('No steps are marked as required by default');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+// Hook to validate a workflow template
+export function useValidateWorkflowTemplate() {
+  return useMutation({
+    mutationFn: async (templateId: string) => {
+      return validateWorkflowTemplate(templateId);
+    },
+  });
+}
+
 // Add workflow step
 export function useAddWorkflowStep() {
   const queryClient = useQueryClient();
@@ -230,6 +309,21 @@ export function useAddWorkflowStep() {
       can_be_skipped?: boolean;
       step_name?: string;
     }) => {
+      // Validate role exists and is active
+      const { data: role, error: roleError } = await supabase
+        .from('roles')
+        .select('id, name, label, is_active')
+        .eq('id', step.role_id)
+        .single();
+
+      if (roleError || !role) {
+        throw new Error('Selected role does not exist');
+      }
+
+      if (role.is_active === false) {
+        throw new Error(`Role "${role.label}" is inactive and cannot be added to workflows`);
+      }
+
       const { data, error } = await supabase
         .from('workflow_steps')
         .insert({
