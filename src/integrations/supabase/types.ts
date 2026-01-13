@@ -416,7 +416,19 @@ export type Database = {
           closing_remarks: string | null
           contact_mobile: string
           contractor_name: string
+          cr_coordinator_approver_email: string | null
+          cr_coordinator_approver_name: string | null
+          cr_coordinator_comments: string | null
+          cr_coordinator_date: string | null
+          cr_coordinator_signature: string | null
+          cr_coordinator_status: string | null
           created_at: string
+          customer_service_approver_email: string | null
+          customer_service_approver_name: string | null
+          customer_service_comments: string | null
+          customer_service_date: string | null
+          customer_service_signature: string | null
+          customer_service_status: string | null
           ecovert_supervisor_approver_email: string | null
           ecovert_supervisor_approver_name: string | null
           ecovert_supervisor_comments: string | null
@@ -432,6 +444,12 @@ export type Database = {
           fitout_signature: string | null
           fitout_status: string | null
           floor: string
+          head_cr_approver_email: string | null
+          head_cr_approver_name: string | null
+          head_cr_comments: string | null
+          head_cr_date: string | null
+          head_cr_signature: string | null
+          head_cr_status: string | null
           helpdesk_approver_email: string | null
           helpdesk_approver_name: string | null
           helpdesk_comments: string | null
@@ -508,7 +526,19 @@ export type Database = {
           closing_remarks?: string | null
           contact_mobile: string
           contractor_name: string
+          cr_coordinator_approver_email?: string | null
+          cr_coordinator_approver_name?: string | null
+          cr_coordinator_comments?: string | null
+          cr_coordinator_date?: string | null
+          cr_coordinator_signature?: string | null
+          cr_coordinator_status?: string | null
           created_at?: string
+          customer_service_approver_email?: string | null
+          customer_service_approver_name?: string | null
+          customer_service_comments?: string | null
+          customer_service_date?: string | null
+          customer_service_signature?: string | null
+          customer_service_status?: string | null
           ecovert_supervisor_approver_email?: string | null
           ecovert_supervisor_approver_name?: string | null
           ecovert_supervisor_comments?: string | null
@@ -524,6 +554,12 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor: string
+          head_cr_approver_email?: string | null
+          head_cr_approver_name?: string | null
+          head_cr_comments?: string | null
+          head_cr_date?: string | null
+          head_cr_signature?: string | null
+          head_cr_status?: string | null
           helpdesk_approver_email?: string | null
           helpdesk_approver_name?: string | null
           helpdesk_comments?: string | null
@@ -600,7 +636,19 @@ export type Database = {
           closing_remarks?: string | null
           contact_mobile?: string
           contractor_name?: string
+          cr_coordinator_approver_email?: string | null
+          cr_coordinator_approver_name?: string | null
+          cr_coordinator_comments?: string | null
+          cr_coordinator_date?: string | null
+          cr_coordinator_signature?: string | null
+          cr_coordinator_status?: string | null
           created_at?: string
+          customer_service_approver_email?: string | null
+          customer_service_approver_name?: string | null
+          customer_service_comments?: string | null
+          customer_service_date?: string | null
+          customer_service_signature?: string | null
+          customer_service_status?: string | null
           ecovert_supervisor_approver_email?: string | null
           ecovert_supervisor_approver_name?: string | null
           ecovert_supervisor_comments?: string | null
@@ -616,6 +664,12 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor?: string
+          head_cr_approver_email?: string | null
+          head_cr_approver_name?: string | null
+          head_cr_comments?: string | null
+          head_cr_date?: string | null
+          head_cr_signature?: string | null
+          head_cr_status?: string | null
           helpdesk_approver_email?: string | null
           helpdesk_approver_name?: string | null
           helpdesk_comments?: string | null
@@ -694,6 +748,45 @@ export type Database = {
           },
         ]
       }
+      work_type_step_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_required: boolean
+          work_type_id: string
+          workflow_step_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_required: boolean
+          work_type_id: string
+          workflow_step_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_required?: boolean
+          work_type_id?: string
+          workflow_step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_type_step_config_work_type_id_fkey"
+            columns: ["work_type_id"]
+            isOneToOne: false
+            referencedRelation: "work_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_type_step_config_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_types: {
         Row: {
           created_at: string
@@ -707,6 +800,7 @@ export type Database = {
           requires_pd: boolean
           requires_pm: boolean
           requires_pmd_coordinator: boolean | null
+          workflow_template_id: string | null
         }
         Insert: {
           created_at?: string
@@ -720,6 +814,7 @@ export type Database = {
           requires_pd?: boolean
           requires_pm?: boolean
           requires_pmd_coordinator?: boolean | null
+          workflow_template_id?: string | null
         }
         Update: {
           created_at?: string
@@ -733,6 +828,99 @@ export type Database = {
           requires_pd?: boolean
           requires_pm?: boolean
           requires_pmd_coordinator?: boolean | null
+          workflow_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_types_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          can_be_skipped: boolean | null
+          created_at: string | null
+          id: string
+          is_required_default: boolean | null
+          role_id: string
+          step_name: string | null
+          step_order: number
+          updated_at: string | null
+          workflow_template_id: string
+        }
+        Insert: {
+          can_be_skipped?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_required_default?: boolean | null
+          role_id: string
+          step_name?: string | null
+          step_order: number
+          updated_at?: string | null
+          workflow_template_id: string
+        }
+        Update: {
+          can_be_skipped?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_required_default?: boolean | null
+          role_id?: string
+          step_name?: string | null
+          step_order?: number
+          updated_at?: string | null
+          workflow_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          updated_at: string | null
+          workflow_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          updated_at?: string | null
+          workflow_type: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string | null
+          workflow_type?: string
         }
         Relationships: []
       }
@@ -741,6 +929,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_pending_status_for_role: {
+        Args: { role_name: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -784,6 +976,9 @@ export type Database = {
         | "rejected"
         | "closed"
         | "cancelled"
+        | "pending_customer_service"
+        | "pending_cr_coordinator"
+        | "pending_head_cr"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -945,6 +1140,9 @@ export const Constants = {
         "rejected",
         "closed",
         "cancelled",
+        "pending_customer_service",
+        "pending_cr_coordinator",
+        "pending_head_cr",
       ],
     },
   },
