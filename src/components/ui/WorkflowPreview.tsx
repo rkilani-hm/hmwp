@@ -57,6 +57,10 @@ const roleShortLabels: Record<string, string> = {
   fitout: 'FIT',
   ecovert_supervisor: 'ECO',
   pmd_coordinator: 'PMD',
+  fmsp_approval: 'FMSP',
+  soft_facilities: 'SF',
+  hard_facilities: 'HF',
+  pm_service: 'PMS',
 };
 
 export function WorkflowPreview({ 
