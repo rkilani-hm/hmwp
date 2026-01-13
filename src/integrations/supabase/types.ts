@@ -444,6 +444,12 @@ export type Database = {
           fitout_signature: string | null
           fitout_status: string | null
           floor: string
+          fmsp_approval_approver_email: string | null
+          fmsp_approval_approver_name: string | null
+          fmsp_approval_comments: string | null
+          fmsp_approval_date: string | null
+          fmsp_approval_signature: string | null
+          fmsp_approval_status: string | null
           head_cr_approver_email: string | null
           head_cr_approver_name: string | null
           head_cr_comments: string | null
@@ -554,6 +560,12 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor: string
+          fmsp_approval_approver_email?: string | null
+          fmsp_approval_approver_name?: string | null
+          fmsp_approval_comments?: string | null
+          fmsp_approval_date?: string | null
+          fmsp_approval_signature?: string | null
+          fmsp_approval_status?: string | null
           head_cr_approver_email?: string | null
           head_cr_approver_name?: string | null
           head_cr_comments?: string | null
@@ -664,6 +676,12 @@ export type Database = {
           fitout_signature?: string | null
           fitout_status?: string | null
           floor?: string
+          fmsp_approval_approver_email?: string | null
+          fmsp_approval_approver_name?: string | null
+          fmsp_approval_comments?: string | null
+          fmsp_approval_date?: string | null
+          fmsp_approval_signature?: string | null
+          fmsp_approval_status?: string | null
           head_cr_approver_email?: string | null
           head_cr_approver_name?: string | null
           head_cr_comments?: string | null
@@ -979,6 +997,7 @@ export type Database = {
         | "pending_customer_service"
         | "pending_cr_coordinator"
         | "pending_head_cr"
+        | "pending_fmsp_approval"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1143,6 +1162,7 @@ export const Constants = {
         "pending_customer_service",
         "pending_cr_coordinator",
         "pending_head_cr",
+        "pending_fmsp_approval",
       ],
     },
   },
