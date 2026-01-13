@@ -192,6 +192,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const transformedPermit: WorkflowPermit = {
     id: permit.id,
     status: permit.status as PermitStatus,
+    work_type_id: permit.work_type_id,
+    is_internal: (permit as any).is_internal ?? null,
     helpdeskApproval: {
       status: (permit.helpdesk_status as 'pending' | 'approved' | 'rejected') || 'pending',
       approverName: permit.helpdesk_approver_name || undefined,
@@ -404,42 +406,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 </Card>
               </div>
 
-              {/* Required Approvals */}
-              {workType && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-display">Required Approvals</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {workType.requires_pm && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM</span>
-                      )}
-                      {workType.requires_pd && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PD</span>
-                      )}
-                      {workType.requires_bdcr && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">BDCR</span>
-                      )}
-                      {workType.requires_mpr && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">MPR</span>
-                      )}
-                      {workType.requires_it && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">IT</span>
-                      )}
-                      {workType.requires_fitout && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
-                      )}
-                      {workType.requires_ecovert_supervisor && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Ecovert Supervisor</span>
-                      )}
-                      {workType.requires_pmd_coordinator && (
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PMD Coordinator</span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Workflow steps are shown in the sidebar */}
             </TabsContent>
 
             <TabsContent value="attachments" className="mt-6">
@@ -631,19 +598,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <CardTitle className="text-lg font-display">Workflow Steps</CardTitle>
             </CardHeader>
             <CardContent>
-              <WorkflowTimeline 
-                permit={transformedPermit} 
-                workTypeRequirements={workType ? {
-                  requires_pm: workType.requires_pm,
-                  requires_pd: workType.requires_pd,
-                  requires_bdcr: workType.requires_bdcr,
-                  requires_mpr: workType.requires_mpr,
-                  requires_it: workType.requires_it,
-                  requires_fitout: workType.requires_fitout,
-                  requires_ecovert_supervisor: workType.requires_ecovert_supervisor,
-                  requires_pmd_coordinator: workType.requires_pmd_coordinator,
-                } : null}
-              />
+              <WorkflowTimeline permit={transformedPermit} />
             </CardContent>
           </Card>
         </div>
