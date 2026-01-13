@@ -19,6 +19,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClientDashboard } from '@/components/dashboard/ClientDashboard';
+import { StuckPermitsWidget } from '@/components/dashboard/StuckPermitsWidget';
 
 type UserRole = string;
 
@@ -236,6 +237,9 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
         {/* Quick Actions & Pending */}
         <motion.div variants={itemVariants} className="space-y-6">
+          {/* Admin: Stuck Permits Widget */}
+          {currentRole === 'admin' && <StuckPermitsWidget />}
+
           {/* Rework Needed */}
           {reworkPermits.length > 0 && (
             <Card className="border-orange-500/30 bg-orange-500/5">
