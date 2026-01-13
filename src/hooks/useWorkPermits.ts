@@ -420,8 +420,15 @@ export function useCreatePermit() {
 
       // Get the first workflow step dynamically based on work type
       const firstStep = await getFirstWorkflowStep(permitData.work_type_id);
-      const initialStatus = firstStep?.status || 'submitted';
-      const firstApproverRole = firstStep?.roleName || 'helpdesk';
+
+      if (!firstStep) {
+        throw new Error(
+          'No workflow is configured for this work type. Please ask an admin to assign a workflow template in Workflow Builder.'
+        );
+      }
+
+      const initialStatus = firstStep.status;
+      const firstApproverRole = firstStep.roleName;
 
       const { data, error } = await supabase
         .from('work_permits')
@@ -1133,8 +1140,15 @@ export function useUpdateAndResubmitPermit() {
 
       // Get the first workflow step dynamically based on work type
       const firstStep = await getFirstWorkflowStep(updates.work_type_id);
-      const initialStatus = firstStep?.status || 'submitted';
-      const firstApproverRole = firstStep?.roleName || 'helpdesk';
+
+      if (!firstStep) {
+        throw new Error(
+          'No workflow is configured for this work type. Please ask an admin to assign a workflow template in Workflow Builder.'
+        );
+      }
+
+      const initialStatus = firstStep.status;
+      const firstApproverRole = firstStep.roleName;
 
       // Update the permit with new data and set status dynamically
       const { data, error } = await supabase
