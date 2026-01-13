@@ -11,6 +11,8 @@ const statusStyles: Record<PermitStatus, string> = {
   submitted: 'bg-status-submitted/10 text-status-submitted border-status-submitted/30',
   under_review: 'bg-status-review/10 text-status-review border-status-review/30',
   rework_needed: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+
+  // Internal workflow
   pending_pm: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_pd: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_bdcr: 'bg-status-review/10 text-status-review border-status-review/30',
@@ -19,6 +21,18 @@ const statusStyles: Record<PermitStatus, string> = {
   pending_fitout: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_ecovert_supervisor: 'bg-status-review/10 text-status-review border-status-review/30',
   pending_pmd_coordinator: 'bg-status-review/10 text-status-review border-status-review/30',
+
+  // Client workflow
+  pending_customer_service: 'bg-status-review/10 text-status-review border-status-review/30',
+  pending_cr_coordinator: 'bg-status-review/10 text-status-review border-status-review/30',
+  pending_head_cr: 'bg-status-review/10 text-status-review border-status-review/30',
+
+  // Facilities / service roles
+  pending_soft_facilities: 'bg-status-review/10 text-status-review border-status-review/30',
+  pending_hard_facilities: 'bg-status-review/10 text-status-review border-status-review/30',
+  pending_pm_service: 'bg-status-review/10 text-status-review border-status-review/30',
+  pending_fmsp_approval: 'bg-status-review/10 text-status-review border-status-review/30',
+
   approved: 'bg-status-approved/10 text-status-approved border-status-approved/30',
   rejected: 'bg-status-rejected/10 text-status-rejected border-status-rejected/30',
   closed: 'bg-status-closed/10 text-status-closed border-status-closed/30',

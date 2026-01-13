@@ -20,10 +20,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClientDashboard } from '@/components/dashboard/ClientDashboard';
 
-type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
+type UserRole = string;
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<string, string> = {
   contractor: 'Client',
+  // Client workflow roles
+  customer_service: 'Customer Service',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+  // Internal workflow roles
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
@@ -33,6 +38,11 @@ const roleLabels: Record<UserRole, string> = {
   fitout: 'Fit-Out',
   ecovert_supervisor: 'Ecovert Supervisor',
   pmd_coordinator: 'PMD Coordinator',
+  // Facilities / service roles
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service',
+  fmsp_approval: 'FMSP Approval',
   admin: 'Administrator',
 };
 
@@ -141,7 +151,10 @@ export default function Dashboard({ currentRole }: DashboardProps) {
             Welcome back
           </h1>
           <p className="text-muted-foreground mt-1">
-            You're viewing as <span className="font-medium text-foreground">{roleLabels[currentRole]}</span>
+            You're viewing as{' '}
+            <span className="font-medium text-foreground">
+              {roleLabels[currentRole] || currentRole.replace(/_/g, ' ')}
+            </span>
           </p>
         </div>
         <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">

@@ -25,16 +25,22 @@ import {
   QrCode,
   MapPin,
   GitBranch,
+  CheckCircle,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
+type UserRole = string;
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<string, string> = {
   contractor: 'Client',
+  // Client workflow roles
+  customer_service: 'Customer Service',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+  // Internal workflow roles
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
@@ -44,6 +50,11 @@ const roleLabels: Record<UserRole, string> = {
   fitout: 'Fit-Out',
   ecovert_supervisor: 'Ecovert Supervisor',
   pmd_coordinator: 'PMD Coordinator',
+  // Facilities / service roles
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service',
+  fmsp_approval: 'FMSP Approval',
   admin: 'Administrator',
 };
 
@@ -102,8 +113,13 @@ const navigationItems = {
 };
 
 const getRoleIcon = (role: UserRole) => {
-  const icons: Record<UserRole, typeof Shield> = {
+  const icons: Record<string, typeof Shield> = {
     contractor: HardHat,
+    // Client workflow roles
+    customer_service: Users,
+    cr_coordinator: Users,
+    head_cr: Shield,
+    // Internal workflow roles
     helpdesk: Users,
     pm: Building,
     pd: Wrench,
@@ -113,9 +129,15 @@ const getRoleIcon = (role: UserRole) => {
     fitout: Wrench,
     ecovert_supervisor: Leaf,
     pmd_coordinator: UserCheck,
+    // Facilities / service roles
+    soft_facilities: Leaf,
+    hard_facilities: Leaf,
+    pm_service: Settings,
+    fmsp_approval: CheckCircle,
     admin: Settings,
   };
-  return icons[role];
+
+  return icons[role] || Shield;
 };
 
 const getNavItems = (role: UserRole) => {
@@ -171,7 +193,9 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
           </div>
           <div className="text-left">
             <p className="text-xs text-sidebar-foreground/60">Current Role</p>
-            <p className="text-sm font-medium">{roleLabels[currentRole]}</p>
+            <p className="text-sm font-medium">
+              {roleLabels[currentRole] || currentRole.replace(/_/g, ' ')}
+            </p>
           </div>
         </div>
       </div>

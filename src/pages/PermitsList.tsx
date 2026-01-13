@@ -10,14 +10,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
-import { PermitStatus, statusLabels, UserRole } from '@/types/workPermit';
+import { PermitStatus, statusLabels } from '@/types/workPermit';
 import { Search, Filter, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface PermitsListProps {
-  currentRole: UserRole;
+  currentRole: string;
 }
 
 export default function PermitsList({ currentRole }: PermitsListProps) {

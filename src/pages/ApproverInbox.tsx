@@ -103,12 +103,7 @@ export default function ApproverInbox() {
       return roleFromStatus;
     }
     // Fallback: return the first matching approver role the user has
-    const allApproverRoles = [
-      'customer_service', 'cr_coordinator', 'head_cr',
-      'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 
-      'ecovert_supervisor', 'pmd_coordinator',
-      'soft_facilities', 'hard_facilities', 'pm_service'
-    ];
+    const allApproverRoles = Object.values(statusToRole);
     return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
   };
 

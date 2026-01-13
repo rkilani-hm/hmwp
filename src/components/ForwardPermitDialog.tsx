@@ -20,7 +20,7 @@ import {
 import { useForwardPermit } from '@/hooks/useWorkPermits';
 import { Forward, Loader2 } from 'lucide-react';
 
-type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'ecovert_supervisor' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pmd_coordinator';
+type AppRole = string;
 
 const roleLabels: Record<string, string> = {
   helpdesk: 'Helpdesk',
@@ -32,9 +32,19 @@ const roleLabels: Record<string, string> = {
   fitout: 'Fit-Out',
   ecovert_supervisor: 'Ecovert Supervisor',
   pmd_coordinator: 'PMD Coordinator',
+  customer_service: 'Customer Service',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service',
+  fmsp_approval: 'FMSP Approval',
 };
 
 const approverRoles = [
+  'customer_service',
+  'cr_coordinator',
+  'head_cr',
   'helpdesk',
   'pm',
   'pd',
@@ -44,6 +54,10 @@ const approverRoles = [
   'fitout',
   'ecovert_supervisor',
   'pmd_coordinator',
+  'soft_facilities',
+  'hard_facilities',
+  'pm_service',
+  'fmsp_approval',
 ] as const;
 
 interface ForwardPermitDialogProps {

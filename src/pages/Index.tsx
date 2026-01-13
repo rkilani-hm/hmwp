@@ -26,20 +26,19 @@ import Settings from './Settings';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
-  // Get the primary role for navigation
+  // Get the primary role for navigation (do NOT hardcode approver roles)
   const getPrimaryRole = () => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('helpdesk')) return 'helpdesk';
-    const approverRoles = ['pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'] as const;
-    for (const role of approverRoles) {
-      if (roles.includes(role)) return role;
-    }
-    return 'contractor';
+
+    // Prefer the first non-contractor role (e.g., customer_service, cr_coordinator, head_cr, etc.)
+    const nonContractorRole = roles.find(r => r !== 'contractor');
+    return nonContractorRole || 'contractor';
   };
 
   const currentRole = getPrimaryRole();
   const isAdmin = hasRole('admin');
-  const isApprover = roles.some(r => ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'].includes(r));
+  const isApprover = roles.some(r => r !== 'contractor');
 
   return (
     <AppLayout currentRole={currentRole}>

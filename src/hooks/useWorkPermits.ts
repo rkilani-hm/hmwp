@@ -756,8 +756,8 @@ export function useForwardPermit() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
 
-  type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
-  type AppRole = 'admin' | 'bdcr' | 'contractor' | 'fitout' | 'ecovert_supervisor' | 'helpdesk' | 'it' | 'mpr' | 'pd' | 'pm' | 'pmd_coordinator';
+  type PermitStatus = string;
+  type AppRole = string;
 
   return useMutation({
     mutationFn: async ({
