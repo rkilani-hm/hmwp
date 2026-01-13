@@ -182,12 +182,19 @@ function isStepRequired(
   workType: WorkType | null,
   locationType: 'shop' | 'common' | null
 ): boolean {
-  // Check work type specific config first
+  // Check work type specific config first (from work_type_step_config table)
   if (stepConfigs.has(step.id)) {
     return stepConfigs.get(step.id)!;
   }
 
-  // Check legacy requires_* fields for backward compatibility
+  // Use the default from the workflow step (is_required_default)
+  // This takes precedence over legacy requires_* fields when a dynamic workflow is configured
+  if (step.is_required_default !== null && step.is_required_default !== undefined) {
+    return step.is_required_default;
+  }
+
+  // Fallback: Check legacy requires_* fields for backward compatibility
+  // Only used when workflow step doesn't have is_required_default set
   const roleName = step.role?.name;
   if (workType && roleName) {
     const legacyField = `requires_${roleName}` as keyof WorkType;
@@ -204,8 +211,8 @@ function isStepRequired(
     return true;
   }
 
-  // Use the default from the workflow step
-  return step.is_required_default ?? true;
+  // Default to required if nothing else specified
+  return true;
 }
 
 // Get the next required approval step dynamically from the database
