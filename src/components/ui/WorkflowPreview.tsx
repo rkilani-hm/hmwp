@@ -71,122 +71,37 @@ export function WorkflowPreview({
 }: WorkflowPreviewProps) {
   // Determine location type - default to 'shop' for "Other" locations
   const locationType = workLocation?.location_type || (isOtherLocation ? 'shop' : null);
-  
+
   // Fetch dynamic workflow from database
   const { data: effectiveWorkflow, isLoading } = useEffectiveWorkflow(workType?.id);
-  
-  // Build workflow steps - use dynamic data if available, otherwise fall back to legacy logic
+
+  const requiredSteps = (effectiveWorkflow?.steps ?? []).filter((s) => s.is_required);
+  const hasDynamicWorkflow = requiredSteps.length > 0;
+
+  // Build workflow steps - dynamic only (no legacy fallback)
   const buildWorkflowSteps = (): DisplayStep[] => {
-    // If we have dynamic workflow data from database, use it
-    if (effectiveWorkflow?.steps && effectiveWorkflow.steps.length > 0) {
-      const steps: DisplayStep[] = [
-        { key: 'submit', label: 'Submit', shortLabel: 'SUB', required: true },
-      ];
+    if (!hasDynamicWorkflow) return [];
 
-      // Add steps from dynamic workflow
-      effectiveWorkflow.steps.forEach((step) => {
-        if (!step.is_required) return; // Skip non-required steps
-        
-        const roleName = step.role?.name || '';
-        const roleLabel = step.role?.label || step.step_name || roleName;
-        
-        steps.push({
-          key: step.id,
-          label: roleLabel,
-          shortLabel: roleShortLabels[roleName] || roleName.substring(0, 3).toUpperCase(),
-          required: step.is_required,
-          isLocationBased: roleName === 'pm' || roleName === 'pd',
-          locationType: roleName === 'pm' ? 'shop' : roleName === 'pd' ? 'common' : undefined,
-        });
-      });
+    const steps: DisplayStep[] = [{ key: 'submit', label: 'Submit', shortLabel: 'SUB', required: true }];
 
-      // Final approval
-      steps.push({ key: 'approved', label: 'Approved', shortLabel: '✓', required: true });
+    requiredSteps.forEach((step) => {
+      const roleName = step.role?.name || '';
+      const roleLabel = step.role?.label || step.step_name || roleName;
 
-      return steps;
-    }
-
-    // Legacy fallback: build steps from work type flags
-    const steps: DisplayStep[] = [
-      { key: 'submit', label: 'Submit', shortLabel: 'SUB', required: true },
-      { key: 'helpdesk', label: 'Helpdesk Review', shortLabel: 'HD', required: true },
-    ];
-
-    // Location-based routing (PM or PD after Helpdesk)
-    if (locationType === 'shop') {
-      steps.push({ 
-        key: 'pm', 
-        label: 'Property Management', 
-        shortLabel: 'PM', 
+      steps.push({
+        key: step.id,
+        label: roleLabel,
+        shortLabel: roleShortLabels[roleName] || roleName.substring(0, 3).toUpperCase(),
         required: true,
-        isLocationBased: true,
-        locationType: 'shop'
+        isLocationBased: roleName === 'pm' || roleName === 'pd',
+        locationType: roleName === 'pm' ? 'shop' : roleName === 'pd' ? 'common' : undefined,
       });
-      // PD is skipped for shop locations unless work type requires it
-      if (workType?.requires_pd) {
-        steps.push({ 
-          key: 'pd', 
-          label: 'Project Development', 
-          shortLabel: 'PD', 
-          required: true 
-        });
-      }
-    } else if (locationType === 'common') {
-      // PM is skipped for common locations unless work type requires it
-      if (workType?.requires_pm) {
-        steps.push({ 
-          key: 'pm', 
-          label: 'Property Management', 
-          shortLabel: 'PM', 
-          required: true 
-        });
-      }
-      steps.push({ 
-        key: 'pd', 
-        label: 'Project Development', 
-        shortLabel: 'PD', 
-        required: true,
-        isLocationBased: true,
-        locationType: 'common'
-      });
-    } else {
-      // No location selected - show both as conditional
-      if (workType?.requires_pm) {
-        steps.push({ key: 'pm', label: 'Property Management', shortLabel: 'PM', required: true });
-      }
-      if (workType?.requires_pd) {
-        steps.push({ key: 'pd', label: 'Project Development', shortLabel: 'PD', required: true });
-      }
-    }
+    });
 
-    // Work type based approvers
-    if (workType?.requires_bdcr) {
-      steps.push({ key: 'bdcr', label: 'BDCR Review', shortLabel: 'BDCR', required: true });
-    }
-    if (workType?.requires_mpr) {
-      steps.push({ key: 'mpr', label: 'MPR Review', shortLabel: 'MPR', required: true });
-    }
-    if (workType?.requires_it) {
-      steps.push({ key: 'it', label: 'IT Department', shortLabel: 'IT', required: true });
-    }
-    if (workType?.requires_fitout) {
-      steps.push({ key: 'fitout', label: 'Fit-Out Team', shortLabel: 'FIT', required: true });
-    }
-    if (workType?.requires_ecovert_supervisor) {
-      steps.push({ key: 'ecovert', label: 'Ecovert Supervisor', shortLabel: 'ECO', required: true });
-    }
-    if (workType?.requires_pmd_coordinator) {
-      steps.push({ key: 'pmd', label: 'PMD Coordinator', shortLabel: 'PMD', required: true });
-    }
-
-    // Final approval
     steps.push({ key: 'approved', label: 'Approved', shortLabel: '✓', required: true });
 
     return steps;
   };
-
-  const steps = buildWorkflowSteps();
-  const approvalCount = steps.filter(s => s.key !== 'submit' && s.key !== 'approved').length;
 
   // Show placeholder if nothing selected
   if (!workType && !workLocation && !isOtherLocation) {
@@ -219,6 +134,27 @@ export function WorkflowPreview({
       </div>
     );
   }
+
+  // No legacy fallback: require a configured dynamic workflow
+  if (workType?.id && !hasDynamicWorkflow) {
+    const templateName = effectiveWorkflow?.template?.name;
+
+    return (
+      <div className={cn("p-4 rounded-lg border border-dashed bg-muted/30", className)}>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Info className="h-4 w-4" />
+          <span className="text-sm">
+            {templateName
+              ? `"${templateName}" has no required steps for this work type.`
+              : 'No workflow is configured for this work type. Ask an admin to assign a workflow template in Workflow Builder.'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const steps = buildWorkflowSteps();
+  const approvalCount = steps.filter((s) => s.key !== 'submit' && s.key !== 'approved').length;
 
   return (
     <div className={cn("space-y-4", className)}>
