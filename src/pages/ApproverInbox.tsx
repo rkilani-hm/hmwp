@@ -37,8 +37,9 @@ import { ReworkDialog } from '@/components/ReworkDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { toast } from 'sonner';
 
-// Map permit status to the role that should approve it
+// Map permit status to the role that should approve it (dynamically generated)
 const statusToRole: Record<string, string> = {
+  // Legacy internal workflow
   'pending_helpdesk': 'helpdesk',
   'under_review': 'helpdesk',
   'submitted': 'helpdesk',
@@ -50,6 +51,14 @@ const statusToRole: Record<string, string> = {
   'pending_fitout': 'fitout',
   'pending_ecovert_supervisor': 'ecovert_supervisor',
   'pending_pmd_coordinator': 'pmd_coordinator',
+  // Client workflow roles
+  'pending_customer_service': 'customer_service',
+  'pending_cr_coordinator': 'cr_coordinator',
+  'pending_head_cr': 'head_cr',
+  // Soft/Hard Facilities and PM Service
+  'pending_soft_facilities': 'soft_facilities',
+  'pending_hard_facilities': 'hard_facilities',
+  'pending_pm_service': 'pm_service',
 };
 
 export default function ApproverInbox() {
@@ -94,8 +103,13 @@ export default function ApproverInbox() {
       return roleFromStatus;
     }
     // Fallback: return the first matching approver role the user has
-    const approverRoles = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'];
-    return roles.find(r => approverRoles.includes(r)) || 'helpdesk';
+    const allApproverRoles = [
+      'customer_service', 'cr_coordinator', 'head_cr',
+      'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 
+      'ecovert_supervisor', 'pmd_coordinator',
+      'soft_facilities', 'hard_facilities', 'pm_service'
+    ];
+    return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
   };
 
   const handleApproveClick = (e: React.MouseEvent, permit: WorkPermit) => {

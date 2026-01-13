@@ -591,10 +591,9 @@ export function usePendingPermitsForApprover() {
   return useQuery({
     queryKey: ['pending-permits-approver', roles],
     queryFn: async () => {
-      // Map roles to their pending statuses
-      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
-      
-      const statusMap: Record<string, PermitStatus> = {
+      // Dynamic role to status mapping - supports all workflow roles
+      const statusMap: Record<string, string> = {
+        // Legacy internal workflow
         helpdesk: 'submitted',
         pm: 'pending_pm',
         pd: 'pending_pd',
@@ -604,6 +603,14 @@ export function usePendingPermitsForApprover() {
         fitout: 'pending_fitout',
         ecovert_supervisor: 'pending_ecovert_supervisor',
         pmd_coordinator: 'pending_pmd_coordinator',
+        // Client workflow roles
+        customer_service: 'pending_customer_service',
+        cr_coordinator: 'pending_cr_coordinator',
+        head_cr: 'pending_head_cr',
+        // Additional roles
+        soft_facilities: 'pending_soft_facilities',
+        hard_facilities: 'pending_hard_facilities',
+        pm_service: 'pending_pm_service',
       };
 
       const relevantStatuses = roles
@@ -632,9 +639,9 @@ export function usePendingPermitsCount() {
   return useQuery({
     queryKey: ['pending-permits-count', roles],
     queryFn: async () => {
-      type PermitStatus = 'draft' | 'submitted' | 'under_review' | 'pending_pm' | 'pending_pd' | 'pending_bdcr' | 'pending_mpr' | 'pending_it' | 'pending_fitout' | 'pending_ecovert_supervisor' | 'pending_pmd_coordinator' | 'approved' | 'rejected' | 'closed';
-      
-      const statusMap: Record<string, PermitStatus> = {
+      // Dynamic role to status mapping - supports all workflow roles
+      const statusMap: Record<string, string> = {
+        // Legacy internal workflow
         helpdesk: 'submitted',
         pm: 'pending_pm',
         pd: 'pending_pd',
@@ -644,6 +651,14 @@ export function usePendingPermitsCount() {
         fitout: 'pending_fitout',
         ecovert_supervisor: 'pending_ecovert_supervisor',
         pmd_coordinator: 'pending_pmd_coordinator',
+        // Client workflow roles
+        customer_service: 'pending_customer_service',
+        cr_coordinator: 'pending_cr_coordinator',
+        head_cr: 'pending_head_cr',
+        // Additional roles
+        soft_facilities: 'pending_soft_facilities',
+        hard_facilities: 'pending_hard_facilities',
+        pm_service: 'pending_pm_service',
       };
 
       const relevantStatuses = roles
