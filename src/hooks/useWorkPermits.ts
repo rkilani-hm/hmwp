@@ -5,6 +5,151 @@ import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { sendEmailNotification, getEmailsForRole } from '@/utils/emailNotifications';
 
+// Helper function to get the first workflow step for a work type
+async function getFirstWorkflowStep(workTypeId: string): Promise<{ roleName: string; status: string } | null> {
+  try {
+    // Fetch work type with template
+    const { data: workType, error: workTypeError } = await supabase
+      .from('work_types')
+      .select('workflow_template_id')
+      .eq('id', workTypeId)
+      .single();
+
+    if (workTypeError || !workType?.workflow_template_id) {
+      return null;
+    }
+
+    // Fetch first workflow step with role
+    const { data: steps, error: stepsError } = await supabase
+      .from('workflow_steps')
+      .select('*, roles:role_id(id, name, label)')
+      .eq('workflow_template_id', workType.workflow_template_id)
+      .order('step_order', { ascending: true })
+      .limit(10);
+
+    if (stepsError || !steps?.length) {
+      return null;
+    }
+
+    // Fetch work type step configs to check which steps are required
+    const { data: configs } = await supabase
+      .from('work_type_step_config')
+      .select('workflow_step_id, is_required')
+      .eq('work_type_id', workTypeId);
+
+    // Find the first required step
+    for (const step of steps) {
+      const role = step.roles as { id: string; name: string; label: string } | null;
+      if (!role) continue;
+
+      // Check if step is required
+      const config = configs?.find(c => c.workflow_step_id === step.id);
+      const isRequired = config !== undefined 
+        ? config.is_required 
+        : step.is_required_default ?? true;
+
+      if (isRequired) {
+        return {
+          roleName: role.name,
+          status: `pending_${role.name}`,
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching first workflow step:', error);
+    return null;
+  }
+}
+
+// Helper function to get users for a role and send notifications
+async function notifyRoleUsers(
+  roleName: string, 
+  permitId: string, 
+  permitNo: string, 
+  urgency: string,
+  notificationType: 'new_permit' | 'resubmitted',
+  profile?: { full_name: string | null } | null,
+  userEmail?: string
+) {
+  try {
+    // Get role ID
+    const { data: role } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('name', roleName)
+      .single();
+
+    if (!role) return;
+
+    // Get users with this role
+    const { data: roleUsers } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role_id', role.id);
+
+    if (!roleUsers?.length) return;
+
+    const userIds: string[] = [];
+
+    // Create in-app notifications
+    for (const ru of roleUsers) {
+      await supabase.from('notifications').insert({
+        user_id: ru.user_id,
+        permit_id: permitId,
+        type: notificationType,
+        title: notificationType === 'new_permit' 
+          ? `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit Submitted`
+          : `Permit Resubmitted for Review`,
+        message: `${permitNo} requires your review. ${urgency === 'urgent' ? '4-hour SLA' : '48-hour SLA'}`,
+      });
+      userIds.push(ru.user_id);
+    }
+
+    // Send push notifications
+    if (userIds.length > 0) {
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userIds,
+            title: notificationType === 'new_permit' 
+              ? `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit`
+              : 'Permit Resubmitted',
+            message: `${permitNo} requires your review`,
+            data: { url: '/inbox', permitId },
+          },
+        });
+      } catch (pushError) {
+        console.error('Failed to send push notification:', pushError);
+      }
+    }
+
+    // Send email notifications
+    try {
+      const emails = await getEmailsForRole(roleName as any);
+      if (emails.length > 0) {
+        await sendEmailNotification(
+          emails,
+          notificationType,
+          notificationType === 'new_permit'
+            ? `New ${urgency === 'urgent' ? 'URGENT ' : ''}Work Permit: ${permitNo}`
+            : `Work Permit Resubmitted: ${permitNo}`,
+          {
+            permitId,
+            permitNo,
+            requesterName: profile?.full_name || userEmail,
+            urgency,
+          }
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError);
+    }
+  } catch (error) {
+    console.error('Error notifying role users:', error);
+  }
+}
 export interface WorkPermit {
   id: string;
   permit_no: string;
@@ -273,6 +418,11 @@ export function useCreatePermit() {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { files, ...permitDataWithoutFiles } = permitData;
 
+      // Get the first workflow step dynamically based on work type
+      const firstStep = await getFirstWorkflowStep(permitData.work_type_id);
+      const initialStatus = firstStep?.status || 'submitted';
+      const firstApproverRole = firstStep?.roleName || 'helpdesk';
+
       const { data, error } = await supabase
         .from('work_permits')
         .insert({
@@ -281,7 +431,7 @@ export function useCreatePermit() {
           requester_id: user?.id,
           requester_name: profile?.full_name || user?.email || 'Unknown',
           requester_email: user?.email || '',
-          status: 'submitted',
+          status: initialStatus as any,
           urgency,
           sla_deadline: slaDeadline,
           attachments: attachmentPaths,
@@ -300,69 +450,16 @@ export function useCreatePermit() {
         details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
 
-      // Create notifications for relevant approvers (helpdesk first)
-      const { data: helpdeskRole } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', 'helpdesk')
-        .single();
-      
-      const { data: helpdeskUsers } = helpdeskRole ? await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role_id', helpdeskRole.id) : { data: null };
-
-      if (helpdeskUsers) {
-        const helpdeskUserIds: string[] = [];
-        for (const hd of helpdeskUsers) {
-          await supabase.from('notifications').insert({
-            user_id: hd.user_id,
-            permit_id: data.id,
-            type: 'new_permit',
-            title: `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit Submitted`,
-            message: `${permitNo} requires your review. ${urgency === 'urgent' ? '4-hour SLA' : '48-hour SLA'}`,
-          });
-          helpdeskUserIds.push(hd.user_id);
-        }
-
-        // Send push notifications to helpdesk users
-        if (helpdeskUserIds.length > 0) {
-          try {
-            await supabase.functions.invoke('send-push-notification', {
-              body: {
-                userIds: helpdeskUserIds,
-                title: `New ${urgency === 'urgent' ? 'URGENT ' : ''}Permit`,
-                message: `${permitNo} requires your review`,
-                data: { url: '/inbox', permitId: data.id },
-              },
-            });
-          } catch (pushError) {
-            console.error('Failed to send push notification:', pushError);
-          }
-        }
-      }
-
-      // Send email notification to helpdesk
-      try {
-        const helpdeskEmails = await getEmailsForRole('helpdesk');
-        if (helpdeskEmails.length > 0) {
-          await sendEmailNotification(
-            helpdeskEmails,
-            'new_permit',
-            `New ${urgency === 'urgent' ? 'URGENT ' : ''}Work Permit: ${permitNo}`,
-            {
-              permitId: data.id,
-              permitNo,
-              workType: permitData.work_description,
-              requesterName: profile?.full_name || user?.email,
-              urgency,
-            }
-          );
-        }
-      } catch (emailError) {
-        console.error('Failed to send email notification:', emailError);
-        // Don't fail the permit creation if email fails
-      }
+      // Notify the first approver role dynamically
+      await notifyRoleUsers(
+        firstApproverRole,
+        data.id,
+        permitNo,
+        urgency,
+        'new_permit',
+        profile,
+        user?.email
+      );
 
       return data;
     },
@@ -1019,13 +1116,18 @@ export function useUpdateAndResubmitPermit() {
       const slaDeadline = new Date();
       slaDeadline.setHours(slaDeadline.getHours() + slaHours);
 
-      // Update the permit with new data and set status to submitted
+      // Get the first workflow step dynamically based on work type
+      const firstStep = await getFirstWorkflowStep(updates.work_type_id);
+      const initialStatus = firstStep?.status || 'submitted';
+      const firstApproverRole = firstStep?.roleName || 'helpdesk';
+
+      // Update the permit with new data and set status dynamically
       const { data, error } = await supabase
         .from('work_permits')
         .update({
           ...updates,
           attachments: allAttachments,
-          status: 'submitted' as any,
+          status: initialStatus as any,
           rework_version: newVersion,
           rework_comments: null, // Clear rework comments after resubmission
           sla_deadline: slaDeadline.toISOString(),
@@ -1048,48 +1150,16 @@ export function useUpdateAndResubmitPermit() {
         details: `Permit resubmitted after rework (Version ${newVersion})`,
       });
 
-      // Notify helpdesk for review
-      const { data: helpdeskRoleData } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', 'helpdesk')
-        .single();
-
-      const { data: helpdeskUsers } = helpdeskRoleData ? await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role_id', helpdeskRoleData.id) : { data: null };
-
-      if (helpdeskUsers) {
-        for (const hd of helpdeskUsers) {
-          await supabase.from('notifications').insert({
-            user_id: hd.user_id,
-            permit_id: permitId,
-            type: 'resubmitted',
-            title: 'Permit Resubmitted',
-            message: `Permit ${data.permit_no} (V${newVersion}) has been updated and resubmitted for review.`,
-          });
-        }
-      }
-
-      // Send email notification to helpdesk
-      try {
-        const helpdeskEmails = await getEmailsForRole('helpdesk');
-        if (helpdeskEmails.length > 0) {
-          await sendEmailNotification(
-            helpdeskEmails,
-            'resubmitted',
-            `Work Permit Resubmitted: ${data.permit_no} (V${newVersion})`,
-            {
-              permitId,
-              permitNo: `${data.permit_no} (V${newVersion})`,
-              comments: `Updated and resubmitted after rework`,
-            }
-          );
-        }
-      } catch (emailError) {
-        console.error('Failed to send resubmit email notification:', emailError);
-      }
+      // Notify the first approver role dynamically
+      await notifyRoleUsers(
+        firstApproverRole,
+        permitId,
+        data.permit_no,
+        updates.urgency,
+        'resubmitted',
+        profile,
+        user?.email
+      );
 
       return data;
     },
