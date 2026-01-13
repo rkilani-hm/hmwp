@@ -24,6 +24,7 @@ export interface WorkTypeData {
   requires_fitout: boolean;
   requires_ecovert_supervisor: boolean;
   requires_pmd_coordinator: boolean;
+  workflow_template_id: string | null;
   created_at: string;
 }
 
