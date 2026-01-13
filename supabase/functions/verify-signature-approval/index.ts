@@ -20,7 +20,6 @@ function checkRateLimit(userId: string, ipAddress: string): { allowed: boolean; 
   const record = rateLimitStore.get(key);
   
   if (!record || now > record.resetTime) {
-    // Reset or create new record
     rateLimitStore.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
     return { allowed: true };
   }
@@ -42,7 +41,7 @@ async function constantTimePasswordCheck(
   password: string
 ): Promise<boolean> {
   const startTime = Date.now();
-  const MIN_RESPONSE_TIME = 500; // Minimum 500ms response time
+  const MIN_RESPONSE_TIME = 500;
   
   let isValid = false;
   try {
@@ -56,7 +55,6 @@ async function constantTimePasswordCheck(
     isValid = false;
   }
   
-  // Ensure consistent response time to prevent timing attacks
   const elapsed = Date.now() - startTime;
   if (elapsed < MIN_RESPONSE_TIME) {
     await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
@@ -65,19 +63,10 @@ async function constantTimePasswordCheck(
   return isValid;
 }
 
-// Valid roles for approval workflow
-const validApprovalRoles = [
-  'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 
-  'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'
-] as const;
-
-// Input validation schema
+// Input validation schema - role is now dynamic string
 const ApprovalSchema = z.object({
-  permitId: z.string()
-    .uuid("Invalid permit ID format"),
-  role: z.enum(validApprovalRoles, {
-    errorMap: () => ({ message: "Invalid approval role" })
-  }),
+  permitId: z.string().uuid("Invalid permit ID format"),
+  role: z.string().min(1, "Role is required"),
   comments: z.string()
     .max(1000, "Comments must be less than 1000 characters")
     .transform(val => val.trim()),
@@ -93,17 +82,38 @@ const ApprovalSchema = z.object({
     .max(100, "Password too long"),
 });
 
+interface WorkflowStep {
+  id: string;
+  step_order: number;
+  role_id: string;
+  step_name: string | null;
+  is_required_default: boolean;
+  can_be_skipped: boolean;
+  role: {
+    id: string;
+    name: string;
+    label: string;
+  };
+}
+
+interface WorkTypeStepConfig {
+  workflow_step_id: string;
+  is_required: boolean;
+}
+
 interface WorkType {
   id: string;
   name: string;
-  requires_pm: boolean;
-  requires_pd: boolean;
-  requires_bdcr: boolean;
-  requires_mpr: boolean;
-  requires_it: boolean;
-  requires_fitout: boolean;
-  requires_ecovert_supervisor: boolean;
-  requires_pmd_coordinator: boolean;
+  workflow_template_id: string | null;
+  // Legacy fields for backward compatibility
+  requires_pm?: boolean;
+  requires_pd?: boolean;
+  requires_bdcr?: boolean;
+  requires_mpr?: boolean;
+  requires_it?: boolean;
+  requires_fitout?: boolean;
+  requires_ecovert_supervisor?: boolean;
+  requires_pmd_coordinator?: boolean;
 }
 
 interface WorkLocation {
@@ -112,9 +122,142 @@ interface WorkLocation {
   location_type: 'shop' | 'common';
 }
 
-// Define the approval workflow order - PM and PD are location-based
-const APPROVAL_ORDER = [
+// Get workflow steps for a work type from the database
+async function getWorkflowSteps(
+  serviceClient: any,
+  workType: WorkType | null
+): Promise<{ steps: WorkflowStep[]; stepConfigs: Map<string, boolean> }> {
+  if (!workType?.workflow_template_id) {
+    return { steps: [], stepConfigs: new Map() };
+  }
+
+  // Fetch workflow steps ordered by step_order
+  const { data: steps, error: stepsError } = await serviceClient
+    .from("workflow_steps")
+    .select(`
+      id,
+      step_order,
+      role_id,
+      step_name,
+      is_required_default,
+      can_be_skipped,
+      role:roles!workflow_steps_role_id_fkey (
+        id,
+        name,
+        label
+      )
+    `)
+    .eq("workflow_template_id", workType.workflow_template_id)
+    .order("step_order", { ascending: true });
+
+  if (stepsError) {
+    console.error("Error fetching workflow steps:", stepsError);
+    return { steps: [], stepConfigs: new Map() };
+  }
+
+  // Fetch work type specific step configurations
+  const { data: configs, error: configsError } = await serviceClient
+    .from("work_type_step_config")
+    .select("workflow_step_id, is_required")
+    .eq("work_type_id", workType.id);
+
+  if (configsError) {
+    console.error("Error fetching step configs:", configsError);
+  }
+
+  const stepConfigs = new Map<string, boolean>();
+  if (configs) {
+    for (const config of configs) {
+      stepConfigs.set(config.workflow_step_id, config.is_required);
+    }
+  }
+
+  return { steps: steps || [], stepConfigs };
+}
+
+// Determine if a step is required based on config or defaults
+function isStepRequired(
+  step: WorkflowStep,
+  stepConfigs: Map<string, boolean>,
+  workType: WorkType | null,
+  locationType: 'shop' | 'common' | null
+): boolean {
+  // Check work type specific config first
+  if (stepConfigs.has(step.id)) {
+    return stepConfigs.get(step.id)!;
+  }
+
+  // Check legacy requires_* fields for backward compatibility
+  const roleName = step.role?.name;
+  if (workType && roleName) {
+    const legacyField = `requires_${roleName}` as keyof WorkType;
+    if (legacyField in workType && typeof workType[legacyField] === 'boolean') {
+      return workType[legacyField] as boolean;
+    }
+  }
+
+  // Special handling for location-based routing (PM for shop, PD for common)
+  if (roleName === 'pm' && locationType === 'shop') {
+    return true;
+  }
+  if (roleName === 'pd' && locationType === 'common') {
+    return true;
+  }
+
+  // Use the default from the workflow step
+  return step.is_required_default ?? true;
+}
+
+// Get the next required approval step dynamically from the database
+async function getNextApprovalStep(
+  serviceClient: any,
+  currentRole: string,
+  workType: WorkType | null,
+  locationType: 'shop' | 'common' | null
+): Promise<{ nextStatus: string; nextRole: string | null }> {
+  // Get dynamic workflow steps
+  const { steps, stepConfigs } = await getWorkflowSteps(serviceClient, workType);
+
+  // If no dynamic workflow, fall back to legacy logic
+  if (steps.length === 0) {
+    return getLegacyNextApprovalStep(currentRole, workType, locationType);
+  }
+
+  // Find current step index
+  const currentIndex = steps.findIndex(step => step.role?.name === currentRole);
+  
+  if (currentIndex === -1) {
+    console.log(`Current role ${currentRole} not found in workflow, marking as approved`);
+    return { nextStatus: 'approved', nextRole: null };
+  }
+
+  // Look for the next required step
+  for (let i = currentIndex + 1; i < steps.length; i++) {
+    const step = steps[i];
+    const roleName = step.role?.name;
+
+    if (!roleName) continue;
+
+    // Check if step is required
+    if (isStepRequired(step, stepConfigs, workType, locationType)) {
+      const nextStatus = `pending_${roleName}`;
+      console.log(`Next required step: ${roleName} (step ${step.step_order})`);
+      return { nextStatus, nextRole: roleName };
+    }
+
+    console.log(`Skipping optional step: ${roleName} (step ${step.step_order})`);
+  }
+
+  // No more required steps
+  return { nextStatus: 'approved', nextRole: null };
+}
+
+// Legacy fallback for work types without dynamic workflows
+const LEGACY_APPROVAL_ORDER = [
   { role: 'helpdesk', status: 'submitted', nextStatus: 'pending_pm', requiresField: null },
+  { role: 'customer_service', status: 'pending_customer_service', nextStatus: 'pending_cr_coordinator', requiresField: null },
+  { role: 'cr_coordinator', status: 'pending_cr_coordinator', nextStatus: 'pending_head_cr', requiresField: null },
+  { role: 'head_cr', status: 'pending_head_cr', nextStatus: 'pending_pm', requiresField: null },
   { role: 'pm', status: 'pending_pm', nextStatus: 'pending_pd', requiresField: 'requires_pm', locationType: 'shop' },
   { role: 'pd', status: 'pending_pd', nextStatus: 'pending_bdcr', requiresField: 'requires_pd', locationType: 'common' },
   { role: 'bdcr', status: 'pending_bdcr', nextStatus: 'pending_mpr', requiresField: 'requires_bdcr' },
@@ -125,20 +268,19 @@ const APPROVAL_ORDER = [
   { role: 'pmd_coordinator', status: 'pending_pmd_coordinator', nextStatus: 'approved', requiresField: 'requires_pmd_coordinator' },
 ];
 
-// Get the next required approval step based on work type and location
-function getNextApprovalStep(
-  currentRole: string, 
-  workType: WorkType | null, 
+function getLegacyNextApprovalStep(
+  currentRole: string,
+  workType: WorkType | null,
   locationType: 'shop' | 'common' | null
 ): { nextStatus: string; nextRole: string | null } {
-  const currentIndex = APPROVAL_ORDER.findIndex(step => step.role === currentRole);
+  const currentIndex = LEGACY_APPROVAL_ORDER.findIndex(step => step.role === currentRole);
   if (currentIndex === -1) {
     return { nextStatus: 'approved', nextRole: null };
   }
 
   // After helpdesk, route based on location type
   if (currentRole === 'helpdesk') {
-    const effectiveLocationType = locationType || 'shop'; // Default to shop (PM) if no location
+    const effectiveLocationType = locationType || 'shop';
     if (effectiveLocationType === 'shop') {
       return { nextStatus: 'pending_pm', nextRole: 'pm' };
     } else {
@@ -147,37 +289,30 @@ function getNextApprovalStep(
   }
 
   // Look for the next required step
-  for (let i = currentIndex + 1; i < APPROVAL_ORDER.length; i++) {
-    const step = APPROVAL_ORDER[i];
+  for (let i = currentIndex + 1; i < LEGACY_APPROVAL_ORDER.length; i++) {
+    const step = LEGACY_APPROVAL_ORDER[i];
     
     // Skip location-based steps that don't match
     if (step.locationType) {
       const effectiveLocationType = locationType || 'shop';
-      // PM is required for shop locations (as first after helpdesk) but can also be in work type
-      // PD is required for common locations (as first after helpdesk) but can also be in work type
       if (currentRole === 'pm' && step.role === 'pd') {
-        // After PM, check if PD is required by work type (not just location)
         if (!workType?.requires_pd) continue;
       }
       if (currentRole === 'pd' && step.role === 'pm') {
-        // This shouldn't happen in normal flow, skip
         continue;
       }
     }
     
-    // If no requiresField or no workType, include the step
     if (!step.requiresField || !workType) {
       return { nextStatus: step.status, nextRole: step.role };
     }
     
-    // Check if this step is required by the work type
     const isRequired = workType[step.requiresField as keyof WorkType];
     if (isRequired) {
       return { nextStatus: step.status, nextRole: step.role };
     }
   }
 
-  // If no more required steps, the permit is approved
   return { nextStatus: 'approved', nextRole: null };
 }
 
@@ -200,10 +335,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Extract JWT token from Authorization header
     const token = authHeader.replace("Bearer ", "");
-    
-    // Create admin client to verify the token and get user
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
@@ -214,9 +346,6 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-    
-    // Create user client for password verification
-    const userClient = createClient(supabaseUrl, supabaseAnonKey);
 
     // Parse and validate request body
     const rawBody = await req.json();
@@ -233,7 +362,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { permitId, role, comments, signature, approved, password } = parseResult.data;
 
-    // Extract IP address early for rate limiting
     const ipAddress = req.headers.get("x-forwarded-for") || 
                       req.headers.get("x-real-ip") || 
                       req.headers.get("cf-connecting-ip") ||
@@ -241,7 +369,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Processing approval for permit:", permitId, "role:", role, "approved:", approved);
 
-    // Check rate limit before password verification
+    // Check rate limit
     const rateLimitResult = checkRateLimit(user.id, ipAddress);
     if (!rateLimitResult.allowed) {
       console.warn("Rate limit exceeded for user:", user.email, "IP:", ipAddress);
@@ -261,12 +389,11 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Verify password with constant-time check to prevent timing attacks
+    // Verify password
     const isPasswordValid = await constantTimePasswordCheck(supabaseUrl, supabaseAnonKey, user.email!, password);
 
     if (!isPasswordValid) {
       console.error("Password verification failed for user:", user.email);
-      // Generic error message - don't reveal specific failure reason
       return new Response(JSON.stringify({ error: "Invalid password. Please enter your correct password to confirm approval." }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -276,7 +403,6 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Password verified successfully for user:", user.email);
     const userAgent = req.headers.get("user-agent") || "unknown";
 
-    // Parse user agent for device info
     const deviceInfo = {
       platform: userAgent.includes("Windows") ? "Windows" : 
                 userAgent.includes("Mac") ? "macOS" :
@@ -290,7 +416,7 @@ const handler = async (req: Request): Promise<Response> => {
       timestamp: new Date().toISOString(),
     };
 
-    // Create a hash of the signature for audit purposes
+    // Create signature hash for audit
     let signatureHash = null;
     if (signature) {
       const encoder = new TextEncoder();
@@ -300,7 +426,6 @@ const handler = async (req: Request): Promise<Response> => {
       signatureHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
-    // Use service role client for database operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user profile
@@ -331,12 +456,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (auditError) {
       console.error("Audit log error:", auditError);
-      // Don't fail the request, just log the error
     }
 
     console.log("Audit log created for user:", user.email, "IP:", ipAddress);
 
-    // Get the current permit with work type and location to determine next step
+    // Get the current permit with work type and location
     const { data: currentPermit } = await serviceClient
       .from("work_permits")
       .select(`
@@ -344,6 +468,7 @@ const handler = async (req: Request): Promise<Response> => {
         work_types (
           id,
           name,
+          workflow_template_id,
           requires_pm,
           requires_pd,
           requires_bdcr,
@@ -369,7 +494,6 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Get location type for routing
     const workLocation = currentPermit?.work_locations as WorkLocation | null;
     const locationType = workLocation?.location_type || (currentPermit.work_location_other ? 'shop' : null);
 
@@ -389,12 +513,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (!approved) {
       updateData.status = "rejected";
     } else {
-      // Determine next step based on work type requirements AND location
+      // Determine next step using dynamic workflow
       const workType = currentPermit?.work_types as WorkType | null;
-      const { nextStatus, nextRole } = getNextApprovalStep(roleField, workType, locationType);
+      const { nextStatus, nextRole } = await getNextApprovalStep(serviceClient, roleField, workType, locationType);
       updateData.status = nextStatus;
       console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole}, location: ${locationType})`);
-      console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole})`);
     }
 
     const { data: updatedPermit, error: updateError } = await serviceClient
@@ -455,7 +578,6 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email notification to requester
     if (updatedPermit.requester_email) {
       try {
-        // Determine notification type based on approval status and final status
         let emailNotificationType: string;
         let emailSubject: string;
         let statusMessage: string = '';
@@ -467,7 +589,6 @@ const handler = async (req: Request): Promise<Response> => {
           emailNotificationType = 'approved';
           emailSubject = `Work Permit Approved: ${updatedPermit.permit_no}`;
         } else {
-          // Permit approved by this role but moving to next stage
           emailNotificationType = 'status_update';
           const roleLabel = role.toUpperCase().replace('_', ' ');
           statusMessage = `It has been approved by ${roleLabel} and is now pending the next approval.`;
@@ -504,20 +625,26 @@ const handler = async (req: Request): Promise<Response> => {
     // If approved and not final approval, notify the next approvers
     if (approved && updatedPermit.status !== 'approved') {
       const workType = currentPermit?.work_types as WorkType | null;
-      const { nextRole } = getNextApprovalStep(roleField, workType, locationType);
+      const { nextRole } = await getNextApprovalStep(serviceClient, roleField, workType, locationType);
       
       if (nextRole) {
-        // Get users with the next role
+        // Get users with the next role (using role_id join)
         const { data: nextApprovers } = await serviceClient
           .from("user_roles")
-          .select("user_id")
-          .eq("role", nextRole);
+          .select(`
+            user_id,
+            roles!user_roles_role_id_fkey (name)
+          `)
+          .eq("roles.name", nextRole);
 
-        if (nextApprovers && nextApprovers.length > 0) {
+        // Filter approvers that actually have the role
+        const validApprovers = nextApprovers?.filter((a: any) => a.roles?.name === nextRole) || [];
+
+        if (validApprovers.length > 0) {
           const roleLabel = nextRole.toUpperCase().replace('_', ' ');
           const approverIds: string[] = [];
           
-          for (const approver of nextApprovers) {
+          for (const approver of validApprovers) {
             await serviceClient.from("notifications").insert({
               user_id: approver.user_id,
               permit_id: permitId,
@@ -557,7 +684,7 @@ const handler = async (req: Request): Promise<Response> => {
               .select("email")
               .in("id", approverIds);
             
-            const approverEmails = approverProfiles?.map(p => p.email).filter(Boolean) || [];
+            const approverEmails = approverProfiles?.map((p: any) => p.email).filter(Boolean) || [];
             
             if (approverEmails.length > 0) {
               try {
@@ -588,7 +715,7 @@ const handler = async (req: Request): Promise<Response> => {
             }
           }
           
-          console.log(`Notified ${nextApprovers.length} ${nextRole} approvers`);
+          console.log(`Notified ${validApprovers.length} ${nextRole} approvers`);
         }
       }
     }
