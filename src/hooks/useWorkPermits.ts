@@ -614,6 +614,7 @@ export function usePendingPermitsForApprover() {
         customer_service: 'pending_customer_service',
         cr_coordinator: 'pending_cr_coordinator',
         head_cr: 'pending_head_cr',
+        fmsp_approval: 'pending_fmsp_approval',
         // Additional roles
         soft_facilities: 'pending_soft_facilities',
         hard_facilities: 'pending_hard_facilities',
@@ -662,6 +663,7 @@ export function usePendingPermitsCount() {
         customer_service: 'pending_customer_service',
         cr_coordinator: 'pending_cr_coordinator',
         head_cr: 'pending_head_cr',
+        fmsp_approval: 'pending_fmsp_approval',
         // Additional roles
         soft_facilities: 'pending_soft_facilities',
         hard_facilities: 'pending_hard_facilities',

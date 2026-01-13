@@ -644,39 +644,47 @@ const handler = async (req: Request): Promise<Response> => {
 
     // If approved and not final approval, notify the next approvers
     if (approved && updatedPermit.status !== 'approved') {
-      const workType = currentPermit?.work_types as WorkType | null;
-      const { nextRole } = await getNextApprovalStep(serviceClient, roleField, workType, locationType);
-      
+      const nextRole = updatedPermit.status?.startsWith('pending_')
+        ? updatedPermit.status.replace('pending_', '')
+        : null;
+
       if (nextRole) {
-        // Get users with the next role (using role_id join)
-        const { data: nextApprovers } = await serviceClient
-          .from("user_roles")
-          .select(`
-            user_id,
-            roles!user_roles_role_id_fkey (name)
-          `)
-          .eq("roles.name", nextRole);
+        // Resolve role_id first (more reliable than filtering through embedded joins)
+        const { data: roleRow, error: roleError } = await serviceClient
+          .from('roles')
+          .select('id')
+          .eq('name', nextRole)
+          .single();
 
-        // Filter approvers that actually have the role
-        const validApprovers = nextApprovers?.filter((a: any) => a.roles?.name === nextRole) || [];
+        if (roleError || !roleRow?.id) {
+          console.warn('Could not resolve next role id for', nextRole, roleError);
+        } else {
+          const { data: nextApprovers, error: approversError } = await serviceClient
+            .from('user_roles')
+            .select('user_id')
+            .eq('role_id', roleRow.id);
 
-        if (validApprovers.length > 0) {
-          const roleLabel = nextRole.toUpperCase().replace('_', ' ');
-          const approverIds: string[] = [];
-          
-          for (const approver of validApprovers) {
-            await serviceClient.from("notifications").insert({
-              user_id: approver.user_id,
-              permit_id: permitId,
-              type: "pending_approval",
-              title: `Permit Pending Your Approval`,
-              message: `Permit ${updatedPermit.permit_no} requires your review as ${roleLabel}.`,
-            });
-            approverIds.push(approver.user_id);
+          if (approversError) {
+            console.error('Failed to fetch next approvers for role', nextRole, approversError);
           }
-          
-          // Send push notifications to next approvers
+
+          const approverIds: string[] = (nextApprovers || []).map((a: any) => a.user_id).filter(Boolean);
+
           if (approverIds.length > 0) {
+            const roleLabel = nextRole.toUpperCase().replace(/_/g, ' ');
+
+            // In-app notifications
+            for (const approverId of approverIds) {
+              await serviceClient.from('notifications').insert({
+                user_id: approverId,
+                permit_id: permitId,
+                type: 'approval_needed',
+                title: 'Permit Pending Your Approval',
+                message: `Permit ${updatedPermit.permit_no} requires your review as ${roleLabel}.`,
+              });
+            }
+
+            // Push notifications
             try {
               await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
                 method: 'POST',
@@ -686,28 +694,26 @@ const handler = async (req: Request): Promise<Response> => {
                 },
                 body: JSON.stringify({
                   userIds: approverIds,
-                  title: `Permit Awaiting Your Approval`,
+                  title: 'Permit Awaiting Your Approval',
                   message: `${updatedPermit.permit_no} requires your review as ${roleLabel}`,
                   data: { url: `/inbox`, permitId },
                 }),
               });
               console.log(`Push notification sent to ${approverIds.length} next approvers`);
             } catch (pushError) {
-              console.error("Failed to send push notification to next approvers:", pushError);
+              console.error('Failed to send push notification to next approvers:', pushError);
             }
-          }
-          
-          // Get emails for next approvers and send email notifications
-          if (approverIds.length > 0) {
-            const { data: approverProfiles } = await serviceClient
-              .from("profiles")
-              .select("email")
-              .in("id", approverIds);
-            
-            const approverEmails = approverProfiles?.map((p: any) => p.email).filter(Boolean) || [];
-            
-            if (approverEmails.length > 0) {
-              try {
+
+            // Email notifications
+            try {
+              const { data: approverProfiles } = await serviceClient
+                .from('profiles')
+                .select('email')
+                .in('id', approverIds);
+
+              const approverEmails = approverProfiles?.map((p: any) => p.email).filter(Boolean) || [];
+
+              if (approverEmails.length > 0) {
                 const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
                   method: 'POST',
                   headers: {
@@ -728,14 +734,16 @@ const handler = async (req: Request): Promise<Response> => {
                     },
                   }),
                 });
-                console.log("Email notification sent to next approvers:", emailResponse.ok);
-              } catch (emailError) {
-                console.error("Failed to send email notification to next approvers:", emailError);
+                console.log('Email notification sent to next approvers:', emailResponse.ok);
               }
+            } catch (emailError) {
+              console.error('Failed to send email notification to next approvers:', emailError);
             }
+
+            console.log(`Notified ${approverIds.length} ${nextRole} approvers`);
+          } else {
+            console.log(`No users found for next role: ${nextRole}`);
           }
-          
-          console.log(`Notified ${validApprovers.length} ${nextRole} approvers`);
         }
       }
     }
