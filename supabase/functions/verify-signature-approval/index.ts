@@ -750,6 +750,32 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Permit updated successfully:", permitId, "new status:", updatedPermit.status);
 
+    // Regenerate PDF after each successful approval to include latest signatures
+    if (approved) {
+      try {
+        console.log("Triggering PDF regeneration for permit:", permitId);
+        const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-permit-pdf`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ permitId }),
+        });
+        
+        if (pdfResponse.ok) {
+          const pdfResult = await pdfResponse.json();
+          console.log("PDF regenerated successfully:", pdfResult.filePath);
+        } else {
+          const errorText = await pdfResponse.text();
+          console.error("PDF regeneration failed:", pdfResponse.status, errorText);
+        }
+      } catch (pdfError) {
+        // Non-blocking - don't fail the approval if PDF regeneration fails
+        console.error("PDF regeneration error (non-blocking):", pdfError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
