@@ -1,20 +1,24 @@
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, Circle, ArrowRight, MapPin, Store, Users, Info } from 'lucide-react';
+import { Check, Circle, ArrowRight, MapPin, Store, Users, Info, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEffectiveWorkflow } from '@/hooks/useWorkflowTemplates';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface WorkType {
   id: string;
   name: string;
-  requires_pm: boolean;
-  requires_pd: boolean;
-  requires_bdcr: boolean;
-  requires_mpr: boolean;
-  requires_it: boolean;
-  requires_fitout: boolean;
-  requires_ecovert_supervisor: boolean;
-  requires_pmd_coordinator: boolean;
+  workflow_template_id?: string | null;
+  // Legacy fields for backward compatibility
+  requires_pm?: boolean;
+  requires_pd?: boolean;
+  requires_bdcr?: boolean;
+  requires_mpr?: boolean;
+  requires_it?: boolean;
+  requires_fitout?: boolean;
+  requires_ecovert_supervisor?: boolean;
+  requires_pmd_coordinator?: boolean;
 }
 
 interface WorkLocation {
@@ -30,7 +34,7 @@ interface WorkflowPreviewProps {
   className?: string;
 }
 
-interface WorkflowStep {
+interface DisplayStep {
   key: string;
   label: string;
   shortLabel: string;
@@ -38,6 +42,22 @@ interface WorkflowStep {
   isLocationBased?: boolean;
   locationType?: 'shop' | 'common';
 }
+
+// Role name to short label mapping
+const roleShortLabels: Record<string, string> = {
+  customer_service: 'CS',
+  cr_coordinator: 'CRC',
+  head_cr: 'HCR',
+  helpdesk: 'HD',
+  pm: 'PM',
+  pd: 'PD',
+  bdcr: 'BDCR',
+  mpr: 'MPR',
+  it: 'IT',
+  fitout: 'FIT',
+  ecovert_supervisor: 'ECO',
+  pmd_coordinator: 'PMD',
+};
 
 export function WorkflowPreview({ 
   workType, 
@@ -48,9 +68,42 @@ export function WorkflowPreview({
   // Determine location type - default to 'shop' for "Other" locations
   const locationType = workLocation?.location_type || (isOtherLocation ? 'shop' : null);
   
-  // Build workflow steps based on location and work type
-  const buildWorkflowSteps = (): WorkflowStep[] => {
-    const steps: WorkflowStep[] = [
+  // Fetch dynamic workflow from database
+  const { data: effectiveWorkflow, isLoading } = useEffectiveWorkflow(workType?.id);
+  
+  // Build workflow steps - use dynamic data if available, otherwise fall back to legacy logic
+  const buildWorkflowSteps = (): DisplayStep[] => {
+    // If we have dynamic workflow data from database, use it
+    if (effectiveWorkflow?.steps && effectiveWorkflow.steps.length > 0) {
+      const steps: DisplayStep[] = [
+        { key: 'submit', label: 'Submit', shortLabel: 'SUB', required: true },
+      ];
+
+      // Add steps from dynamic workflow
+      effectiveWorkflow.steps.forEach((step) => {
+        if (!step.is_required) return; // Skip non-required steps
+        
+        const roleName = step.role?.name || '';
+        const roleLabel = step.role?.label || step.step_name || roleName;
+        
+        steps.push({
+          key: step.id,
+          label: roleLabel,
+          shortLabel: roleShortLabels[roleName] || roleName.substring(0, 3).toUpperCase(),
+          required: step.is_required,
+          isLocationBased: roleName === 'pm' || roleName === 'pd',
+          locationType: roleName === 'pm' ? 'shop' : roleName === 'pd' ? 'common' : undefined,
+        });
+      });
+
+      // Final approval
+      steps.push({ key: 'approved', label: 'Approved', shortLabel: '✓', required: true });
+
+      return steps;
+    }
+
+    // Legacy fallback: build steps from work type flags
+    const steps: DisplayStep[] = [
       { key: 'submit', label: 'Submit', shortLabel: 'SUB', required: true },
       { key: 'helpdesk', label: 'Helpdesk Review', shortLabel: 'HD', required: true },
     ];
@@ -143,6 +196,26 @@ export function WorkflowPreview({
     );
   }
 
+  // Show loading state
+  if (isLoading && workType?.id) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Loading workflow...</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center">
+              <Skeleton className="w-8 h-8 rounded-full" />
+              {i < 5 && <ArrowRight className="h-3 w-3 text-muted-foreground/30 mx-1" />}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Header with routing info */}
@@ -153,6 +226,11 @@ export function WorkflowPreview({
           <Badge variant="outline" className="text-xs">
             {approvalCount} approval{approvalCount !== 1 ? 's' : ''} required
           </Badge>
+          {effectiveWorkflow?.template && (
+            <Badge variant="secondary" className="text-xs">
+              {effectiveWorkflow.template.name}
+            </Badge>
+          )}
         </div>
         {locationType && (
           <Badge 
