@@ -40,6 +40,7 @@ export interface WorkflowPermit {
   customerServiceApproval?: ApprovalRecord;
   crCoordinatorApproval?: ApprovalRecord;
   headCrApproval?: ApprovalRecord;
+  fmspApprovalApproval?: ApprovalRecord;
 }
 
 interface WorkflowTimelineProps {
@@ -82,6 +83,7 @@ const ROLE_TO_APPROVAL_KEY: Record<string, keyof WorkflowPermit> = {
   'customer_service': 'customerServiceApproval',
   'cr_coordinator': 'crCoordinatorApproval',
   'head_cr': 'headCrApproval',
+  'fmsp_approval': 'fmspApprovalApproval',
   'helpdesk': 'helpdeskApproval',
   'pm': 'pmApproval',
   'pd': 'pdApproval',
