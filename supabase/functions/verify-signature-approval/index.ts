@@ -498,17 +498,30 @@ const handler = async (req: Request): Promise<Response> => {
     const locationType = workLocation?.location_type || (currentPermit.work_location_other ? 'shop' : null);
 
     // Update the permit
-    const roleField = role.toLowerCase().replace(" ", "_");
+    const roleField = role.toLowerCase().replace(/ /g, "_");
     const approvalStatus = approved ? "approved" : "rejected";
 
-    const updateData: Record<string, unknown> = {
-      [`${roleField}_status`]: approvalStatus,
-      [`${roleField}_approver_name`]: userName,
-      [`${roleField}_approver_email`]: user.email,
-      [`${roleField}_date`]: new Date().toISOString(),
-      [`${roleField}_comments`]: comments,
-      [`${roleField}_signature`]: signature,
-    };
+    // Define which roles have dedicated columns in work_permits table
+    const rolesWithColumns = [
+      'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout',
+      'ecovert_supervisor', 'pmd_coordinator',
+      'customer_service', 'cr_coordinator', 'head_cr',
+      'fmsp_approval'
+    ];
+
+    const updateData: Record<string, unknown> = {};
+    
+    // Only add role-specific columns if the role has them
+    if (rolesWithColumns.includes(roleField)) {
+      updateData[`${roleField}_status`] = approvalStatus;
+      updateData[`${roleField}_approver_name`] = userName;
+      updateData[`${roleField}_approver_email`] = user.email;
+      updateData[`${roleField}_date`] = new Date().toISOString();
+      updateData[`${roleField}_comments`] = comments;
+      updateData[`${roleField}_signature`] = signature;
+    } else {
+      console.log(`Role ${roleField} does not have dedicated columns, skipping role-specific update`);
+    }
 
     if (!approved) {
       updateData.status = "rejected";
