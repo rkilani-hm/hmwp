@@ -1,32 +1,53 @@
-export type PermitStatus = 
-  | 'draft' 
-  | 'submitted' 
-  | 'under_review' 
+export type PermitStatus =
+  | 'draft'
+  | 'submitted'
+  | 'under_review'
   | 'rework_needed'
-  | 'pending_pm' 
-  | 'pending_pd' 
-  | 'pending_bdcr' 
-  | 'pending_mpr' 
-  | 'pending_it' 
-  | 'pending_fitout' 
-  | 'pending_ecovert_supervisor' 
-  | 'pending_pmd_coordinator' 
-  | 'approved' 
-  | 'rejected' 
+  // Internal workflow
+  | 'pending_pm'
+  | 'pending_pd'
+  | 'pending_bdcr'
+  | 'pending_mpr'
+  | 'pending_it'
+  | 'pending_fitout'
+  | 'pending_ecovert_supervisor'
+  | 'pending_pmd_coordinator'
+  // Client workflow
+  | 'pending_customer_service'
+  | 'pending_cr_coordinator'
+  | 'pending_head_cr'
+  // Facilities / service roles
+  | 'pending_soft_facilities'
+  | 'pending_hard_facilities'
+  | 'pending_pm_service'
+  | 'pending_fmsp_approval'
+  // Terminal
+  | 'approved'
+  | 'rejected'
   | 'closed'
   | 'cancelled';
 
-export type UserRole = 
-  | 'contractor' 
-  | 'helpdesk' 
-  | 'pm' 
-  | 'pd' 
-  | 'bdcr' 
-  | 'mpr' 
-  | 'it' 
-  | 'fitout' 
-  | 'ecovert_supervisor' 
-  | 'pmd_coordinator' 
+export type UserRole =
+  | 'contractor'
+  // Client workflow
+  | 'customer_service'
+  | 'cr_coordinator'
+  | 'head_cr'
+  // Internal workflow
+  | 'helpdesk'
+  | 'pm'
+  | 'pd'
+  | 'bdcr'
+  | 'mpr'
+  | 'it'
+  | 'fitout'
+  | 'ecovert_supervisor'
+  | 'pmd_coordinator'
+  // Facilities / service roles
+  | 'soft_facilities'
+  | 'hard_facilities'
+  | 'pm_service'
+  | 'fmsp_approval'
   | 'admin';
 
 export interface WorkType {
@@ -118,6 +139,8 @@ export const statusLabels: Record<PermitStatus, string> = {
   submitted: 'Submitted',
   under_review: 'Under Review',
   rework_needed: 'Rework Needed',
+
+  // Internal workflow
   pending_pm: 'Pending PM',
   pending_pd: 'Pending PD',
   pending_bdcr: 'Pending BDCR',
@@ -126,6 +149,18 @@ export const statusLabels: Record<PermitStatus, string> = {
   pending_fitout: 'Pending Fit-Out',
   pending_ecovert_supervisor: 'Pending Ecovert Supervisor',
   pending_pmd_coordinator: 'Pending PMD Coordinator',
+
+  // Client workflow
+  pending_customer_service: 'Pending Customer Service',
+  pending_cr_coordinator: 'Pending CR Coordinator',
+  pending_head_cr: 'Pending Head of CR',
+
+  // Facilities / service roles
+  pending_soft_facilities: 'Pending Soft Facilities',
+  pending_hard_facilities: 'Pending Hard Facilities',
+  pending_pm_service: 'Pending PM Service',
+  pending_fmsp_approval: 'Pending FMSP Approval',
+
   approved: 'Approved',
   rejected: 'Rejected',
   closed: 'Closed',
@@ -134,6 +169,13 @@ export const statusLabels: Record<PermitStatus, string> = {
 
 export const roleLabels: Record<UserRole, string> = {
   contractor: 'Client',
+
+  // Client workflow
+  customer_service: 'Customer Service',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+
+  // Internal workflow
   helpdesk: 'Helpdesk',
   pm: 'Property Management',
   pd: 'Project Development',
@@ -143,5 +185,12 @@ export const roleLabels: Record<UserRole, string> = {
   fitout: 'Fit-Out',
   ecovert_supervisor: 'Ecovert Supervisor',
   pmd_coordinator: 'PMD Coordinator',
+
+  // Facilities / service roles
+  soft_facilities: 'Soft Facilities',
+  hard_facilities: 'Hard Facilities',
+  pm_service: 'PM Service',
+  fmsp_approval: 'FMSP Approval',
+
   admin: 'Administrator',
 };

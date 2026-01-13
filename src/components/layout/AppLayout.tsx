@@ -4,7 +4,7 @@ import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type UserRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
+type UserRole = string;
 
 interface AppLayoutProps {
   children: ReactNode;

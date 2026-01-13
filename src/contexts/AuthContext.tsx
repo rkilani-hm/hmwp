@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type AppRole = 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin';
+export type RoleName = string;
 
 interface Profile {
   id: string;
@@ -18,12 +18,12 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  roles: AppRole[];
+  roles: RoleName[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  hasRole: (role: AppRole) => boolean;
+  hasRole: (role: RoleName) => boolean;
   isApprover: () => boolean;
   refreshProfile: () => Promise<void>;
 }
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [roles, setRoles] = useState<RoleName[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
       } else {
-        setRoles(rolesData?.map(r => (r.roles as any)?.name as AppRole).filter(Boolean) || []);
+        setRoles(rolesData?.map(r => (r.roles as any)?.name as RoleName).filter(Boolean) || []);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -222,11 +222,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.success('Signed out successfully');
   };
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  const hasRole = (role: RoleName) => roles.includes(role);
 
   const isApprover = () => {
-    const approverRoles: AppRole[] = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator', 'admin'];
-    return roles.some(r => approverRoles.includes(r));
+    // Any non-contractor role is considered an approver in this system.
+    // (Workflows are admin-configurable, so we must not hardcode role lists.)
+    return roles.some(r => r !== 'contractor');
   };
 
   const refreshProfile = async () => {

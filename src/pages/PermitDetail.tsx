@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { UserRole, PermitStatus } from '@/types/workPermit';
+import { PermitStatus } from '@/types/workPermit';
 import {
   ArrowLeft,
   Building2,
@@ -47,7 +47,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 
 interface PermitDetailProps {
-  currentRole: UserRole;
+  currentRole: string;
 }
 
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
