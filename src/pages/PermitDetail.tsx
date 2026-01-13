@@ -189,11 +189,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   };
 
   // Transform permit data for WorkflowTimeline
+  // Cast to any for database fields not in local WorkPermit type
+  const p = permit as any;
   const transformedPermit: WorkflowPermit = {
     id: permit.id,
     status: permit.status as PermitStatus,
     work_type_id: permit.work_type_id,
-    is_internal: (permit as any).is_internal ?? null,
+    is_internal: p.is_internal ?? null,
     helpdeskApproval: {
       status: (permit.helpdesk_status as 'pending' | 'approved' | 'rejected') || 'pending',
       approverName: permit.helpdesk_approver_name || undefined,
@@ -217,21 +219,74 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     },
     bdcrApproval: {
       status: (permit.bdcr_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.bdcr_approver_name || undefined,
+      date: p.bdcr_date || undefined,
+      comments: p.bdcr_comments || undefined,
+      signature: p.bdcr_signature || undefined,
     },
     mprApproval: {
       status: (permit.mpr_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.mpr_approver_name || undefined,
+      date: p.mpr_date || undefined,
+      comments: p.mpr_comments || undefined,
+      signature: p.mpr_signature || undefined,
     },
     itApproval: {
       status: (permit.it_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.it_approver_name || undefined,
+      date: p.it_date || undefined,
+      comments: p.it_comments || undefined,
+      signature: p.it_signature || undefined,
     },
     fitoutApproval: {
       status: (permit.fitout_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.fitout_approver_name || undefined,
+      date: p.fitout_date || undefined,
+      comments: p.fitout_comments || undefined,
+      signature: p.fitout_signature || undefined,
     },
     ecovertSupervisorApproval: {
-      status: (permit.ecovert_supervisor_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      status: (p.ecovert_supervisor_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.ecovert_supervisor_approver_name || undefined,
+      date: p.ecovert_supervisor_date || undefined,
+      comments: p.ecovert_supervisor_comments || undefined,
+      signature: p.ecovert_supervisor_signature || undefined,
     },
     pmdCoordinatorApproval: {
-      status: (permit.pmd_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      status: (p.pmd_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.pmd_coordinator_approver_name || undefined,
+      date: p.pmd_coordinator_date || undefined,
+      comments: p.pmd_coordinator_comments || undefined,
+      signature: p.pmd_coordinator_signature || undefined,
+    },
+    // Dynamic workflow roles
+    customerServiceApproval: {
+      status: (p.customer_service_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.customer_service_approver_name || undefined,
+      date: p.customer_service_date || undefined,
+      comments: p.customer_service_comments || undefined,
+      signature: p.customer_service_signature || undefined,
+    },
+    crCoordinatorApproval: {
+      status: (p.cr_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.cr_coordinator_approver_name || undefined,
+      date: p.cr_coordinator_date || undefined,
+      comments: p.cr_coordinator_comments || undefined,
+      signature: p.cr_coordinator_signature || undefined,
+    },
+    headCrApproval: {
+      status: (p.head_cr_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.head_cr_approver_name || undefined,
+      date: p.head_cr_date || undefined,
+      comments: p.head_cr_comments || undefined,
+      signature: p.head_cr_signature || undefined,
+    },
+    fmspApprovalApproval: {
+      status: (p.fmsp_approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
+      approverName: p.fmsp_approval_approver_name || undefined,
+      date: p.fmsp_approval_date || undefined,
+      comments: p.fmsp_approval_comments || undefined,
+      signature: p.fmsp_approval_signature || undefined,
     },
   };
 
