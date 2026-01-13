@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
+import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
 import { PermitProgressTracker } from '@/components/ui/PermitProgressTracker';
@@ -38,6 +39,7 @@ import {
   RotateCcw,
   Ban,
   Edit,
+  Bell,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { motion } from 'framer-motion';
@@ -67,6 +69,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
   const { generatePdf, isGenerating } = useGeneratePdf();
+  const resendNotification = useResendNotification();
+
+  const isAdmin = roles.includes('admin');
+  const isPendingStatus = (status: string) => 
+    status.startsWith('pending_') || ['submitted', 'under_review'].includes(status);
 
   const handleGeneratePdf = async () => {
     if (!permit) return;
@@ -336,6 +343,21 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             >
               <Ban className="w-4 h-4 mr-2" />
               Cancel Permit
+            </Button>
+          )}
+          {/* Admin: Resend Notification button for pending permits */}
+          {isAdmin && isPendingStatus(permit.status) && (
+            <Button 
+              variant="outline"
+              onClick={() => resendNotification.mutate(permit.id)}
+              disabled={resendNotification.isPending}
+            >
+              {resendNotification.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="w-4 h-4 mr-2" />
+              )}
+              Resend Notification
             </Button>
           )}
           {!permit.pdf_url && (
