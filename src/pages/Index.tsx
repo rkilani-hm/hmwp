@@ -13,6 +13,7 @@ import WorkTypesManagement from './admin/WorkTypesManagement';
 import WorkLocationsManagement from './admin/WorkLocationsManagement';
 import RolesManagement from './admin/RolesManagement';
 import PermissionsManagement from './admin/PermissionsManagement';
+import WorkflowBuilder from './admin/WorkflowBuilder';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
 import UserActivityLogs from './admin/UserActivityLogs';
@@ -101,6 +102,10 @@ const Index = () => {
         <Route 
           path="qr-poster" 
           element={isAdmin ? <QRCodePoster /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="workflow-builder" 
+          element={isAdmin ? <WorkflowBuilder /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </AppLayout>
