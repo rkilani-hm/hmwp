@@ -576,37 +576,14 @@ export function PermitFormWizard() {
                       </p>
                     </div>
                   </div>
-                  {selectedWorkType && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Required Approvals</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Helpdesk</span>
-                        {selectedWorkType.requires_pm && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PM</span>
-                        )}
-                        {selectedWorkType.requires_pd && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PD</span>
-                        )}
-                        {selectedWorkType.requires_bdcr && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">BDCR</span>
-                        )}
-                        {selectedWorkType.requires_mpr && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">MPR</span>
-                        )}
-                        {selectedWorkType.requires_it && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">IT</span>
-                        )}
-                        {selectedWorkType.requires_fitout && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Fit-Out</span>
-                        )}
-                        {selectedWorkType.requires_ecovert_supervisor && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">Ecovert Supervisor</span>
-                        )}
-                        {selectedWorkType.requires_pmd_coordinator && (
-                          <span className="text-xs bg-muted px-2.5 py-1 rounded-full">PMD Coordinator</span>
-                        )}
-                      </div>
-                    </div>
+                  {/* Dynamic Workflow Preview */}
+                  {formData.workTypeId && (
+                    <WorkflowPreview 
+                      workType={selectedWorkType}
+                      workLocation={selectedWorkLocation}
+                      isOtherLocation={isOtherLocation}
+                      className="mt-2"
+                    />
                   )}
                 </div>
               )}
