@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -15,6 +15,7 @@ import { Loader2, Lock, Shield, Fingerprint, KeyRound } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SecureApprovalDialogProps {
@@ -36,6 +37,7 @@ export function SecureApprovalDialog({
   actionType,
   isLoading,
 }: SecureApprovalDialogProps) {
+  const { profile } = useAuth();
   const [password, setPassword] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,20 @@ export function SecureApprovalDialog({
 
   const { isSupported: biometricSupported, isChecking: checkingBiometric, verifyIdentity } = useBiometricAuth();
   const isMobile = useIsMobile();
+
+  // Set default auth method from user preference when dialog opens
+  useEffect(() => {
+    if (isOpen && profile?.auth_preference) {
+      const preference = profile.auth_preference as 'password' | 'biometric';
+      // Only use biometric preference if device supports it
+      if (preference === 'biometric' && isMobile && biometricSupported) {
+        setAuthMethod('biometric');
+      } else if (preference === 'password') {
+        setAuthMethod('password');
+      }
+      // If biometric preference but no support, default to password (already set)
+    }
+  }, [isOpen, profile?.auth_preference, isMobile, biometricSupported]);
 
   const handleBiometricAuth = async () => {
     setError(null);
