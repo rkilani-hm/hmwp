@@ -158,7 +158,7 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
       // Fetch workflow steps with roles
       const { data: steps } = await supabase
         .from('workflow_steps')
-        .select('*, roles(*)')
+        .select('*, roles:role_id(id, name, label)')
         .eq('workflow_template_id', workType.workflow_template_id)
         .order('step_order', { ascending: true });
 
