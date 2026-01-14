@@ -426,7 +426,18 @@ export function useReorderWorkflowSteps() {
       templateId: string;
       steps: { id: string; step_order: number }[];
     }) => {
-      // Update each step's order
+      // To avoid unique constraint violations, first set all step_orders to temporary high values
+      const tempOffset = 10000;
+      for (const step of steps) {
+        const { error } = await supabase
+          .from('workflow_steps')
+          .update({ step_order: step.step_order + tempOffset })
+          .eq('id', step.id);
+
+        if (error) throw error;
+      }
+
+      // Now set the final step_order values
       for (const step of steps) {
         const { error } = await supabase
           .from('workflow_steps')
