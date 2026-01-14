@@ -13,28 +13,46 @@ export function useUsersByRole() {
   return useQuery({
     queryKey: ['users-by-role'],
     queryFn: async (): Promise<Record<string, UserWithRole[]>> => {
-      const { data, error } = await supabase
+      // First get all user_roles with their role info
+      const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select(`
           user_id,
           role_id,
-          roles:role_id(name),
-          profiles:user_id(full_name, email, is_active)
-        `)
-        .eq('profiles.is_active', true);
+          roles:role_id(name)
+        `);
 
-      if (error) throw error;
+      if (userRolesError) throw userRolesError;
 
-      // Group users by role_id
+      // Then get active profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, is_active')
+        .eq('is_active', true);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of active profiles by user id
+      const activeProfiles = new Map<string, { full_name: string | null; email: string }>();
+      if (profilesData) {
+        for (const profile of profilesData) {
+          activeProfiles.set(profile.id, {
+            full_name: profile.full_name,
+            email: profile.email,
+          });
+        }
+      }
+
+      // Group users by role_id, only including active users
       const usersByRole: Record<string, UserWithRole[]> = {};
       
-      if (data) {
-        for (const item of data) {
+      if (userRolesData) {
+        for (const item of userRolesData) {
+          const profile = activeProfiles.get(item.user_id);
+          if (!profile) continue; // Skip inactive users
+          
           const roleId = item.role_id;
           const roleName = (item.roles as any)?.name || 'unknown';
-          const profile = item.profiles as any;
-          
-          if (!profile || profile.is_active === false) continue;
           
           if (!usersByRole[roleId]) {
             usersByRole[roleId] = [];
@@ -44,8 +62,8 @@ export function useUsersByRole() {
             user_id: item.user_id,
             role_id: roleId,
             role_name: roleName,
-            full_name: profile?.full_name || null,
-            email: profile?.email || '',
+            full_name: profile.full_name,
+            email: profile.email,
           });
         }
       }
