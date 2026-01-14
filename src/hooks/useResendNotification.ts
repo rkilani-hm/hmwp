@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
 interface ResendNotificationResult {
   success: boolean;
@@ -21,7 +22,8 @@ export function useResendNotification() {
       });
 
       if (error) {
-        throw new Error(error.message || 'Failed to resend notifications');
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        throw new Error(userFriendlyMessage);
       }
 
       if (data?.error) {

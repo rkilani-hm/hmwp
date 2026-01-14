@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
 export function useGeneratePdf() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -25,7 +26,8 @@ export function useGeneratePdf() {
 
       if (error) {
         console.error('Error generating PDF:', error);
-        toast.error('Failed to generate PDF');
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        toast.error(userFriendlyMessage);
         return null;
       }
 
@@ -34,11 +36,13 @@ export function useGeneratePdf() {
         return data.pdfUrl;
       }
 
-      toast.error(data?.error || 'Failed to generate PDF');
+      const errorMessage = data?.error || 'Failed to generate PDF. Please try again.';
+      toast.error(errorMessage);
       return null;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error:', err);
-      toast.error('Failed to generate PDF');
+      const userFriendlyMessage = parseEdgeFunctionError(err, null);
+      toast.error(userFriendlyMessage);
       return null;
     } finally {
       setIsGenerating(false);
