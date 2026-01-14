@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Loader2, ChevronUp, ChevronDown, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Loader2, ChevronUp, ChevronDown, CheckCircle, AlertTriangle, XCircle, User } from 'lucide-react';
 import { 
   useWorkflowTemplates, 
   useWorkflowSteps,
@@ -26,7 +26,9 @@ import {
   WorkflowStep
 } from '@/hooks/useWorkflowTemplates';
 import { useRoles } from '@/hooks/useRoles';
+import { useUsersByRole } from '@/hooks/useUsersByRole';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function WorkflowBuilder() {
   const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
@@ -36,6 +38,7 @@ export default function WorkflowBuilder() {
 
   const { data: templates, isLoading: templatesLoading } = useWorkflowTemplates();
   const { data: roles } = useRoles();
+  const { data: usersByRole } = useUsersByRole();
   
   const filteredTemplates = templates?.filter(t => t.workflow_type === activeTab) || [];
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
@@ -88,6 +91,7 @@ export default function WorkflowBuilder() {
         <WorkflowEditor
           template={selectedTemplate}
           roles={roles || []}
+          usersByRole={usersByRole || {}}
           onAddStep={() => setIsAddStepOpen(true)}
         />
       )}
@@ -216,10 +220,12 @@ function WorkflowTemplateList({
 function WorkflowEditor({
   template,
   roles,
+  usersByRole,
   onAddStep,
 }: {
   template: WorkflowTemplate;
   roles: { id: string; name: string; label: string }[];
+  usersByRole: Record<string, { user_id: string; full_name: string | null; email: string }[]>;
   onAddStep: () => void;
 }) {
   const { data: steps, isLoading } = useWorkflowSteps(template.id);
@@ -475,6 +481,38 @@ function WorkflowEditor({
                       <div className="text-sm text-muted-foreground">
                         Role: {step.role?.name || 'unknown'}
                       </div>
+                      {/* Show assigned users */}
+                      {step.role_id && usersByRole[step.role_id] && usersByRole[step.role_id].length > 0 ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1.5 mt-1 text-xs text-primary cursor-pointer hover:underline">
+                                <User className="h-3 w-3" />
+                                <span>
+                                  {usersByRole[step.role_id].length === 1
+                                    ? usersByRole[step.role_id][0].full_name || usersByRole[step.role_id][0].email
+                                    : `${usersByRole[step.role_id].length} users assigned`}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-medium text-xs mb-1">Assigned Users:</p>
+                                {usersByRole[step.role_id].map((user) => (
+                                  <div key={user.user_id} className="text-xs">
+                                    {user.full_name || user.email}
+                                  </div>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          <span className="italic">No users assigned</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
