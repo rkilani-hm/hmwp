@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -508,10 +509,14 @@ function WorkflowEditor({
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
-                        <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                        <Link 
+                          to="/approvers" 
+                          className="flex items-center gap-1.5 mt-1 text-xs text-destructive hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <User className="h-3 w-3" />
-                          <span className="italic">No users assigned</span>
-                        </div>
+                          <span className="italic">No users assigned – Click to add</span>
+                        </Link>
                       )}
                     </div>
                     <div className="flex items-center gap-4">
