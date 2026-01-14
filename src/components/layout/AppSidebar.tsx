@@ -68,6 +68,7 @@ const navigationItems = {
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'My Permits', path: '/permits' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
+    { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
   helpdesk: [
@@ -78,6 +79,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
+    { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
   admin: [
@@ -98,6 +100,7 @@ const navigationItems = {
     { icon: Cog, label: 'Work Types', path: '/work-types' },
     { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
     { icon: QrCode, label: 'QR Code Poster', path: '/qr-poster' },
+    { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
   approver: [
@@ -108,6 +111,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
     { icon: BarChart3, label: 'My Performance', path: '/my-performance' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
+    { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ],
 };
