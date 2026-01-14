@@ -998,6 +998,8 @@ export type Database = {
         | "pending_cr_coordinator"
         | "pending_head_cr"
         | "pending_fmsp_approval"
+        | "pending_pmd_coordinator"
+        | "pending_ecovert_supervisor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1163,6 +1165,8 @@ export const Constants = {
         "pending_cr_coordinator",
         "pending_head_cr",
         "pending_fmsp_approval",
+        "pending_pmd_coordinator",
+        "pending_ecovert_supervisor",
       ],
     },
   },
