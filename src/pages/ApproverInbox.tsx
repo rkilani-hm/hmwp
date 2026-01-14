@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { usePendingPermitsForApprover, useSecureApprovePermit, WorkPermit } from '@/hooks/useWorkPermits';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -28,6 +28,9 @@ import {
   XCircle,
   RotateCcw,
   Forward,
+  Fingerprint,
+  KeyRound,
+  Settings,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
@@ -36,6 +39,7 @@ import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Map permit status to the role that should approve it (dynamically generated)
 const statusToRole: Record<string, string> = {
@@ -64,8 +68,9 @@ const statusToRole: Record<string, string> = {
 
 export default function ApproverInbox() {
   const navigate = useNavigate();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
+  const authPreference = profile?.auth_preference || 'password';
   const secureApprove = useSecureApprovePermit();
   const [searchTerm, setSearchTerm] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
@@ -199,6 +204,37 @@ export default function ApproverInbox() {
             {filteredPermits.length} permit{filteredPermits.length !== 1 ? 's' : ''} awaiting your review
           </p>
         </div>
+        
+        {/* Auth Preference Indicator */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link 
+                to="/settings" 
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-muted/50",
+                  authPreference === 'biometric' 
+                    ? "border-primary/30 bg-primary/5" 
+                    : "border-muted-foreground/20 bg-muted/30"
+                )}
+              >
+                {authPreference === 'biometric' ? (
+                  <Fingerprint className="w-4 h-4 text-primary" />
+                ) : (
+                  <KeyRound className="w-4 h-4 text-muted-foreground" />
+                )}
+                <span className="text-sm font-medium">
+                  {authPreference === 'biometric' ? 'Biometric' : 'Password'}
+                </span>
+                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Default authentication: {authPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'}</p>
+              <p className="text-xs text-muted-foreground">Click to change in settings</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Filters */}

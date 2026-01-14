@@ -3,13 +3,17 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePendingPermitsForApprover } from '@/hooks/useWorkPermits';
-import { Inbox, ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Inbox, ArrowRight, CheckCircle, AlertTriangle, Fingerprint, KeyRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function PendingWithMeWidget() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
+  const authPreference = profile?.auth_preference || 'password';
 
   // Get the first 5 pending permits for display
   const displayPermits = permits?.slice(0, 5) || [];
@@ -45,15 +49,41 @@ export function PendingWithMeWidget() {
   return (
     <Card className="border-primary/30 bg-primary/5">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="font-display text-lg flex items-center gap-2">
-          <Inbox className="w-5 h-5 text-primary" />
-          Pending with Me
-          {totalPending > 0 && (
-            <span className="ml-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
-              {totalPending}
-            </span>
-          )}
-        </CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="font-display text-lg flex items-center gap-2">
+            <Inbox className="w-5 h-5 text-primary" />
+            Pending with Me
+            {totalPending > 0 && (
+              <span className="ml-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+                {totalPending}
+              </span>
+            )}
+          </CardTitle>
+          {/* Auth Preference Badge */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link 
+                  to="/settings" 
+                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-muted-foreground/20 bg-background hover:bg-muted/50 transition-colors"
+                >
+                  {authPreference === 'biometric' ? (
+                    <Fingerprint className="w-3.5 h-3.5 text-primary" />
+                  ) : (
+                    <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                  <span className="text-xs font-medium">
+                    {authPreference === 'biometric' ? 'Bio' : 'Pass'}
+                  </span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Auth: {authPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'}</p>
+                <p className="text-xs text-muted-foreground">Click to change</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         {totalPending > 0 && (
           <Button variant="ghost" size="sm" asChild>
             <Link to="/approver-inbox" className="text-primary">
