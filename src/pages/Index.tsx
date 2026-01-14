@@ -23,6 +23,7 @@ import ScanVerify from './ScanVerify';
 import GenerateVapidKeys from './admin/GenerateVapidKeys';
 import QRCodePoster from './admin/QRCodePoster';
 import Settings from './Settings';
+import UserManuals from './UserManuals';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -106,6 +107,7 @@ const Index = () => {
           path="workflow-builder" 
           element={isAdmin ? <WorkflowBuilder /> : <Navigate to="/" replace />} 
         />
+        <Route path="user-manuals" element={<UserManuals />} />
       </Routes>
     </AppLayout>
   );
