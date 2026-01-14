@@ -7,13 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon } from 'lucide-react';
+import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 export default function Settings() {
-  const { user, profile, roles, refreshProfile } = useAuth();
+  const { user, profile, roles, refreshProfile, isApprover } = useAuth();
   const { isSubscribed } = usePushNotifications();
+  const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
+  const isMobile = useIsMobile();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -24,6 +29,7 @@ export default function Settings() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [authPreference, setAuthPreference] = useState<'password' | 'biometric'>('password');
 
   // Load company logo URL
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -34,6 +40,7 @@ export default function Settings() {
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
       setCompanyName(profile.company_name || '');
+      setAuthPreference((profile.auth_preference as 'password' | 'biometric') || 'password');
     }
   }, [profile, isEditing]);
 
@@ -177,6 +184,7 @@ export default function Settings() {
             full_name: fullName.trim(),
             phone: phone.trim() || null,
             company_name: companyName.trim() || null,
+            auth_preference: isApprover() ? authPreference : undefined,
           },
           { onConflict: 'id' }
         );
@@ -420,9 +428,80 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Push Notifications */}
+        {/* Push Notifications and Approver Settings */}
         <div className="space-y-4">
           <PushNotificationSettings />
+          
+          {/* Authentication Preference - Only for approvers */}
+          {isApprover() && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Fingerprint className="h-4 w-4" />
+                  Approval Authentication
+                </CardTitle>
+                <CardDescription>
+                  Choose your default authentication method for approving permits
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <RadioGroup 
+                  value={authPreference} 
+                  onValueChange={(v) => setAuthPreference(v as 'password' | 'biometric')}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="password" id="auth-password" />
+                    <Label htmlFor="auth-password" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <KeyRound className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Password</p>
+                        <p className="text-xs text-muted-foreground">Enter your password to confirm approvals</p>
+                      </div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="biometric" id="auth-biometric" disabled={!isMobile || checkingBiometric || !biometricSupported} />
+                    <Label htmlFor="auth-biometric" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <Fingerprint className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Fingerprint / Face ID</p>
+                        <p className="text-xs text-muted-foreground">
+                          {checkingBiometric 
+                            ? 'Checking biometric support...'
+                            : !isMobile 
+                              ? 'Only available on mobile devices'
+                              : !biometricSupported 
+                                ? 'Not supported on this device'
+                                : 'Use biometric authentication on mobile'}
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+                {authPreference !== ((profile?.auth_preference as 'password' | 'biometric') || 'password') && (
+                  <Button 
+                    onClick={saveProfile} 
+                    disabled={isSaving}
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Preference
+                      </>
+                    )}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
           
           {/* Test Notification Card */}
           <Card>

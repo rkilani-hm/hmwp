@@ -12,6 +12,7 @@ interface Profile {
   phone: string | null;
   company_name: string | null;
   company_logo: string | null;
+  auth_preference: string | null;
 }
 
 interface AuthContextType {

@@ -122,6 +122,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auth_preference: string | null
           company_logo: string | null
           company_name: string | null
           created_at: string
@@ -133,6 +134,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_preference?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
@@ -144,6 +146,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_preference?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
