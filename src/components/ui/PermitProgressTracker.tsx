@@ -61,6 +61,7 @@ interface PermitData {
   fitout_status?: string | null;
   ecovert_supervisor_status?: string | null;
   pmd_coordinator_status?: string | null;
+  fmsp_approval_status?: string | null;
   // Approver names
   customer_service_approver_name?: string | null;
   helpdesk_approver_name?: string | null;
@@ -74,6 +75,7 @@ interface PermitData {
   fitout_approver_name?: string | null;
   ecovert_supervisor_approver_name?: string | null;
   pmd_coordinator_approver_name?: string | null;
+  fmsp_approval_approver_name?: string | null;
   // Approval dates
   customer_service_date?: string | null;
   helpdesk_date?: string | null;
@@ -87,6 +89,7 @@ interface PermitData {
   fitout_date?: string | null;
   ecovert_supervisor_date?: string | null;
   pmd_coordinator_date?: string | null;
+  fmsp_approval_date?: string | null;
   // Legacy work type requirements
   work_types?: WorkTypeRequirements | null;
 }
@@ -111,6 +114,7 @@ const ROLE_TO_FIELD_PREFIX: Record<string, string> = {
   fitout: 'fitout',
   ecovert_supervisor: 'ecovert_supervisor',
   pmd_coordinator: 'pmd_coordinator',
+  fmsp_approval: 'fmsp_approval',
 };
 
 // Generate short labels from role names
@@ -128,6 +132,7 @@ const generateShortLabel = (roleName: string): string => {
     fitout: 'FIT',
     ecovert_supervisor: 'ECO',
     pmd_coordinator: 'PMD',
+    fmsp_approval: 'FMSP',
   };
   return labelMap[roleName] || roleName.substring(0, 3).toUpperCase();
 };
@@ -227,15 +232,31 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
       const dateField = `${fieldPrefix}_date` as keyof PermitData;
 
       const isRequired = isDynamicStepRequired(step);
-      const status = permit[statusField] as string | null | undefined;
+      const dbStatus = permit[statusField] as string | null | undefined;
       const approverName = permit[approverField] as string | null | undefined;
       const date = permit[dateField] as string | null | undefined;
+
+      // Determine step status based on permit status and approval record
+      let stepStatus: ApprovalStep['status'] = 'upcoming';
+      if (!isRequired) {
+        stepStatus = 'skipped';
+      } else {
+        // First check if current permit status matches this step's pending status
+        if (permit.status === `pending_${roleName}`) {
+          stepStatus = 'pending';
+        } else if (dbStatus === 'approved') {
+          stepStatus = 'completed';
+        } else if (dbStatus === 'rejected') {
+          stepStatus = 'rejected';
+        }
+        // If no explicit status, remains 'upcoming'
+      }
 
       steps.push({
         key: roleName || step.id,
         label: step.step_name || step.roles?.label || 'Approval',
         shortLabel: generateShortLabel(roleName),
-        status: isRequired ? getApprovalStatus(status) : 'skipped',
+        status: stepStatus,
         approverName,
         date,
       });

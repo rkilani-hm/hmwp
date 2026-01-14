@@ -145,6 +145,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     'pending_customer_service': 'customer_service',
     'pending_cr_coordinator': 'cr_coordinator',
     'pending_head_cr': 'head_cr',
+    'pending_fmsp_approval': 'fmsp_approval',
     // Soft/Hard Facilities and PM Service
     'pending_soft_facilities': 'soft_facilities',
     'pending_hard_facilities': 'hard_facilities',

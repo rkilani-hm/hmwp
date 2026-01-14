@@ -234,14 +234,19 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
       const isRequired = isDynamicStepRequired(step);
       
       let status: TimelineStep['status'] = 'upcoming';
+      
       if (!isRequired) {
         status = 'skipped';
-      } else if (approval) {
-        status = getStepStatus(approval);
-        // Check if this is the current pending step based on permit status
-        if (status === 'upcoming' && permit.status === `pending_${roleName}`) {
+      } else {
+        // First check if current permit status matches this step's pending status
+        if (permit.status === `pending_${roleName}`) {
           status = 'pending';
+        } else if (approval?.status === 'approved') {
+          status = 'completed';
+        } else if (approval?.status === 'rejected') {
+          status = 'rejected';
         }
+        // If no explicit status, remains 'upcoming'
       }
 
       dynamicSteps.push({
