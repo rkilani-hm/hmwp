@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRoles } from '@/hooks/useRoles';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -77,7 +78,10 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        throw new Error(userFriendlyMessage);
+      }
       
       if (data?.error) {
         throw new Error(data.error);

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { sendEmailNotification, getEmailsForRole } from '@/utils/emailNotifications';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
 // Helper function to get the first workflow step for a work type
 async function getFirstWorkflowStep(workTypeId: string): Promise<{ roleName: string; status: string } | null> {
@@ -547,6 +548,8 @@ export function useApprovePermit() {
   });
 }
 
+// User-friendly error parsing is now handled by '@/utils/edgeFunctionErrors'
+
 export function useSecureApprovePermit() {
   const queryClient = useQueryClient();
 
@@ -570,13 +573,18 @@ export function useSecureApprovePermit() {
         body: { permitId, role, comments, signature, approved, password },
       });
 
-      // Handle edge function errors - the error message is in data when status is non-2xx
+      // Handle edge function errors with user-friendly messages
       if (error) {
-        // Try to extract error message from data if available
-        const errorMessage = data?.error || error.message || 'Failed to process approval';
-        throw new Error(errorMessage);
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        console.error('Edge function error:', error, 'Data:', data);
+        throw new Error(userFriendlyMessage);
       }
-      if (data?.error) throw new Error(data.error);
+      
+      // Handle errors returned in the response body
+      if (data?.error) {
+        const userFriendlyMessage = parseEdgeFunctionError({ message: data.error }, data);
+        throw new Error(userFriendlyMessage);
+      }
       
       return data;
     },
@@ -586,7 +594,12 @@ export function useSecureApprovePermit() {
       toast.success(variables.approved ? 'Permit approved with verified signature!' : 'Permit rejected');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to process approval');
+      // Don't show duplicate toast if it's a password error (shown in dialog)
+      const message = error.message || 'Failed to process approval';
+      if (!message.toLowerCase().includes('password') && 
+          !message.toLowerCase().includes('incorrect')) {
+        toast.error(message);
+      }
     },
   });
 }

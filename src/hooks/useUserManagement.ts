@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
 export function useUpdateUserStatus() {
   const queryClient = useQueryClient();
@@ -57,7 +58,15 @@ export function useResetUserPassword() {
         body: { userId, newPassword, sendResetEmail },
       });
 
-      if (error) throw error;
+      if (error) {
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        throw new Error(userFriendlyMessage);
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
       return data;
     },
     onSuccess: (_, { sendResetEmail }) => {
@@ -68,7 +77,7 @@ export function useResetUserPassword() {
       }
     },
     onError: (error: any) => {
-      toast.error('Failed to reset password: ' + error.message);
+      toast.error(error.message || 'Failed to reset password');
     },
   });
 }
@@ -80,7 +89,15 @@ export function useSyncUserProfiles() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('sync-user-profiles');
 
-      if (error) throw error;
+      if (error) {
+        const userFriendlyMessage = parseEdgeFunctionError(error, data);
+        throw new Error(userFriendlyMessage);
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
       return data;
     },
     onSuccess: (data) => {
@@ -88,7 +105,7 @@ export function useSyncUserProfiles() {
       toast.success(data?.message || 'User profiles synced successfully');
     },
     onError: (error: any) => {
-      toast.error('Failed to sync profiles: ' + error.message);
+      toast.error(error.message || 'Failed to sync profiles');
     },
   });
 }
