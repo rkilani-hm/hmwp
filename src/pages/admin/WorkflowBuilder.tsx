@@ -711,7 +711,7 @@ function AddStepDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const nextOrder = (existingSteps?.length || 0) + 1;
+    const nextOrder = (existingSteps?.reduce((max, s) => Math.max(max, s.step_order), 0) ?? 0) + 1;
 
     addStep.mutate(
       {
