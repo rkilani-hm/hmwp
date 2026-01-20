@@ -1180,10 +1180,12 @@ export function useUpdateAndResubmitPermit() {
         })
         .eq('id', permitId)
         .eq('requester_id', user?.id)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Failed to update permit');
+      
+      const updatedPermit = data[0];
 
       // Log activity
       await supabase.from('activity_logs').insert({
@@ -1198,14 +1200,14 @@ export function useUpdateAndResubmitPermit() {
       await notifyRoleUsers(
         firstApproverRole,
         permitId,
-        data.permit_no,
+        updatedPermit.permit_no,
         updates.urgency,
         'resubmitted',
         profile,
         user?.email
       );
 
-      return data;
+      return updatedPermit;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
