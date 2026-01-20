@@ -244,8 +244,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
       const permitNoForQr = String(permit.permit_no || "").trim();
       if (!permitNoForQr) throw new Error("Missing permit number for QR code");
 
-      // Create the public verification URL
-      const verificationUrl = `https://hmwp.lovable.app/verify?permit=${encodeURIComponent(permitNoForQr)}`;
+      // Create the public verification URL (points to /status for unauthenticated access)
+      const verificationUrl = `https://hmwp.lovable.app/status?permit=${encodeURIComponent(permitNoForQr)}`;
       
       qrCode = qrcode(0, "M");
       qrCode.addData(verificationUrl);
