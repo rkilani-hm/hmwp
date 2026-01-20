@@ -30,7 +30,7 @@ import {
   Forward,
   Fingerprint,
   KeyRound,
-  Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
@@ -40,6 +40,9 @@ import { ReworkDialog } from '@/components/ReworkDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Map permit status to the role that should approve it (dynamically generated)
 const statusToRole: Record<string, string> = {
@@ -68,12 +71,18 @@ const statusToRole: Record<string, string> = {
 
 export default function ApproverInbox() {
   const navigate = useNavigate();
-  const { roles, profile } = useAuth();
+  const { roles, profile, user, refreshProfile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
   const authPreference = profile?.auth_preference || 'password';
   const secureApprove = useSecureApprovePermit();
   const [searchTerm, setSearchTerm] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
+  const [isToggling, setIsToggling] = useState(false);
+  
+  // Biometric support check
+  const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
+  const isMobile = useIsMobile();
+  const canUseBiometric = isMobile && biometricSupported && !checkingBiometric;
   
   // Dialog states
   const [selectedPermit, setSelectedPermit] = useState<WorkPermit | null>(null);
@@ -81,6 +90,36 @@ export default function ApproverInbox() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+
+  const toggleAuthPreference = async () => {
+    if (!user?.id || isToggling) return;
+    
+    const newPreference = authPreference === 'password' ? 'biometric' : 'password';
+    
+    // Don't allow switching to biometric if not supported
+    if (newPreference === 'biometric' && !canUseBiometric) {
+      toast.error('Biometric authentication not available on this device');
+      return;
+    }
+    
+    setIsToggling(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ auth_preference: newPreference })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      await refreshProfile();
+      toast.success(`Switched to ${newPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'} authentication`);
+    } catch (error) {
+      console.error('Error updating auth preference:', error);
+      toast.error('Failed to update preference');
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   const filteredPermits = (permits || []).filter(permit => {
     const matchesSearch = 
@@ -205,20 +244,25 @@ export default function ApproverInbox() {
           </p>
         </div>
         
-        {/* Auth Preference Indicator */}
+        {/* Auth Preference Quick Toggle */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link 
-                to="/settings" 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAuthPreference}
+                disabled={isToggling || (authPreference === 'password' && !canUseBiometric)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-muted/50",
+                  "flex items-center gap-2 px-3 py-2 h-auto transition-colors",
                   authPreference === 'biometric' 
-                    ? "border-primary/30 bg-primary/5" 
+                    ? "border-primary/30 bg-primary/5 hover:bg-primary/10" 
                     : "border-muted-foreground/20 bg-muted/30"
                 )}
               >
-                {authPreference === 'biometric' ? (
+                {isToggling ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : authPreference === 'biometric' ? (
                   <Fingerprint className="w-4 h-4 text-primary" />
                 ) : (
                   <KeyRound className="w-4 h-4 text-muted-foreground" />
@@ -226,12 +270,19 @@ export default function ApproverInbox() {
                 <span className="text-sm font-medium">
                   {authPreference === 'biometric' ? 'Biometric' : 'Password'}
                 </span>
-                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
-              </Link>
+                <RefreshCw className={cn(
+                  "w-3.5 h-3.5 text-muted-foreground",
+                  isToggling && "animate-spin"
+                )} />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Default authentication: {authPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'}</p>
-              <p className="text-xs text-muted-foreground">Click to change in settings</p>
+              <p>Current: {authPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'}</p>
+              <p className="text-xs text-muted-foreground">
+                {authPreference === 'password' && !canUseBiometric 
+                  ? 'Biometric not available on this device'
+                  : 'Click to switch'}
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

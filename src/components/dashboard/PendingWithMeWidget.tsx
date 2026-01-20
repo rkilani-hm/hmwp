@@ -1,19 +1,59 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePendingPermitsForApprover } from '@/hooks/useWorkPermits';
 import { useAuth } from '@/contexts/AuthContext';
-import { Inbox, ArrowRight, CheckCircle, AlertTriangle, Fingerprint, KeyRound } from 'lucide-react';
+import { Inbox, ArrowRight, CheckCircle, AlertTriangle, Fingerprint, KeyRound, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 
 export function PendingWithMeWidget() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
   const authPreference = profile?.auth_preference || 'password';
+  const [isToggling, setIsToggling] = useState(false);
+  
+  // Biometric support check
+  const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
+  const isMobile = useIsMobile();
+  const canUseBiometric = isMobile && biometricSupported && !checkingBiometric;
+
+  const toggleAuthPreference = async () => {
+    if (!user?.id || isToggling) return;
+    
+    const newPreference = authPreference === 'password' ? 'biometric' : 'password';
+    
+    if (newPreference === 'biometric' && !canUseBiometric) {
+      toast.error('Biometric not available on this device');
+      return;
+    }
+    
+    setIsToggling(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ auth_preference: newPreference })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      await refreshProfile();
+      toast.success(`Switched to ${newPreference === 'biometric' ? 'Biometric' : 'Password'}`);
+    } catch (error) {
+      console.error('Error updating auth preference:', error);
+      toast.error('Failed to update');
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   // Get the first 5 pending permits for display
   const displayPermits = permits?.slice(0, 5) || [];
@@ -59,15 +99,21 @@ export function PendingWithMeWidget() {
               </span>
             )}
           </CardTitle>
-          {/* Auth Preference Badge */}
+          {/* Auth Preference Quick Toggle */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link 
-                  to="/settings" 
-                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-muted-foreground/20 bg-background hover:bg-muted/50 transition-colors"
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleAuthPreference();
+                  }}
+                  disabled={isToggling || (authPreference === 'password' && !canUseBiometric)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-muted-foreground/20 bg-background hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {authPreference === 'biometric' ? (
+                  {isToggling ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : authPreference === 'biometric' ? (
                     <Fingerprint className="w-3.5 h-3.5 text-primary" />
                   ) : (
                     <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
@@ -75,11 +121,15 @@ export function PendingWithMeWidget() {
                   <span className="text-xs font-medium">
                     {authPreference === 'biometric' ? 'Bio' : 'Pass'}
                   </span>
-                </Link>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <p>Auth: {authPreference === 'biometric' ? 'Fingerprint / Face ID' : 'Password'}</p>
-                <p className="text-xs text-muted-foreground">Click to change</p>
+                <p className="text-xs text-muted-foreground">
+                  {authPreference === 'password' && !canUseBiometric 
+                    ? 'Biometric not available'
+                    : 'Click to switch'}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
