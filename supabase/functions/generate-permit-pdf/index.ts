@@ -346,7 +346,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawLine(page, yPos);
     yPos -= 25;
     
-    // Approvals section with signatures
+    // Approvals section with signatures - 3 per row grid layout
     drawText(page, 'APPROVALS & SIGNATURES', margin, yPos, 12, helveticaBold);
     yPos -= 25;
     
@@ -369,95 +369,117 @@ const serve_handler = async (req: Request): Promise<Response> => {
       { name: 'FMSP Approval', roleKey: 'fmsp_approval', status: permit.fmsp_approval_status, approver: permit.fmsp_approval_approver_name, date: permit.fmsp_approval_date, signature: permit.fmsp_approval_signature, comments: permit.fmsp_approval_comments },
     ];
     
-    for (const approval of approvals) {
-      if (approval.status === 'approved' || approval.status === 'rejected') {
-        const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : rgb(0.86, 0.21, 0.27);
-        const statusSymbol = approval.status === 'approved' ? '[APPROVED]' : '[REJECTED]';
-        
-        // Get audit info for IP address
-        const auditInfo = auditInfoByRole.get(approval.roleKey);
-        const ipAddress = auditInfo?.ip_address || 'N/A';
-        
-        // Draw approval header
-        drawText(page, statusSymbol + ' ' + approval.name, margin, yPos, 10, helveticaBold, statusColor);
-        yPos -= 14;
-        drawText(page, 'Approved by: ' + (approval.approver || 'N/A'), margin, yPos, 9, helvetica, rgb(0.3, 0.3, 0.3));
-        yPos -= 12;
-        drawText(page, 'Date: ' + formatDateTime(approval.date), margin, yPos, 9, helvetica, rgb(0.4, 0.4, 0.4));
-        drawText(page, 'IP: ' + ipAddress, margin + 200, yPos, 9, helvetica, rgb(0.4, 0.4, 0.4));
-        yPos -= 12;
-        
-        // Add comments if present
-        if (approval.comments && approval.comments.trim()) {
-          const commentsText = 'Comments: ' + String(approval.comments).substring(0, 150);
-          drawText(page, commentsText, margin, yPos, 9, helvetica, rgb(0.35, 0.35, 0.35));
-          yPos -= 12;
-        }
-        yPos -= 4;
-        
-        // Embed signature image if available
-        if (approval.signature && approval.signature.startsWith('data:image')) {
-          try {
-            // Extract base64 data from data URL
-            const base64Data = approval.signature.split(',')[1];
-            if (base64Data) {
-              const signatureBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-              
-              // Determine image type and embed
-              let signatureImage;
-              if (approval.signature.includes('image/png')) {
-                signatureImage = await pdfDoc.embedPng(signatureBytes);
-              } else if (approval.signature.includes('image/jpeg') || approval.signature.includes('image/jpg')) {
-                signatureImage = await pdfDoc.embedJpg(signatureBytes);
-              }
-              
-              if (signatureImage) {
-                // Scale signature to reasonable size (max 100x40)
-                const maxWidth = 100;
-                const maxHeight = 40;
-                const scale = Math.min(maxWidth / signatureImage.width, maxHeight / signatureImage.height, 1);
-                const scaledWidth = signatureImage.width * scale;
-                const scaledHeight = signatureImage.height * scale;
-                
-                // Draw signature box
-                page.drawRectangle({
-                  x: margin,
-                  y: yPos - scaledHeight,
-                  width: scaledWidth + 10,
-                  height: scaledHeight + 5,
-                  borderColor: rgb(0.8, 0.8, 0.8),
-                  borderWidth: 0.5,
-                });
-                
-                page.drawImage(signatureImage, {
-                  x: margin + 5,
-                  y: yPos - scaledHeight + 2,
-                  width: scaledWidth,
-                  height: scaledHeight,
-                });
-                
-                yPos -= (scaledHeight + 15);
-              }
+    // Filter to only show approved/rejected approvals
+    const activeApprovals = approvals.filter(a => a.status === 'approved' || a.status === 'rejected');
+    
+    // Grid layout: 3 columns
+    const colCount = 3;
+    const colWidth = (pageWidth - 2 * margin) / colCount;
+    const rowHeight = 120; // Fixed height per approval block
+    
+    let colIndex = 0;
+    let rowStartY = yPos;
+    
+    for (let i = 0; i < activeApprovals.length; i++) {
+      const approval = activeApprovals[i];
+      const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : rgb(0.86, 0.21, 0.27);
+      const statusSymbol = approval.status === 'approved' ? '✓' : '✗';
+      
+      // Get audit info for IP address
+      const auditInfo = auditInfoByRole.get(approval.roleKey);
+      const ipAddress = auditInfo?.ip_address || 'N/A';
+      
+      // Calculate x position based on column
+      const xPos = margin + (colIndex * colWidth);
+      let cellY = rowStartY;
+      
+      // Draw approval box border
+      page.drawRectangle({
+        x: xPos,
+        y: cellY - rowHeight + 10,
+        width: colWidth - 10,
+        height: rowHeight - 5,
+        borderColor: rgb(0.85, 0.85, 0.85),
+        borderWidth: 0.5,
+      });
+      
+      // Draw approval header with status
+      drawText(page, statusSymbol + ' ' + approval.name, xPos + 5, cellY - 12, 9, helveticaBold, statusColor);
+      cellY -= 24;
+      
+      // Approver name (truncated to fit)
+      const approverName = (approval.approver || 'N/A').substring(0, 20);
+      drawText(page, approverName, xPos + 5, cellY, 8, helvetica, rgb(0.3, 0.3, 0.3));
+      cellY -= 11;
+      
+      // Date
+      drawText(page, formatDateTime(approval.date), xPos + 5, cellY, 7, helvetica, rgb(0.5, 0.5, 0.5));
+      cellY -= 10;
+      
+      // IP (truncated)
+      const shortIP = ipAddress.length > 15 ? ipAddress.substring(0, 15) + '...' : ipAddress;
+      drawText(page, 'IP: ' + shortIP, xPos + 5, cellY, 7, helvetica, rgb(0.5, 0.5, 0.5));
+      cellY -= 12;
+      
+      // Embed signature image if available
+      if (approval.signature && approval.signature.startsWith('data:image')) {
+        try {
+          const base64Data = approval.signature.split(',')[1];
+          if (base64Data) {
+            const signatureBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            
+            let signatureImage;
+            if (approval.signature.includes('image/png')) {
+              signatureImage = await pdfDoc.embedPng(signatureBytes);
+            } else if (approval.signature.includes('image/jpeg') || approval.signature.includes('image/jpg')) {
+              signatureImage = await pdfDoc.embedJpg(signatureBytes);
             }
-          } catch (sigError) {
-            console.error('Error embedding signature for', approval.name, sigError);
-            yPos -= 10;
+            
+            if (signatureImage) {
+              // Scale signature to fit in cell (max 80x35)
+              const maxWidth = 80;
+              const maxHeight = 35;
+              const scale = Math.min(maxWidth / signatureImage.width, maxHeight / signatureImage.height, 1);
+              const scaledWidth = signatureImage.width * scale;
+              const scaledHeight = signatureImage.height * scale;
+              
+              page.drawImage(signatureImage, {
+                x: xPos + 5,
+                y: cellY - scaledHeight,
+                width: scaledWidth,
+                height: scaledHeight,
+              });
+            }
           }
-        } else {
-          yPos -= 5;
+        } catch (sigError) {
+          console.error('Error embedding signature for', approval.name, sigError);
         }
-        
-        yPos -= 10;
+      }
+      
+      // Move to next column or next row
+      colIndex++;
+      if (colIndex >= colCount) {
+        colIndex = 0;
+        rowStartY -= rowHeight;
+        yPos = rowStartY;
         
         // Check if we need a new page
-        if (yPos < 100) {
+        if (yPos < 120) {
           const newPageResult = createPage();
           page = newPageResult.page;
           yPos = newPageResult.yPos;
+          rowStartY = yPos;
           drawText(page, 'APPROVALS (continued)', margin, yPos, 12, helveticaBold);
           yPos -= 25;
+          rowStartY = yPos;
         }
       }
+    }
+    
+    // Adjust yPos after all approvals
+    if (colIndex !== 0) {
+      // We ended mid-row, move to next row
+      yPos = rowStartY - rowHeight;
     }
     
     // Footer on first page
