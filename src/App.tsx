@@ -24,7 +24,14 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/verify" element={<PublicScanVerify />} />
+            <Route
+              path="/verify"
+              element={
+                <ProtectedRoute>
+                  <PublicScanVerify />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/request-permit" element={<PublicPermitRequest />} />
             <Route path="/install" element={<InstallApp />} />
             <Route
