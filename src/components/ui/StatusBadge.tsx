@@ -37,6 +37,7 @@ const statusStyles: Record<PermitStatus, string> = {
   rejected: 'bg-status-rejected/10 text-status-rejected border-status-rejected/30',
   closed: 'bg-status-closed/10 text-status-closed border-status-closed/30',
   cancelled: 'bg-muted text-muted-foreground border-muted-foreground/30',
+  superseded: 'bg-slate-500/10 text-slate-500 border-slate-500/30',
 };
 
 export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
@@ -60,6 +61,7 @@ export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
             status === 'submitted' && 'bg-status-submitted',
             status === 'draft' && 'bg-status-draft',
             status === 'cancelled' && 'bg-muted-foreground',
+            status === 'superseded' && 'bg-slate-500',
             status === 'rework_needed' && 'bg-orange-500 animate-pulse-soft',
             status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
             status === 'under_review' && 'bg-status-review animate-pulse-soft'

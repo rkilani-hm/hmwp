@@ -25,7 +25,8 @@ export type PermitStatus =
   | 'approved'
   | 'rejected'
   | 'closed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'superseded';
 
 export type UserRole =
   | 'contractor'
@@ -165,6 +166,7 @@ export const statusLabels: Record<PermitStatus, string> = {
   rejected: 'Rejected',
   closed: 'Closed',
   cancelled: 'Cancelled',
+  superseded: 'Superseded',
 };
 
 export const roleLabels: Record<UserRole, string> = {

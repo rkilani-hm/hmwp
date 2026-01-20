@@ -479,6 +479,7 @@ export type Database = {
           mpr_date: string | null
           mpr_signature: string | null
           mpr_status: string | null
+          parent_permit_id: string | null
           pd_approver_email: string | null
           pd_approver_name: string | null
           pd_comments: string | null
@@ -595,6 +596,7 @@ export type Database = {
           mpr_date?: string | null
           mpr_signature?: string | null
           mpr_status?: string | null
+          parent_permit_id?: string | null
           pd_approver_email?: string | null
           pd_approver_name?: string | null
           pd_comments?: string | null
@@ -711,6 +713,7 @@ export type Database = {
           mpr_date?: string | null
           mpr_signature?: string | null
           mpr_status?: string | null
+          parent_permit_id?: string | null
           pd_approver_email?: string | null
           pd_approver_name?: string | null
           pd_comments?: string | null
@@ -753,6 +756,13 @@ export type Database = {
           work_type_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_permits_parent_permit_id_fkey"
+            columns: ["parent_permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_permits_work_location_id_fkey"
             columns: ["work_location_id"]
@@ -1003,6 +1013,7 @@ export type Database = {
         | "pending_fmsp_approval"
         | "pending_pmd_coordinator"
         | "pending_ecovert_supervisor"
+        | "superseded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1170,6 +1181,7 @@ export const Constants = {
         "pending_fmsp_approval",
         "pending_pmd_coordinator",
         "pending_ecovert_supervisor",
+        "superseded",
       ],
     },
   },

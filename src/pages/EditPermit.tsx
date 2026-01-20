@@ -148,8 +148,10 @@ export default function EditPermit() {
       },
       newFiles: newAttachments,
     }, {
-      onSuccess: () => {
-        navigate(`/permits/${permit.id}`);
+      onSuccess: (data) => {
+        // Navigate to the NEW permit version
+        const newPermitId = data?.newPermitId || permit.id;
+        navigate(`/permits/${newPermitId}`);
       }
     });
   };

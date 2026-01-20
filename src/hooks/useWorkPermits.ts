@@ -1118,13 +1118,17 @@ export function useUpdateAndResubmitPermit() {
       newFiles: File[];
     }) => {
       // First get the current permit to check permissions and get current version
-      const { data: currentPermit } = await supabase
+      const { data: currentPermitResult, error: fetchError } = await supabase
         .from('work_permits')
-        .select('requester_id, permit_no, rework_version, attachments')
-        .eq('id', permitId)
-        .single();
+        .select('*, work_types(name)')
+        .eq('id', permitId);
 
-      if (!currentPermit) throw new Error('Permit not found');
+      if (fetchError) throw fetchError;
+      if (!currentPermitResult || currentPermitResult.length === 0) {
+        throw new Error('Permit not found');
+      }
+      
+      const currentPermit = currentPermitResult[0];
       if (currentPermit.requester_id !== user?.id) {
         throw new Error('You can only edit permits you created');
       }
@@ -1148,6 +1152,11 @@ export function useUpdateAndResubmitPermit() {
       const allAttachments = [...(currentPermit.attachments || []), ...newAttachmentPaths];
       const newVersion = (currentPermit.rework_version || 0) + 1;
 
+      // Calculate new permit number with version suffix
+      // Remove any existing -Vx suffix and add new one
+      const basePermitNo = currentPermit.permit_no.replace(/-V\d+$/, '');
+      const newPermitNo = `${basePermitNo}-V${newVersion + 1}`;
+
       // Calculate new SLA deadline
       const slaHours = updates.urgency === 'urgent' ? 4 : 48;
       const slaDeadline = new Date();
@@ -1165,54 +1174,119 @@ export function useUpdateAndResubmitPermit() {
       const initialStatus = firstStep.status;
       const firstApproverRole = firstStep.roleName;
 
-      // Update the permit with new data and set status dynamically
-      const { data, error } = await supabase
+      // Create a NEW permit record (clone) with updated data
+      const { data: newPermitData, error: insertError } = await supabase
         .from('work_permits')
-        .update({
-          ...updates,
-          attachments: allAttachments,
-          status: initialStatus as any,
+        .insert({
+          // Copy essential fields from current permit
+          requester_id: currentPermit.requester_id,
+          requester_name: currentPermit.requester_name,
+          requester_email: currentPermit.requester_email,
+          is_internal: currentPermit.is_internal,
+          external_company_name: currentPermit.external_company_name,
+          external_contact_person: currentPermit.external_contact_person,
+          work_location_id: currentPermit.work_location_id,
+          work_location_other: currentPermit.work_location_other,
+          
+          // Apply updates from form
+          contractor_name: updates.contractor_name,
+          contact_mobile: updates.contact_mobile,
+          unit: updates.unit,
+          floor: updates.floor,
+          work_location: updates.work_location,
+          work_type_id: updates.work_type_id,
+          work_description: updates.work_description,
+          work_date_from: updates.work_date_from,
+          work_date_to: updates.work_date_to,
+          work_time_from: updates.work_time_from,
+          work_time_to: updates.work_time_to,
+          urgency: updates.urgency,
+          
+          // New version metadata
+          permit_no: newPermitNo,
+          parent_permit_id: permitId, // Link to original permit
           rework_version: newVersion,
-          rework_comments: null, // Clear rework comments after resubmission
+          attachments: allAttachments,
+          
+          // Fresh workflow state
+          status: initialStatus as any,
           sla_deadline: slaDeadline.toISOString(),
           sla_breached: false,
+          
+          // Reset all approval fields
+          helpdesk_status: 'pending',
+          pm_status: 'pending',
+          pd_status: 'pending',
+          bdcr_status: 'pending',
+          mpr_status: 'pending',
+          it_status: 'pending',
+          fitout_status: 'pending',
+          ecovert_supervisor_status: null,
+          pmd_coordinator_status: null,
+          customer_service_status: 'pending',
+          cr_coordinator_status: 'pending',
+          head_cr_status: 'pending',
+          fmsp_approval_status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      if (!newPermitData) throw new Error('Failed to create new permit version');
+
+      // Mark the old permit as superseded
+      const { error: updateError } = await supabase
+        .from('work_permits')
+        .update({ 
+          status: 'superseded' as any,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', permitId)
-        .eq('requester_id', user?.id)
-        .select();
+        .eq('id', permitId);
 
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error('Failed to update permit');
-      
-      const updatedPermit = data[0];
+      if (updateError) {
+        console.error('Failed to mark old permit as superseded:', updateError);
+        // Don't throw - the new permit was created successfully
+      }
 
-      // Log activity
+      // Log activity on the OLD permit
       await supabase.from('activity_logs').insert({
         permit_id: permitId,
-        action: 'Resubmitted',
+        action: 'Superseded',
         performed_by: profile?.full_name || user?.email || 'Unknown',
         performed_by_id: user?.id,
-        details: `Permit resubmitted after rework (Version ${newVersion})`,
+        details: `Permit superseded by new version ${newPermitNo}`,
+      });
+
+      // Log activity on the NEW permit
+      await supabase.from('activity_logs').insert({
+        permit_id: newPermitData.id,
+        action: 'Created (Resubmission)',
+        performed_by: profile?.full_name || user?.email || 'Unknown',
+        performed_by_id: user?.id,
+        details: `New version created from ${currentPermit.permit_no} after rework`,
       });
 
       // Notify the first approver role dynamically
       await notifyRoleUsers(
         firstApproverRole,
-        permitId,
-        updatedPermit.permit_no,
+        newPermitData.id,
+        newPermitNo,
         updates.urgency,
         'resubmitted',
         profile,
         user?.email
       );
 
-      return updatedPermit;
+      // Return the NEW permit with the new ID
+      return { ...newPermitData, newPermitId: newPermitData.id };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
-      toast.success('Permit updated and resubmitted successfully');
+      if (data?.newPermitId) {
+        queryClient.invalidateQueries({ queryKey: ['work-permit', data.newPermitId] });
+      }
+      toast.success('New permit version created and submitted for approval');
     },
     onError: (error) => {
       toast.error('Failed to resubmit permit: ' + error.message);

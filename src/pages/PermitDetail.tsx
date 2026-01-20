@@ -42,6 +42,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -679,6 +680,12 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <WorkflowTimeline permit={transformedPermit} />
             </CardContent>
           </Card>
+
+          {/* Version History */}
+          <PermitVersionHistory 
+            permitId={permit.id} 
+            currentPermitNo={permit.permit_no}
+          />
         </div>
       </div>
       {/* PDF Preview Dialog */}
