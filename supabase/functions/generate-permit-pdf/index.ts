@@ -375,7 +375,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Grid layout: 3 columns
     const colCount = 3;
     const colWidth = (pageWidth - 2 * margin) / colCount;
-    const rowHeight = 120; // Fixed height per approval block
+    const rowHeight = 135; // Increased height for comments
     
     let colIndex = 0;
     let rowStartY = yPos;
@@ -419,7 +419,20 @@ const serve_handler = async (req: Request): Promise<Response> => {
       // IP (truncated)
       const shortIP = ipAddress.length > 15 ? ipAddress.substring(0, 15) + '...' : ipAddress;
       drawText(page, 'IP: ' + shortIP, xPos + 5, cellY, 7, helvetica, rgb(0.5, 0.5, 0.5));
-      cellY -= 12;
+      cellY -= 11;
+      
+      // Comments (truncated to fit in cell)
+      if (approval.comments && approval.comments.trim()) {
+        const maxCommentLength = 40;
+        const truncatedComment = approval.comments.trim().substring(0, maxCommentLength);
+        const displayComment = truncatedComment.length < approval.comments.trim().length 
+          ? truncatedComment + '...' 
+          : truncatedComment;
+        drawText(page, '"' + displayComment + '"', xPos + 5, cellY, 6, helvetica, rgb(0.4, 0.4, 0.4));
+        cellY -= 10;
+      } else {
+        cellY -= 2;
+      }
       
       // Embed signature image if available
       if (approval.signature && approval.signature.startsWith('data:image')) {
