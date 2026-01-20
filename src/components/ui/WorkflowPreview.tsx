@@ -186,67 +186,58 @@ export function WorkflowPreview({
         )}
       </div>
 
-      {/* Workflow Timeline */}
-      <div className="relative">
-        <div className="flex items-center gap-1 overflow-x-auto pb-2">
-          <AnimatePresence mode="popLayout">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.key}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
-                className="flex items-center"
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div 
+      {/* Workflow Timeline - Matching Workflow Builder Style */}
+      <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg overflow-x-auto">
+        <AnimatePresence mode="popLayout">
+          {steps.map((step, index) => (
+            <motion.div
+              key={step.key}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2, delay: index * 0.05 }}
+              className="flex items-center"
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col items-center min-w-max">
+                    <Badge 
+                      variant={step.key === 'approved' ? 'default' : step.key === 'submit' ? 'secondary' : 'default'}
                       className={cn(
-                        "flex flex-col items-center gap-1 px-2 py-1 rounded-lg cursor-default transition-colors",
-                        step.isLocationBased && "bg-primary/10 ring-1 ring-primary/20"
+                        step.key === 'approved' && "bg-success hover:bg-success/90 text-success-foreground",
+                        step.isLocationBased && "ring-2 ring-primary/30"
                       )}
                     >
-                      <div 
-                        className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all",
-                          step.key === 'approved' 
-                            ? "bg-success/20 border-success text-success"
-                            : step.key === 'submit'
-                            ? "bg-muted border-muted-foreground/30 text-muted-foreground"
-                            : "bg-primary/10 border-primary text-primary"
-                        )}
-                      >
-                        {step.key === 'approved' ? (
-                          <Check className="h-4 w-4" />
-                        ) : step.key === 'submit' ? (
-                          <Circle className="h-3 w-3" />
-                        ) : (
-                          step.shortLabel
-                        )}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap max-w-[60px] truncate">
-                        {step.label}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="font-medium">{step.label}</p>
-                    {step.isLocationBased && (
-                      <p className="text-xs text-muted-foreground">
-                        First approver based on {step.locationType === 'shop' ? 'Shop/Office' : 'Common Area'} location
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-                
-                {index < steps.length - 1 && (
-                  <ArrowRight className="h-3 w-3 text-muted-foreground/50 mx-1 flex-shrink-0" />
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+                      {step.key === 'approved' ? (
+                        <span className="flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Approved
+                        </span>
+                      ) : (
+                        step.label
+                      )}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground mt-1">
+                      Step {index + 1}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">{step.label}</p>
+                  {step.isLocationBased && (
+                    <p className="text-xs text-muted-foreground">
+                      First approver based on {step.locationType === 'shop' ? 'Shop/Office' : 'Common Area'} location
+                    </p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+              
+              {index < steps.length - 1 && (
+                <ArrowRight className="h-4 w-4 text-muted-foreground mx-2 flex-shrink-0" />
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Legend */}
