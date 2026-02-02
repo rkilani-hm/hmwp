@@ -213,7 +213,7 @@ export function UnifiedWorkflowProgress({ permit, className }: UnifiedWorkflowPr
     return 'upcoming';
   };
 
-  // Check if a dynamic step is required (priority: permit overrides → work type config → step defaults → legacy)
+  // Check if a dynamic step is required (priority: permit overrides → work type config → step defaults → legacy fallback)
   const isDynamicStepRequired = (step: WorkflowStep): boolean => {
     // 1. Permit-specific overrides (highest priority)
     if (permitOverrides?.has(step.id)) {
@@ -226,7 +226,13 @@ export function UnifiedWorkflowProgress({ permit, className }: UnifiedWorkflowPr
       return config.is_required;
     }
 
-    // 3. Legacy work_type requires_* fields
+    // 3. Step default from Workflow Builder (is_required_default)
+    // This takes priority over legacy fields
+    if (step.is_required_default !== null && step.is_required_default !== undefined) {
+      return step.is_required_default;
+    }
+
+    // 4. Legacy work_type requires_* fields (fallback only)
     const roleName = step.roles?.name;
     if (roleName && workflowData?.workType) {
       const legacyField = `requires_${roleName}` as keyof typeof workflowData.workType;
@@ -238,8 +244,8 @@ export function UnifiedWorkflowProgress({ permit, className }: UnifiedWorkflowPr
       }
     }
 
-    // 4. Step default
-    return step.is_required_default ?? true;
+    // 5. Default to required if nothing else specified
+    return true;
   };
 
   // Build steps from dynamic workflow template
