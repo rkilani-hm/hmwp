@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +30,7 @@ import {
   BarChart3,
   PieChartIcon,
   Target,
+  Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -36,6 +39,20 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning
 
 export default function Reports() {
   const { data: permits, isLoading } = useWorkPermits();
+
+  // Fetch workflow audit data
+  const { data: workflowAuditData } = useQuery({
+    queryKey: ['workflow-audit-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('permit_workflow_audit')
+        .select('*, profiles:modified_by(full_name)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const stats = useMemo(() => {
     if (!permits || permits.length === 0) {
@@ -49,10 +66,12 @@ export default function Reports() {
         urgent: 0,
         avgApprovalTime: 0,
         slaComplianceRate: 0,
+        workflowModified: 0,
         statusData: [],
         workTypeData: [],
         dailyData: [],
         approvalTimeByRole: [],
+        workflowModificationsByType: [],
       };
     }
 
@@ -62,6 +81,7 @@ export default function Reports() {
     const closed = permits.filter(p => p.status === 'closed').length;
     const slaBreached = permits.filter(p => p.sla_breached).length;
     const urgent = permits.filter(p => p.urgency === 'urgent').length;
+    const workflowModified = permits.filter(p => p.workflow_customized).length;
 
     // Calculate average approval time for completed permits
     const completedPermits = permits.filter(p => 
@@ -140,6 +160,18 @@ export default function Reports() {
       { role: 'IT', avgHours: calculateAvgTime(permits, 'it') },
     ].filter(d => d.avgHours > 0);
 
+    // Workflow modification breakdown
+    const workflowModificationsByType = workflowAuditData?.reduce((acc, audit) => {
+      const type = audit.modification_type === 'work_type_change' ? 'Work Type Change' : 'Custom Flow';
+      const existing = acc.find(a => a.name === type);
+      if (existing) {
+        existing.count++;
+      } else {
+        acc.push({ name: type, count: 1 });
+      }
+      return acc;
+    }, [] as { name: string; count: number }[]) || [];
+
     return {
       total: permits.length,
       pending,
@@ -150,12 +182,14 @@ export default function Reports() {
       urgent,
       avgApprovalTime,
       slaComplianceRate,
+      workflowModified,
       statusData,
       workTypeData,
       dailyData,
       approvalTimeByRole,
+      workflowModificationsByType,
     };
-  }, [permits]);
+  }, [permits, workflowAuditData]);
 
   if (isLoading) {
     return (
@@ -246,7 +280,69 @@ export default function Reports() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Modified Workflows</CardTitle>
+            <Settings2 className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.workflowModified}</div>
+            <p className="text-xs text-muted-foreground">
+              Permits with custom flows
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Workflow Modifications Card */}
+      {(workflowAuditData?.length || 0) > 0 && (
+        <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5 text-amber-600" />
+              Workflow Modifications
+            </CardTitle>
+            <CardDescription>Recent workflow changes by approvers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Modification Type Breakdown */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">By Type</h4>
+                {stats.workflowModificationsByType.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                    <span className="text-sm">{item.name}</span>
+                    <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                      {item.count}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* Recent Modifications */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">Recent Changes</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {workflowAuditData?.slice(0, 5).map((audit) => (
+                    <div key={audit.id} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                      <div>
+                        <p className="font-medium">{audit.modified_by_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {audit.modification_type === 'work_type_change' ? 'Changed work type' : 'Custom flow'}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {format(parseISO(audit.created_at), 'MMM d')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts Row 1 */}
       <div className="grid gap-6 md:grid-cols-2">

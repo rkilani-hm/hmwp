@@ -1,4 +1,6 @@
 import { useAllApproversPerformance } from '@/hooks/useApproverPerformance';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +24,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -46,6 +49,10 @@ const roleLabels: Record<string, string> = {
   fitout: 'Fit-Out',
   ecovert_supervisor: 'Ecovert Supervisor',
   pmd_coordinator: 'PMD Coordinator',
+  customer_service: 'Customer Service',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+  fmsp_approval: 'FMSP Approval',
 };
 
 const roleColors: Record<string, string> = {
@@ -58,10 +65,39 @@ const roleColors: Record<string, string> = {
   fitout: '#ec4899',
   ecovert_supervisor: '#84cc16',
   pmd_coordinator: '#6366f1',
+  customer_service: '#14b8a6',
+  cr_coordinator: '#f97316',
+  head_cr: '#a855f7',
+  fmsp_approval: '#0ea5e9',
 };
 
 export default function ApproverPerformance() {
   const { data: approvers, isLoading } = useAllApproversPerformance();
+
+  // Fetch workflow modification stats per approver
+  const { data: workflowModifications } = useQuery({
+    queryKey: ['approver-workflow-modifications'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('permit_workflow_audit')
+        .select('modified_by, modified_by_name, modification_type');
+
+      if (error) throw error;
+
+      // Count modifications per user
+      const modsByUser = new Map<string, { name: string; count: number }>();
+      data?.forEach(mod => {
+        const existing = modsByUser.get(mod.modified_by);
+        if (existing) {
+          existing.count++;
+        } else {
+          modsByUser.set(mod.modified_by, { name: mod.modified_by_name, count: 1 });
+        }
+      });
+
+      return modsByUser;
+    },
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -107,6 +143,9 @@ export default function ApproverPerformance() {
   const avgResponseTime = approvers.length > 0
     ? Math.round(approvers.reduce((sum, a) => sum + a.averageResponseTimeHours, 0) / approvers.length * 10) / 10
     : 0;
+  const totalWorkflowMods = workflowModifications 
+    ? Array.from(workflowModifications.values()).reduce((sum, m) => sum + m.count, 0)
+    : 0;
 
   // Chart data - top performers by decisions
   const chartData = approvers
@@ -146,7 +185,7 @@ export default function ApproverPerformance() {
       </motion.div>
 
       {/* Stats Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="Total Approvers"
           value={approvers.length}
@@ -170,6 +209,12 @@ export default function ApproverPerformance() {
           value={`${avgSlaCompliance}%`}
           icon={Target}
           variant={avgSlaCompliance >= 90 ? 'success' : avgSlaCompliance >= 70 ? 'warning' : 'destructive'}
+        />
+        <StatsCard
+          title="Workflow Mods"
+          value={totalWorkflowMods}
+          icon={Settings2}
+          variant="default"
         />
       </motion.div>
 
@@ -275,10 +320,13 @@ export default function ApproverPerformance() {
                     <TableHead className="text-center">Avg Response</TableHead>
                     <TableHead className="text-center">SLA Compliance</TableHead>
                     <TableHead className="text-center">Pending</TableHead>
+                    <TableHead className="text-center">Workflow Mods</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approvers.map((approver) => (
+                  {approvers.map((approver) => {
+                    const modCount = workflowModifications?.get(approver.userId)?.count || 0;
+                    return (
                     <TableRow key={`${approver.userId}-${approver.role}`}>
                       <TableCell>
                         <div>
@@ -332,8 +380,18 @@ export default function ApproverPerformance() {
                           <span className="text-muted-foreground">0</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {modCount > 0 ? (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                            {modCount}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
