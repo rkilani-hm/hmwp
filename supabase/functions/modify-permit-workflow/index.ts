@@ -166,6 +166,35 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Check if user has 'modify_workflow' permission
+    const { data: userRoles } = await adminClient
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', user.id);
+
+    if (!userRoles?.length) {
+      return new Response(JSON.stringify({ error: "User has no roles assigned" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const roleIds = userRoles.map(r => r.role_id);
+
+    const { data: hasPermission } = await adminClient
+      .from('role_permissions')
+      .select('id, permissions!inner(name)')
+      .in('role_id', roleIds)
+      .eq('permissions.name', 'modify_workflow')
+      .limit(1);
+
+    if (!hasPermission?.length) {
+      return new Response(JSON.stringify({ error: "You don't have permission to modify workflows. Contact an administrator to grant the 'Modify Workflow' permission." }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     // Check permit is in a pending status
     if (!permit.status.startsWith('pending_') && !['submitted', 'under_review'].includes(permit.status)) {
       return new Response(JSON.stringify({ error: "Can only modify workflow for permits pending approval" }), {

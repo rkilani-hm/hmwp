@@ -30,6 +30,7 @@ import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverride
 import { useModifyPermitWorkflow } from '@/hooks/useModifyPermitWorkflow';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { WorkflowModificationPreview } from './WorkflowModificationPreview';
+import { useHasPermission } from '@/hooks/useHasPermission';
 import { toast } from 'sonner';
 
 interface ModifyWorkflowDialogProps {
@@ -66,6 +67,7 @@ export function ModifyWorkflowDialog({
   
   const modifyWorkflow = useModifyPermitWorkflow();
   const { isSupported: biometricSupported, verifyIdentity, isChecking: biometricChecking } = useBiometricAuth();
+  const hasModifyPermission = useHasPermission('modify_workflow');
 
   // Get selected work type's template and steps
   const selectedWorkType = workTypes?.find(wt => wt.id === selectedWorkTypeId);
@@ -205,6 +207,27 @@ export function ModifyWorkflowDialog({
   }, [activeTab, selectedWorkTypeId, currentWorkTypeId, currentSteps, currentRequiredMap, customSteps]);
 
   const stepsToShow = activeTab === 'work_type' ? (newWorkTypeSteps || []) : (currentSteps || []);
+
+  if (!hasModifyPermission) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Permission Required
+            </DialogTitle>
+            <DialogDescription>
+              You don't have permission to modify workflows. Contact an administrator to grant the "Modify Workflow" permission to your role.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
