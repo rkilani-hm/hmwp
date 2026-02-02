@@ -4,8 +4,7 @@ import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { WorkflowTimeline, WorkflowPermit } from '@/components/ui/WorkflowTimeline';
-import { PermitProgressTracker } from '@/components/ui/PermitProgressTracker';
+import { UnifiedWorkflowProgress, UnifiedPermitData } from '@/components/ui/UnifiedWorkflowProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
@@ -200,106 +199,81 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     setComments('');
   };
 
-  // Transform permit data for WorkflowTimeline
-  // Cast to any for database fields not in local WorkPermit type
+  // Cast permit to unified data format for workflow progress
   const p = permit as any;
-  const transformedPermit: WorkflowPermit = {
+  const unifiedPermit: UnifiedPermitData = {
     id: permit.id,
-    status: permit.status as PermitStatus,
+    status: permit.status,
     work_type_id: permit.work_type_id,
     is_internal: p.is_internal ?? null,
-    helpdeskApproval: {
-      status: (permit.helpdesk_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: permit.helpdesk_approver_name || undefined,
-      date: permit.helpdesk_date || undefined,
-      comments: permit.helpdesk_comments || undefined,
-      signature: permit.helpdesk_signature || undefined,
-    },
-    pmApproval: {
-      status: (permit.pm_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: permit.pm_approver_name || undefined,
-      date: permit.pm_date || undefined,
-      comments: permit.pm_comments || undefined,
-      signature: permit.pm_signature || undefined,
-    },
-    pdApproval: {
-      status: (permit.pd_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: permit.pd_approver_name || undefined,
-      date: permit.pd_date || undefined,
-      comments: permit.pd_comments || undefined,
-      signature: permit.pd_signature || undefined,
-    },
-    bdcrApproval: {
-      status: (permit.bdcr_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.bdcr_approver_name || undefined,
-      date: p.bdcr_date || undefined,
-      comments: p.bdcr_comments || undefined,
-      signature: p.bdcr_signature || undefined,
-    },
-    mprApproval: {
-      status: (permit.mpr_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.mpr_approver_name || undefined,
-      date: p.mpr_date || undefined,
-      comments: p.mpr_comments || undefined,
-      signature: p.mpr_signature || undefined,
-    },
-    itApproval: {
-      status: (permit.it_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.it_approver_name || undefined,
-      date: p.it_date || undefined,
-      comments: p.it_comments || undefined,
-      signature: p.it_signature || undefined,
-    },
-    fitoutApproval: {
-      status: (permit.fitout_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.fitout_approver_name || undefined,
-      date: p.fitout_date || undefined,
-      comments: p.fitout_comments || undefined,
-      signature: p.fitout_signature || undefined,
-    },
-    ecovertSupervisorApproval: {
-      status: (p.ecovert_supervisor_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.ecovert_supervisor_approver_name || undefined,
-      date: p.ecovert_supervisor_date || undefined,
-      comments: p.ecovert_supervisor_comments || undefined,
-      signature: p.ecovert_supervisor_signature || undefined,
-    },
-    pmdCoordinatorApproval: {
-      status: (p.pmd_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.pmd_coordinator_approver_name || undefined,
-      date: p.pmd_coordinator_date || undefined,
-      comments: p.pmd_coordinator_comments || undefined,
-      signature: p.pmd_coordinator_signature || undefined,
-    },
-    // Dynamic workflow roles
-    customerServiceApproval: {
-      status: (p.customer_service_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.customer_service_approver_name || undefined,
-      date: p.customer_service_date || undefined,
-      comments: p.customer_service_comments || undefined,
-      signature: p.customer_service_signature || undefined,
-    },
-    crCoordinatorApproval: {
-      status: (p.cr_coordinator_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.cr_coordinator_approver_name || undefined,
-      date: p.cr_coordinator_date || undefined,
-      comments: p.cr_coordinator_comments || undefined,
-      signature: p.cr_coordinator_signature || undefined,
-    },
-    headCrApproval: {
-      status: (p.head_cr_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.head_cr_approver_name || undefined,
-      date: p.head_cr_date || undefined,
-      comments: p.head_cr_comments || undefined,
-      signature: p.head_cr_signature || undefined,
-    },
-    fmspApprovalApproval: {
-      status: (p.fmsp_approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
-      approverName: p.fmsp_approval_approver_name || undefined,
-      date: p.fmsp_approval_date || undefined,
-      comments: p.fmsp_approval_comments || undefined,
-      signature: p.fmsp_approval_signature || undefined,
-    },
+    workflow_customized: p.workflow_customized ?? false,
+    // Approval statuses
+    customer_service_status: p.customer_service_status,
+    helpdesk_status: permit.helpdesk_status,
+    cr_coordinator_status: p.cr_coordinator_status,
+    head_cr_status: p.head_cr_status,
+    pm_status: permit.pm_status,
+    pd_status: permit.pd_status,
+    bdcr_status: permit.bdcr_status,
+    mpr_status: permit.mpr_status,
+    it_status: permit.it_status,
+    fitout_status: permit.fitout_status,
+    ecovert_supervisor_status: p.ecovert_supervisor_status,
+    pmd_coordinator_status: p.pmd_coordinator_status,
+    fmsp_approval_status: p.fmsp_approval_status,
+    // Approver names
+    customer_service_approver_name: p.customer_service_approver_name,
+    helpdesk_approver_name: permit.helpdesk_approver_name,
+    cr_coordinator_approver_name: p.cr_coordinator_approver_name,
+    head_cr_approver_name: p.head_cr_approver_name,
+    pm_approver_name: permit.pm_approver_name,
+    pd_approver_name: permit.pd_approver_name,
+    bdcr_approver_name: p.bdcr_approver_name,
+    mpr_approver_name: p.mpr_approver_name,
+    it_approver_name: p.it_approver_name,
+    fitout_approver_name: p.fitout_approver_name,
+    ecovert_supervisor_approver_name: p.ecovert_supervisor_approver_name,
+    pmd_coordinator_approver_name: p.pmd_coordinator_approver_name,
+    fmsp_approval_approver_name: p.fmsp_approval_approver_name,
+    // Approval dates
+    customer_service_date: p.customer_service_date,
+    helpdesk_date: permit.helpdesk_date,
+    cr_coordinator_date: p.cr_coordinator_date,
+    head_cr_date: p.head_cr_date,
+    pm_date: permit.pm_date,
+    pd_date: permit.pd_date,
+    bdcr_date: p.bdcr_date,
+    mpr_date: p.mpr_date,
+    it_date: p.it_date,
+    fitout_date: p.fitout_date,
+    ecovert_supervisor_date: p.ecovert_supervisor_date,
+    pmd_coordinator_date: p.pmd_coordinator_date,
+    fmsp_approval_date: p.fmsp_approval_date,
+    // Approval comments
+    customer_service_comments: p.customer_service_comments,
+    helpdesk_comments: permit.helpdesk_comments,
+    cr_coordinator_comments: p.cr_coordinator_comments,
+    head_cr_comments: p.head_cr_comments,
+    pm_comments: permit.pm_comments,
+    pd_comments: permit.pd_comments,
+    bdcr_comments: p.bdcr_comments,
+    mpr_comments: p.mpr_comments,
+    it_comments: p.it_comments,
+    fitout_comments: p.fitout_comments,
+    ecovert_supervisor_comments: p.ecovert_supervisor_comments,
+    pmd_coordinator_comments: p.pmd_coordinator_comments,
+    fmsp_approval_comments: p.fmsp_approval_comments,
+    // Work type requirements for legacy fallback
+    work_types: workType ? {
+      requires_pm: workType.requires_pm,
+      requires_pd: workType.requires_pd,
+      requires_bdcr: workType.requires_bdcr,
+      requires_mpr: workType.requires_mpr,
+      requires_it: workType.requires_it,
+      requires_fitout: workType.requires_fitout,
+      requires_ecovert_supervisor: workType.requires_ecovert_supervisor,
+      requires_pmd_coordinator: workType.requires_pmd_coordinator,
+    } : null,
   };
 
   return (
@@ -679,23 +653,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
         {/* Workflow Timeline Sidebar */}
         <div className="space-y-6">
-          {/* Visual Progress Tracker */}
+          {/* Unified Workflow Progress */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-display">Approval Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <PermitProgressTracker permit={permit} />
-            </CardContent>
-          </Card>
-
-          {/* Detailed Workflow Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-display">Workflow Steps</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WorkflowTimeline permit={transformedPermit} />
+              <UnifiedWorkflowProgress permit={unifiedPermit} />
             </CardContent>
           </Card>
 
