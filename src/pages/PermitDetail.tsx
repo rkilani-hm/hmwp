@@ -510,6 +510,86 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 permitId={permit.id}
                 permitCreatedAt={permit.created_at}
                 requesterName={permit.requester_name}
+                approvals={{
+                  customer_service: {
+                    status: p.customer_service_status,
+                    approver_name: p.customer_service_approver_name,
+                    date: p.customer_service_date,
+                    comments: p.customer_service_comments,
+                  },
+                  helpdesk: {
+                    status: permit.helpdesk_status,
+                    approver_name: permit.helpdesk_approver_name,
+                    date: permit.helpdesk_date,
+                    comments: permit.helpdesk_comments,
+                  },
+                  cr_coordinator: {
+                    status: p.cr_coordinator_status,
+                    approver_name: p.cr_coordinator_approver_name,
+                    date: p.cr_coordinator_date,
+                    comments: p.cr_coordinator_comments,
+                  },
+                  head_cr: {
+                    status: p.head_cr_status,
+                    approver_name: p.head_cr_approver_name,
+                    date: p.head_cr_date,
+                    comments: p.head_cr_comments,
+                  },
+                  pm: {
+                    status: permit.pm_status,
+                    approver_name: permit.pm_approver_name,
+                    date: permit.pm_date,
+                    comments: permit.pm_comments,
+                  },
+                  pd: {
+                    status: permit.pd_status,
+                    approver_name: permit.pd_approver_name,
+                    date: permit.pd_date,
+                    comments: permit.pd_comments,
+                  },
+                  bdcr: {
+                    status: p.bdcr_status,
+                    approver_name: p.bdcr_approver_name,
+                    date: p.bdcr_date,
+                    comments: p.bdcr_comments,
+                  },
+                  mpr: {
+                    status: p.mpr_status,
+                    approver_name: p.mpr_approver_name,
+                    date: p.mpr_date,
+                    comments: p.mpr_comments,
+                  },
+                  it: {
+                    status: p.it_status,
+                    approver_name: p.it_approver_name,
+                    date: p.it_date,
+                    comments: p.it_comments,
+                  },
+                  fitout: {
+                    status: p.fitout_status,
+                    approver_name: p.fitout_approver_name,
+                    date: p.fitout_date,
+                    comments: p.fitout_comments,
+                  },
+                  ecovert_supervisor: {
+                    status: p.ecovert_supervisor_status,
+                    approver_name: p.ecovert_supervisor_approver_name,
+                    date: p.ecovert_supervisor_date,
+                    comments: p.ecovert_supervisor_comments,
+                  },
+                  pmd_coordinator: {
+                    status: p.pmd_coordinator_status,
+                    approver_name: p.pmd_coordinator_approver_name,
+                    date: p.pmd_coordinator_date,
+                    comments: p.pmd_coordinator_comments,
+                  },
+                  fmsp_approval: {
+                    status: p.fmsp_approval_status,
+                    approver_name: p.fmsp_approval_approver_name,
+                    date: p.fmsp_approval_date,
+                    comments: p.fmsp_approval_comments,
+                  },
+                }}
               />
             </TabsContent>
           </Tabs>

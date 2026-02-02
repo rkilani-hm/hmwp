@@ -2,29 +2,68 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Settings2, CheckCircle, XCircle, RotateCcw, Forward, FileText, Ban, Bell } from 'lucide-react';
+import { Loader2, Settings2, CheckCircle, XCircle, RotateCcw, Forward, FileText, Ban, Bell, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ActivityLogEntry {
   id: string;
-  type: 'activity' | 'workflow_modification';
+  type: 'activity' | 'workflow_modification' | 'approval' | 'creation';
   action: string;
   performed_by: string;
   performed_by_email?: string;
   details?: string | null;
   created_at: string;
-  // Workflow modification specific
+  status?: 'approved' | 'rejected' | 'pending';
   modification_type?: string;
   reason?: string | null;
+}
+
+interface ApprovalData {
+  status?: string | null;
+  approver_name?: string | null;
+  date?: string | null;
+  comments?: string | null;
 }
 
 interface PermitActivityLogProps {
   permitId: string;
   permitCreatedAt: string;
   requesterName: string;
+  // Approval data from permit
+  approvals?: {
+    customer_service?: ApprovalData;
+    helpdesk?: ApprovalData;
+    cr_coordinator?: ApprovalData;
+    head_cr?: ApprovalData;
+    pm?: ApprovalData;
+    pd?: ApprovalData;
+    bdcr?: ApprovalData;
+    mpr?: ApprovalData;
+    it?: ApprovalData;
+    fitout?: ApprovalData;
+    ecovert_supervisor?: ApprovalData;
+    pmd_coordinator?: ApprovalData;
+    fmsp_approval?: ApprovalData;
+  };
 }
 
-export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: PermitActivityLogProps) {
+const ROLE_LABELS: Record<string, string> = {
+  customer_service: 'Customer Service',
+  helpdesk: 'Helpdesk',
+  cr_coordinator: 'CR Coordinator',
+  head_cr: 'Head of CR',
+  pm: 'PM',
+  pd: 'PD',
+  bdcr: 'BDCR',
+  mpr: 'MPR',
+  it: 'IT',
+  fitout: 'Fit-Out',
+  ecovert_supervisor: 'Ecovert Supervisor',
+  pmd_coordinator: 'PMD Coordinator',
+  fmsp_approval: 'FMSP',
+};
+
+export function PermitActivityLog({ permitId, permitCreatedAt, requesterName, approvals }: PermitActivityLogProps) {
   // Fetch activity logs
   const { data: activityLogs, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['permit-activity-logs', permitId],
@@ -57,38 +96,26 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
 
   const isLoading = isLoadingActivity || isLoadingAudit;
 
-  // Combine and sort all entries chronologically
-  const allEntries: ActivityLogEntry[] = [
-    // Always include permit creation as first entry
-    {
-      id: 'created',
-      type: 'activity' as const,
-      action: 'Permit Created',
-      performed_by: requesterName,
-      created_at: permitCreatedAt,
-    },
-    // Activity logs
-    ...(activityLogs || []).map(log => ({
-      id: log.id,
-      type: 'activity' as const,
-      action: log.action,
-      performed_by: log.performed_by,
-      details: log.details,
-      created_at: log.created_at,
-    })),
-    // Workflow audit logs
-    ...(workflowAuditLogs || []).map(log => ({
-      id: log.id,
-      type: 'workflow_modification' as const,
-      action: getWorkflowModificationTitle(log.modification_type),
-      performed_by: log.modified_by_name,
-      performed_by_email: log.modified_by_email,
-      details: log.reason,
-      created_at: log.created_at || '',
-      modification_type: log.modification_type,
-      reason: log.reason,
-    })),
-  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  // Build approval entries from permit data
+  const approvalEntries: ActivityLogEntry[] = [];
+  if (approvals) {
+    Object.entries(approvals).forEach(([role, data]) => {
+      if (data?.date && data?.status && data.status !== 'pending') {
+        const roleLabel = ROLE_LABELS[role] || role;
+        approvalEntries.push({
+          id: `approval-${role}`,
+          type: 'approval',
+          action: data.status === 'approved' 
+            ? `${roleLabel} Approved` 
+            : `${roleLabel} Rejected`,
+          performed_by: data.approver_name || 'Unknown',
+          details: data.comments,
+          created_at: data.date,
+          status: data.status as 'approved' | 'rejected',
+        });
+      }
+    });
+  }
 
   function getWorkflowModificationTitle(type: string): string {
     switch (type) {
@@ -103,13 +130,65 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
     }
   }
 
-  function getActionIcon(action: string, type: string) {
-    if (type === 'workflow_modification') {
+  // Combine and sort all entries chronologically
+  const allEntries: ActivityLogEntry[] = [
+    // Always include permit creation as first entry
+    {
+      id: 'created',
+      type: 'creation' as const,
+      action: 'Permit Created',
+      performed_by: requesterName,
+      created_at: permitCreatedAt,
+    },
+    // Approval entries from permit data
+    ...approvalEntries,
+    // Activity logs (filter out duplicates with approval entries)
+    ...(activityLogs || [])
+      .filter(log => {
+        // Skip if this is a duplicate of an approval entry we already have
+        const actionLower = log.action.toLowerCase();
+        const isDuplicateApproval = approvalEntries.some(entry => 
+          entry.action.toLowerCase() === actionLower
+        );
+        return !isDuplicateApproval;
+      })
+      .map(log => ({
+        id: log.id,
+        type: 'activity' as const,
+        action: log.action,
+        performed_by: log.performed_by,
+        details: log.details,
+        created_at: log.created_at,
+      })),
+    // Workflow audit logs
+    ...(workflowAuditLogs || []).map(log => ({
+      id: log.id,
+      type: 'workflow_modification' as const,
+      action: getWorkflowModificationTitle(log.modification_type),
+      performed_by: log.modified_by_name,
+      performed_by_email: log.modified_by_email,
+      details: log.reason,
+      created_at: log.created_at || '',
+      modification_type: log.modification_type,
+      reason: log.reason,
+    })),
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  function getActionIcon(entry: ActivityLogEntry) {
+    if (entry.type === 'workflow_modification') {
       return <Settings2 className="w-3 h-3" />;
     }
+    if (entry.type === 'creation') {
+      return <FileText className="w-3 h-3" />;
+    }
+    if (entry.type === 'approval') {
+      return entry.status === 'approved' 
+        ? <CheckCircle className="w-3 h-3" /> 
+        : <XCircle className="w-3 h-3" />;
+    }
 
-    const actionLower = action.toLowerCase();
-    if (actionLower.includes('approved') || actionLower.includes('created')) {
+    const actionLower = entry.action.toLowerCase();
+    if (actionLower.includes('approved')) {
       return <CheckCircle className="w-3 h-3" />;
     }
     if (actionLower.includes('rejected')) {
@@ -127,18 +206,29 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
     if (actionLower.includes('notification') || actionLower.includes('resend')) {
       return <Bell className="w-3 h-3" />;
     }
+    if (actionLower.includes('submit')) {
+      return <Clock className="w-3 h-3" />;
+    }
     if (actionLower.includes('pdf') || actionLower.includes('document')) {
       return <FileText className="w-3 h-3" />;
     }
     return <CheckCircle className="w-3 h-3" />;
   }
 
-  function getActionColor(action: string, type: string): string {
-    if (type === 'workflow_modification') {
+  function getActionColor(entry: ActivityLogEntry): string {
+    if (entry.type === 'workflow_modification') {
       return 'bg-warning text-warning-foreground';
     }
+    if (entry.type === 'creation') {
+      return 'bg-primary text-primary-foreground';
+    }
+    if (entry.type === 'approval') {
+      return entry.status === 'approved' 
+        ? 'bg-success text-success-foreground' 
+        : 'bg-destructive text-destructive-foreground';
+    }
 
-    const actionLower = action.toLowerCase();
+    const actionLower = entry.action.toLowerCase();
     if (actionLower.includes('rejected') || actionLower.includes('cancel')) {
       return 'bg-destructive text-destructive-foreground';
     }
@@ -148,7 +238,29 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
     if (actionLower.includes('forward')) {
       return 'bg-accent text-accent-foreground';
     }
+    if (actionLower.includes('submit')) {
+      return 'bg-primary text-primary-foreground';
+    }
     return 'bg-success text-success-foreground';
+  }
+
+  function getBadge(entry: ActivityLogEntry) {
+    if (entry.type === 'workflow_modification') {
+      return (
+        <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-[10px] py-0">
+          <Settings2 className="w-2.5 h-2.5 mr-1" />
+          Workflow
+        </Badge>
+      );
+    }
+    if (entry.type === 'approval' && entry.status === 'rejected') {
+      return (
+        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-[10px] py-0">
+          Rejected
+        </Badge>
+      );
+    }
+    return null;
   }
 
   if (isLoading) {
@@ -173,20 +285,15 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {allEntries.map((entry, index) => (
+          {allEntries.map((entry) => (
             <div key={entry.id} className="flex items-start gap-3">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${getActionColor(entry.action, entry.type)}`}>
-                {getActionIcon(entry.action, entry.type)}
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${getActionColor(entry)}`}>
+                {getActionIcon(entry)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-medium">{entry.action}</p>
-                  {entry.type === 'workflow_modification' && (
-                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-[10px] py-0">
-                      <Settings2 className="w-2.5 h-2.5 mr-1" />
-                      Workflow
-                    </Badge>
-                  )}
+                  {getBadge(entry)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')} by {entry.performed_by}
@@ -196,7 +303,7 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
                     "{entry.details}"
                   </p>
                 )}
-                {entry.type === 'workflow_modification' && entry.reason && (
+                {entry.type === 'workflow_modification' && entry.reason && !entry.details && (
                   <p className="text-xs text-muted-foreground mt-1">
                     <span className="font-medium">Reason:</span> {entry.reason}
                   </p>
