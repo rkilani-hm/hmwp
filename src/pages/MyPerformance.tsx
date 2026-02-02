@@ -1,4 +1,7 @@
 import { useMyPerformance } from '@/hooks/useApproverPerformance';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -14,8 +17,10 @@ import {
   Activity,
   ClipboardList,
   Zap,
+  Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 import {
   ResponsiveContainer,
   PieChart,
@@ -44,7 +49,26 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function MyPerformance() {
+  const { user } = useAuth();
   const { data: metrics, isLoading } = useMyPerformance();
+
+  // Fetch my workflow modifications
+  const { data: myWorkflowMods } = useQuery({
+    queryKey: ['my-workflow-modifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('permit_workflow_audit')
+        .select('*')
+        .eq('modified_by', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -138,6 +162,12 @@ export default function MyPerformance() {
           value={responseTimeDisplay}
           icon={Timer}
           variant="primary"
+        />
+        <StatsCard
+          title="Workflow Mods"
+          value={myWorkflowMods?.length || 0}
+          icon={Settings2}
+          variant="default"
         />
         <StatsCard
           title="SLA Compliance"

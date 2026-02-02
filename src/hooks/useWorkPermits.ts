@@ -180,6 +180,11 @@ export interface WorkPermit {
   rework_version: number | null;
   rework_comments: string | null;
   
+  // Workflow customization
+  workflow_customized: boolean | null;
+  workflow_modified_by: string | null;
+  workflow_modified_at: string | null;
+  
   // Approval fields
   helpdesk_status: string | null;
   helpdesk_approver_name: string | null;

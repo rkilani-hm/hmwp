@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useWorkPermits, usePermitStats, WorkPermit } from '@/hooks/useWorkPermits';
 import {
   FileText,
@@ -15,6 +16,7 @@ import {
   ArrowRight,
   TrendingUp,
   RotateCcw,
+  Settings2,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -108,6 +110,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
     (p) => p.status.startsWith('pending') || p.status === 'submitted' || p.status === 'under_review'
   ).slice(0, 3) || [];
   const reworkPermits = permits?.filter((p) => p.status === 'rework_needed').slice(0, 3) || [];
+  const modifiedWorkflowCount = permits?.filter((p) => p.workflow_customized).length || 0;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -331,6 +334,17 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                   <span className="text-sm text-muted-foreground">In Progress</span>
                   <span className="text-sm font-medium">{stats.pending}</span>
                 </div>
+                {modifiedWorkflowCount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Settings2 className="w-3 h-3" />
+                      Modified Workflows
+                    </span>
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                      {modifiedWorkflowCount}
+                    </Badge>
+                  </div>
+                )}
                 <div className="h-px bg-border my-2" />
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Approval Rate</span>
