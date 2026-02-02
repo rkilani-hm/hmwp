@@ -11,6 +11,7 @@ import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { CancelPermitDialog } from '@/components/CancelPermitDialog';
 import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
+import { ModifyWorkflowDialog } from '@/components/ModifyWorkflowDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +41,7 @@ import {
   Ban,
   Edit,
   Bell,
+  Settings2,
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
@@ -66,6 +68,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [modifyWorkflowOpen, setModifyWorkflowOpen] = useState(false);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
@@ -321,6 +324,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               )}
             </h1>
             <StatusBadge status={permit.status as PermitStatus} />
+            {/* Workflow Modified Badge */}
+            {(permit as any).workflow_customized && (
+              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
+                <Settings2 className="h-3 w-3 mr-1" />
+                Workflow Modified
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
@@ -592,6 +602,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 <div className="flex flex-wrap gap-3 pt-4">
                   <Button
                     variant="outline"
+                    onClick={() => setModifyWorkflowOpen(true)}
+                    disabled={secureApprove.isPending}
+                  >
+                    <Settings2 className="w-4 h-4 mr-2" />
+                    Modify Workflow
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => setForwardDialogOpen(true)}
                     disabled={secureApprove.isPending}
                   >
@@ -695,6 +713,16 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         pdfUrl={previewPdfUrl}
         fileName={`${permit.permit_no.replace(/\//g, '-')}.pdf`}
         onDownload={handleDownloadPdf}
+      />
+      
+      {/* Modify Workflow Dialog */}
+      <ModifyWorkflowDialog
+        open={modifyWorkflowOpen}
+        onOpenChange={setModifyWorkflowOpen}
+        permitId={permit.id}
+        currentWorkTypeId={permit.work_type_id || null}
+        currentWorkTypeName={permit.work_types?.name || null}
+        workflowTemplateId={(permit.work_types as any)?.workflow_template_id || null}
       />
     </motion.div>
   );

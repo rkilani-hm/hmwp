@@ -120,6 +120,107 @@ export type Database = {
         }
         Relationships: []
       }
+      permit_workflow_audit: {
+        Row: {
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          modification_type: string
+          modified_by: string
+          modified_by_email: string
+          modified_by_name: string
+          new_steps: Json | null
+          new_work_type_id: string | null
+          original_steps: Json | null
+          original_work_type_id: string | null
+          permit_id: string
+          reason: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          modification_type: string
+          modified_by: string
+          modified_by_email: string
+          modified_by_name: string
+          new_steps?: Json | null
+          new_work_type_id?: string | null
+          original_steps?: Json | null
+          original_work_type_id?: string | null
+          permit_id: string
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          modification_type?: string
+          modified_by?: string
+          modified_by_email?: string
+          modified_by_name?: string
+          new_steps?: Json | null
+          new_work_type_id?: string | null
+          original_steps?: Json | null
+          original_work_type_id?: string | null
+          permit_id?: string
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_workflow_audit_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permit_workflow_overrides: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_required: boolean
+          permit_id: string
+          workflow_step_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_required: boolean
+          permit_id: string
+          workflow_step_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_required?: boolean
+          permit_id?: string
+          workflow_step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_workflow_overrides_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_workflow_overrides_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           auth_preference: string | null
@@ -520,6 +621,9 @@ export type Database = {
           work_time_from: string
           work_time_to: string
           work_type_id: string | null
+          workflow_customized: boolean | null
+          workflow_modified_at: string | null
+          workflow_modified_by: string | null
         }
         Insert: {
           attachments?: string[] | null
@@ -637,6 +741,9 @@ export type Database = {
           work_time_from: string
           work_time_to: string
           work_type_id?: string | null
+          workflow_customized?: boolean | null
+          workflow_modified_at?: string | null
+          workflow_modified_by?: string | null
         }
         Update: {
           attachments?: string[] | null
@@ -754,6 +861,9 @@ export type Database = {
           work_time_from?: string
           work_time_to?: string
           work_type_id?: string | null
+          workflow_customized?: boolean | null
+          workflow_modified_at?: string | null
+          workflow_modified_by?: string | null
         }
         Relationships: [
           {
