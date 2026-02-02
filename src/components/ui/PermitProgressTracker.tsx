@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils';
-import { Check, X, Clock, Circle, Timer, Loader2 } from 'lucide-react';
+import { Check, X, Clock, Circle, Timer, Loader2, Settings2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAverageApprovalTimes } from '@/hooks/useAverageApprovalTimes';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
 
 interface ApprovalStep {
   key: string;
@@ -45,9 +46,11 @@ interface WorkTypeRequirements {
 }
 
 interface PermitData {
+  id: string;
   status: string;
   work_type_id?: string | null;
   is_internal?: boolean | null;
+  workflow_customized?: boolean | null;
   // Approval statuses
   customer_service_status?: string | null;
   helpdesk_status?: string | null;
@@ -140,8 +143,11 @@ const generateShortLabel = (roleName: string): string => {
 export function PermitProgressTracker({ permit, compact = false, className }: PermitProgressTrackerProps) {
   const { data: avgTimes } = useAverageApprovalTimes();
 
+  // Fetch permit-specific workflow overrides
+  const { data: permitOverrides, isLoading: isLoadingOverrides } = usePermitWorkflowOverridesMap(permit.id);
+
   // Fetch dynamic workflow data
-  const { data: workflowData, isLoading: isLoadingWorkflow } = useQuery({
+  const { data: workflowData, isLoading: isLoadingWorkflowData } = useQuery({
     queryKey: ['permit-progress-workflow', permit.work_type_id],
     queryFn: async () => {
       if (!permit.work_type_id) return null;
@@ -179,6 +185,8 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
     staleTime: 5 * 60 * 1000,
   });
 
+  const isLoadingWorkflow = isLoadingWorkflowData || isLoadingOverrides;
+
   const getApprovalStatus = (status: string | null | undefined): 'completed' | 'rejected' | 'pending' | 'upcoming' => {
     if (status === 'approved') return 'completed';
     if (status === 'rejected') return 'rejected';
@@ -186,15 +194,20 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
     return 'upcoming';
   };
 
-  // Check if a dynamic step is required
+  // Check if a dynamic step is required (priority: permit overrides → work type config → step defaults → legacy)
   const isDynamicStepRequired = (step: WorkflowStep): boolean => {
-    // Check work_type_step_config overrides first
+    // 1. Check permit-specific overrides first (highest priority)
+    if (permitOverrides?.has(step.id)) {
+      return permitOverrides.get(step.id)!;
+    }
+
+    // 2. Check work_type_step_config overrides
     const config = workflowData?.stepConfigs?.find(c => c.workflow_step_id === step.id);
     if (config) {
       return config.is_required;
     }
 
-    // Check legacy work_type requires_* fields
+    // 3. Check legacy work_type requires_* fields
     const roleName = step.roles?.name;
     if (roleName && workflowData?.workType) {
       const legacyField = `requires_${roleName}` as keyof typeof workflowData.workType;
@@ -206,7 +219,7 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
       }
     }
 
-    // Fall back to step default
+    // 4. Fall back to step default
     return step.is_required_default ?? true;
   };
 
@@ -453,6 +466,18 @@ export function PermitProgressTracker({ permit, compact = false, className }: Pe
             </TooltipContent>
           </Tooltip>
         ))}
+        {permit.workflow_customized && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 ml-2 px-1.5 py-0.5 bg-amber-100 rounded text-[10px] text-amber-700">
+                <Settings2 className="w-2.5 h-2.5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Workflow was modified</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
         {estimatedCompletion && (
           <Tooltip>
             <TooltipTrigger asChild>

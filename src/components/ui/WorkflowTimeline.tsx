@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils';
-import { Check, X, Clock, Circle, Loader2 } from 'lucide-react';
+import { Check, X, Clock, Circle, Loader2, Settings2 } from 'lucide-react';
 import { PermitStatus } from '@/types/workPermit';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
+import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
+import { Badge } from '@/components/ui/badge';
 export interface ApprovalRecord {
   status: 'pending' | 'approved' | 'rejected';
   approverName?: string;
@@ -28,6 +29,7 @@ export interface WorkflowPermit {
   status: PermitStatus;
   work_type_id?: string | null;
   is_internal?: boolean | null;
+  workflow_customized?: boolean | null;
   helpdeskApproval: ApprovalRecord;
   pmApproval: ApprovalRecord;
   pdApproval: ApprovalRecord;
@@ -96,8 +98,11 @@ const ROLE_TO_APPROVAL_KEY: Record<string, keyof WorkflowPermit> = {
 };
 
 export function WorkflowTimeline({ permit, workTypeRequirements, className }: WorkflowTimelineProps) {
+  // Fetch permit-specific workflow overrides
+  const { data: permitOverrides, isLoading: isLoadingOverrides } = usePermitWorkflowOverridesMap(permit.id);
+
   // Fetch workflow steps dynamically from database
-  const { data: workflowData, isLoading } = useQuery({
+  const { data: workflowData, isLoading: isLoadingWorkflow } = useQuery({
     queryKey: ['workflow-timeline-steps', permit.work_type_id],
     queryFn: async () => {
       if (!permit.work_type_id) {
@@ -147,6 +152,8 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
     enabled: !!permit.work_type_id,
   });
 
+  const isLoading = isLoadingWorkflow || isLoadingOverrides;
+
   const getStepStatus = (approval: { status: 'pending' | 'approved' | 'rejected' | null } | undefined) => {
     if (!approval) return 'upcoming';
     if (approval.status === 'approved') return 'completed';
@@ -155,17 +162,22 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
     return 'upcoming';
   };
 
-  // Check if step is required based on dynamic config, legacy fields, or work type requirements
+  // Check if step is required based on: permit overrides → work type config → step defaults → legacy
   const isDynamicStepRequired = (step: WorkflowStep): boolean => {
     if (!workflowData || !step.roles) return true;
     
-    // Check work type step config first
+    // 1. Check permit-specific overrides first (highest priority)
+    if (permitOverrides?.has(step.id)) {
+      return permitOverrides.get(step.id)!;
+    }
+    
+    // 2. Check work type step config
     const config = workflowData.configs.find(c => c.workflow_step_id === step.id);
     if (config !== undefined) {
       return config.is_required;
     }
     
-    // Check legacy requires_* fields on work type
+    // 3. Check legacy requires_* fields on work type
     const workType = workflowData.workType;
     if (workType) {
       const roleName = step.roles.name;
@@ -175,6 +187,7 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
       }
     }
     
+    // 4. Fall back to step default
     return step.is_required_default ?? true;
   };
 
@@ -358,11 +371,19 @@ export function WorkflowTimeline({ permit, workTypeRequirements, className }: Wo
 
   return (
     <div className={cn('space-y-0', className)}>
-      {workflowData?.template && (
-        <p className="text-xs text-muted-foreground mb-3">
-          Workflow: {(workflowData.template as { name: string }).name}
-        </p>
-      )}
+      <div className="flex items-center gap-2 mb-3">
+        {workflowData?.template && (
+          <p className="text-xs text-muted-foreground">
+            Workflow: {(workflowData.template as { name: string }).name}
+          </p>
+        )}
+        {permit.workflow_customized && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] py-0">
+            <Settings2 className="h-2.5 w-2.5 mr-1" />
+            Modified
+          </Badge>
+        )}
+      </div>
       
       {visibleSteps.map((step, index) => (
         <div key={step.key} className="flex items-start gap-3">
