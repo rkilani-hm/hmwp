@@ -128,10 +128,11 @@ interface WorkLocation {
 // Get workflow steps for a work type from the database
 async function getWorkflowSteps(
   serviceClient: any,
-  workType: WorkType | null
-): Promise<{ steps: WorkflowStep[]; stepConfigs: Map<string, boolean> }> {
+  workType: WorkType | null,
+  permitId?: string
+): Promise<{ steps: WorkflowStep[]; stepConfigs: Map<string, boolean>; permitOverrides: Map<string, boolean> }> {
   if (!workType?.workflow_template_id) {
-    return { steps: [], stepConfigs: new Map() };
+    return { steps: [], stepConfigs: new Map(), permitOverrides: new Map() };
   }
 
   // Fetch workflow steps ordered by step_order
@@ -155,7 +156,7 @@ async function getWorkflowSteps(
 
   if (stepsError) {
     console.error("Error fetching workflow steps:", stepsError);
-    return { steps: [], stepConfigs: new Map() };
+    return { steps: [], stepConfigs: new Map(), permitOverrides: new Map() };
   }
 
   // Fetch work type specific step configurations
@@ -175,29 +176,50 @@ async function getWorkflowSteps(
     }
   }
 
-  return { steps: steps || [], stepConfigs };
+  // Fetch permit-specific overrides (highest priority)
+  const permitOverrides = new Map<string, boolean>();
+  if (permitId) {
+    const { data: overrides, error: overridesError } = await serviceClient
+      .from("permit_workflow_overrides")
+      .select("workflow_step_id, is_required")
+      .eq("permit_id", permitId);
+
+    if (overridesError) {
+      console.error("Error fetching permit overrides:", overridesError);
+    } else if (overrides) {
+      for (const override of overrides) {
+        permitOverrides.set(override.workflow_step_id, override.is_required);
+      }
+    }
+  }
+
+  return { steps: steps || [], stepConfigs, permitOverrides };
 }
 
 // Determine if a step is required based on config or defaults
 function isStepRequired(
   step: WorkflowStep,
   stepConfigs: Map<string, boolean>,
+  permitOverrides: Map<string, boolean>,
   workType: WorkType | null,
   locationType: 'shop' | 'common' | null
 ): boolean {
-  // Check work type specific config first (from work_type_step_config table)
+  // 1. Check permit-specific overrides first (highest priority)
+  if (permitOverrides.has(step.id)) {
+    return permitOverrides.get(step.id)!;
+  }
+
+  // 2. Check work type specific config (from work_type_step_config table)
   if (stepConfigs.has(step.id)) {
     return stepConfigs.get(step.id)!;
   }
 
-  // Use the default from the workflow step (is_required_default)
-  // This takes precedence over legacy requires_* fields when a dynamic workflow is configured
+  // 3. Use the default from the workflow step (is_required_default)
   if (step.is_required_default !== null && step.is_required_default !== undefined) {
     return step.is_required_default;
   }
 
   // Fallback: Check legacy requires_* fields for backward compatibility
-  // Only used when workflow step doesn't have is_required_default set
   const roleName = step.role?.name;
   if (workType && roleName) {
     const legacyField = `requires_${roleName}` as keyof WorkType;
@@ -223,10 +245,11 @@ async function getNextApprovalStep(
   serviceClient: any,
   currentRole: string,
   workType: WorkType | null,
-  locationType: 'shop' | 'common' | null
+  locationType: 'shop' | 'common' | null,
+  permitId?: string
 ): Promise<{ nextStatus: string; nextRole: string | null }> {
-  // Get dynamic workflow steps
-  const { steps, stepConfigs } = await getWorkflowSteps(serviceClient, workType);
+  // Get dynamic workflow steps with permit overrides
+  const { steps, stepConfigs, permitOverrides } = await getWorkflowSteps(serviceClient, workType, permitId);
 
   // If no dynamic workflow, fall back to legacy logic
   if (steps.length === 0) {
@@ -248,8 +271,8 @@ async function getNextApprovalStep(
 
     if (!roleName) continue;
 
-    // Check if step is required
-    if (isStepRequired(step, stepConfigs, workType, locationType)) {
+    // Check if step is required (now includes permit overrides)
+    if (isStepRequired(step, stepConfigs, permitOverrides, workType, locationType)) {
       const nextStatus = `pending_${roleName}`;
       console.log(`Next required step: ${roleName} (step ${step.step_order})`);
       return { nextStatus, nextRole: roleName };
@@ -549,9 +572,9 @@ const handler = async (req: Request): Promise<Response> => {
     if (!approved) {
       updateData.status = "rejected";
     } else {
-      // Determine next step using dynamic workflow
+      // Determine next step using dynamic workflow (includes permit-specific overrides)
       const workType = currentPermit?.work_types as WorkType | null;
-      const { nextStatus, nextRole } = await getNextApprovalStep(serviceClient, roleField, workType, locationType);
+      const { nextStatus, nextRole } = await getNextApprovalStep(serviceClient, roleField, workType, locationType, permitId);
       updateData.status = nextStatus;
       console.log(`Moving permit from ${roleField} to ${nextStatus} (next role: ${nextRole}, location: ${locationType})`);
     }
