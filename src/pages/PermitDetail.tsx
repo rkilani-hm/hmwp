@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
+import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -505,51 +506,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-display">Activity Log</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 mt-2 rounded-full bg-success" />
-                      <div>
-                        <p className="text-sm font-medium">Permit Created</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(permit.created_at).toLocaleString()} by {permit.requester_name}
-                        </p>
-                      </div>
-                    </div>
-                    {permit.helpdesk_status === 'approved' && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-2 h-2 mt-2 rounded-full bg-success" />
-                        <div>
-                          <p className="text-sm font-medium">Helpdesk Approved</p>
-                          <p className="text-xs text-muted-foreground">
-                            {permit.helpdesk_date && new Date(permit.helpdesk_date).toLocaleString()} by {permit.helpdesk_approver_name}
-                          </p>
-                          {permit.helpdesk_comments && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              "{permit.helpdesk_comments}"
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {permit.pm_status === 'approved' && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-2 h-2 mt-2 rounded-full bg-success" />
-                        <div>
-                          <p className="text-sm font-medium">PM Approved</p>
-                          <p className="text-xs text-muted-foreground">
-                            {permit.pm_date && new Date(permit.pm_date).toLocaleString()} by {permit.pm_approver_name}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <PermitActivityLog 
+                permitId={permit.id}
+                permitCreatedAt={permit.created_at}
+                requesterName={permit.requester_name}
+              />
             </TabsContent>
           </Tabs>
 
