@@ -301,6 +301,110 @@ export default function ApproverPerformance() {
         </Card>
       </motion.div>
 
+      {/* SLA Breach Visual */}
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-display flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              SLA Compliance by Approver
+            </CardTitle>
+            <CardDescription>Approvers with SLA breaches highlighted in red</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const slaData = approvers
+                .filter(a => a.completedOnTime + a.completedLate > 0)
+                .map(a => ({
+                  name: a.userName.split(' ')[0] || a.userEmail.split('@')[0],
+                  fullName: a.userName,
+                  onTime: a.completedOnTime,
+                  late: a.completedLate,
+                  compliance: a.slaCompliance,
+                  role: a.role,
+                }))
+                .sort((a, b) => a.compliance - b.compliance);
+
+              if (slaData.length === 0) {
+                return <p className="text-muted-foreground text-center py-8">No SLA data available yet.</p>;
+              }
+
+              return (
+                <div className="space-y-6">
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={slaData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis type="number" domain={[0, 'dataMax']} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          width={80}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                          formatter={(value: number, name: string) => [
+                            value,
+                            name === 'onTime' ? 'On Time' : 'Late (SLA Breached)',
+                          ]}
+                        />
+                        <Legend
+                          formatter={(value: string) =>
+                            value === 'onTime' ? 'On Time' : 'Late (SLA Breached)'
+                          }
+                        />
+                        <Bar dataKey="onTime" stackId="a" fill="hsl(var(--success, 142 71% 45%))" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="late" stackId="a" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Breaching approvers list */}
+                  {slaData.filter(a => a.late > 0).length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-destructive flex items-center gap-1.5">
+                        <XCircle className="w-4 h-4" />
+                        Approvers Breaching SLA
+                      </h4>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {slaData
+                          .filter(a => a.late > 0)
+                          .map((a, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between p-3 rounded-lg border border-destructive/30 bg-destructive/5"
+                            >
+                              <div>
+                                <p className="text-sm font-medium">{a.fullName}</p>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs mt-0.5"
+                                  style={{ borderColor: roleColors[a.role], color: roleColors[a.role] }}
+                                >
+                                  {roleLabels[a.role] || a.role}
+                                </Badge>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-destructive">{a.late} late</p>
+                                <p className="text-xs text-muted-foreground">{a.compliance}% compliant</p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Approvers Table */}
       <motion.div variants={itemVariants}>
         <Card>
