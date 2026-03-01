@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const STEPS_DETAILED = ['Category & Type', 'Entity & Location', 'Schedule & Logistics', 'Item Details', 'Purpose & Review'];
-const STEPS_GENERIC = ['Category & Type', 'Delivery Details', 'Review'];
+const STEPS_GENERIC = ['Category & Type', 'Delivery Details', 'Material Details', 'Review'];
 
 export default function GatePassFormWizard() {
   const navigate = useNavigate();
@@ -79,7 +79,7 @@ export default function GatePassFormWizard() {
         shifting_method: shiftingMethod || undefined,
         purpose: purpose || undefined,
         delivery_type: deliveryType || undefined,
-        items: isGeneric ? [] : items.filter(i => i.item_details.trim()),
+        items: items.filter(i => i.item_details.trim()),
       });
       navigate('/gate-passes');
     } catch {}
@@ -263,6 +263,7 @@ export default function GatePassFormWizard() {
         <p><strong>Delivery Type:</strong> {deliveryType ? deliveryTypeLabels[deliveryType] : '-'}</p>
         <p><strong>Vehicle:</strong> {vehicleMakeModel || '-'} ({vehicleLicensePlate || '-'})</p>
         <p><strong>Validity:</strong> {validFrom || '-'} to {validTo || '-'}</p>
+        <p><strong>Items:</strong> {items.filter(i => i.item_details).length} item(s), {items.some(i => i.is_high_value) ? '⚠️ Contains high-value assets' : 'No high-value assets'}</p>
       </CardContent>
     </Card>
   );
@@ -271,6 +272,7 @@ export default function GatePassFormWizard() {
     if (isGeneric) {
       if (step === 0) return renderCategoryStep();
       if (step === 1) return renderGenericDeliveryStep();
+      if (step === 2) return renderItemsStep();
       return renderGenericReviewStep();
     }
     if (step === 0) return renderCategoryStep();
