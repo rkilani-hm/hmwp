@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Loader2, ChevronUp, ChevronDown, CheckCircle, AlertTriangle, XCircle, User } from 'lucide-react';
+import { Plus, Settings2, Trash2, GripVertical, ArrowRight, Users, Building2, Truck, Loader2, ChevronUp, ChevronDown, CheckCircle, AlertTriangle, XCircle, User } from 'lucide-react';
 import { 
   useWorkflowTemplates, 
   useWorkflowSteps,
@@ -32,7 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function WorkflowBuilder() {
-  const [activeTab, setActiveTab] = useState<'client' | 'internal'>('client');
+  const [activeTab, setActiveTab] = useState<'client' | 'internal' | 'gate_pass'>('client');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAddStepOpen, setIsAddStepOpen] = useState(false);
@@ -55,8 +55,8 @@ export default function WorkflowBuilder() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'client' | 'internal'); setSelectedTemplateId(null); }}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'client' | 'internal' | 'gate_pass'); setSelectedTemplateId(null); }}>
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="client" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Client Workflows
@@ -65,27 +65,23 @@ export default function WorkflowBuilder() {
             <Building2 className="h-4 w-4" />
             Internal Workflows
           </TabsTrigger>
+          <TabsTrigger value="gate_pass" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            Gate Pass Workflows
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="client" className="space-y-4">
-          <WorkflowTemplateList
-            templates={filteredTemplates}
-            selectedId={selectedTemplateId}
-            onSelect={setSelectedTemplateId}
-            onCreateNew={() => setIsCreateOpen(true)}
-            isLoading={templatesLoading}
-          />
-        </TabsContent>
-
-        <TabsContent value="internal" className="space-y-4">
-          <WorkflowTemplateList
-            templates={filteredTemplates}
-            selectedId={selectedTemplateId}
-            onSelect={setSelectedTemplateId}
-            onCreateNew={() => setIsCreateOpen(true)}
-            isLoading={templatesLoading}
-          />
-        </TabsContent>
+        {['client', 'internal', 'gate_pass'].map((tab) => (
+          <TabsContent key={tab} value={tab} className="space-y-4">
+            <WorkflowTemplateList
+              templates={filteredTemplates}
+              selectedId={selectedTemplateId}
+              onSelect={setSelectedTemplateId}
+              onCreateNew={() => setIsCreateOpen(true)}
+              isLoading={templatesLoading}
+            />
+          </TabsContent>
+        ))}
       </Tabs>
 
       {selectedTemplate && (
@@ -602,7 +598,7 @@ function CreateTemplateDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  workflowType: 'internal' | 'client';
+  workflowType: 'internal' | 'client' | 'gate_pass';
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -634,9 +630,9 @@ function CreateTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create {workflowType === 'client' ? 'Client' : 'Internal'} Workflow</DialogTitle>
+          <DialogTitle>Create {workflowType === 'client' ? 'Client' : workflowType === 'gate_pass' ? 'Gate Pass' : 'Internal'} Workflow</DialogTitle>
           <DialogDescription>
-            Define a new approval workflow template for {workflowType} permits.
+            Define a new approval workflow template for {workflowType === 'gate_pass' ? 'gate pass' : workflowType} permits.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -666,7 +662,7 @@ function CreateTemplateDialog({
               checked={isDefault}
               onCheckedChange={setIsDefault}
             />
-            <Label htmlFor="is-default">Set as default for {workflowType} permits</Label>
+            <Label htmlFor="is-default">Set as default for {workflowType === 'gate_pass' ? 'gate pass' : workflowType} permits</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 export interface WorkflowTemplate {
   id: string;
   name: string;
-  workflow_type: 'internal' | 'client';
+  workflow_type: 'internal' | 'client' | 'gate_pass';
   description: string | null;
   is_active: boolean;
   is_default: boolean;
@@ -39,7 +39,7 @@ export interface WorkTypeStepConfig {
 }
 
 // Fetch all workflow templates
-export function useWorkflowTemplates(workflowType?: 'internal' | 'client') {
+export function useWorkflowTemplates(workflowType?: 'internal' | 'client' | 'gate_pass') {
   return useQuery({
     queryKey: ['workflow-templates', workflowType],
     queryFn: async () => {
@@ -129,7 +129,7 @@ export function useCreateWorkflowTemplate() {
   return useMutation({
     mutationFn: async (template: {
       name: string;
-      workflow_type: 'internal' | 'client';
+      workflow_type: 'internal' | 'client' | 'gate_pass';
       description?: string;
       is_default?: boolean;
     }) => {
