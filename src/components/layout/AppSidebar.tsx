@@ -26,6 +26,7 @@ import {
   MapPin,
   GitBranch,
   CheckCircle,
+  Package,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -55,6 +56,10 @@ const roleLabels: Record<string, string> = {
   hard_facilities: 'Hard Facilities',
   pm_service: 'PM Service',
   fmsp_approval: 'FMSP Approval',
+  // Gate pass roles
+  store_manager: 'Store Manager',
+  finance: 'Finance',
+  security: 'Security',
   admin: 'Administrator',
 };
 
@@ -67,6 +72,7 @@ const navigationItems = {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: FileText, label: 'New Permit', path: '/new-permit' },
     { icon: ClipboardCheck, label: 'My Permits', path: '/permits' },
+    { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
     { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
@@ -78,6 +84,7 @@ const navigationItems = {
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
     { icon: ClipboardCheck, label: 'Close Permits', path: '/close-permits' },
+    { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
     { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
@@ -88,6 +95,7 @@ const navigationItems = {
     { icon: ClipboardCheck, label: 'Inbox', path: '/inbox' },
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
+    { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
     { icon: Timer, label: 'SLA Dashboard', path: '/sla-dashboard' },
     { icon: BarChart3, label: 'Approver Performance', path: '/approver-performance' },
@@ -110,6 +118,7 @@ const navigationItems = {
     { icon: Send, label: 'Outbox', path: '/outbox' },
     { icon: ClipboardCheck, label: 'History', path: '/permits' },
     { icon: BarChart3, label: 'My Performance', path: '/my-performance' },
+    { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
     { icon: QrCode, label: 'Scan & Verify', path: '/scan-verify' },
     { icon: FileText, label: 'User Manuals', path: '/user-manuals' },
     { icon: Settings, label: 'Settings', path: '/settings' },
@@ -138,6 +147,10 @@ const getRoleIcon = (role: UserRole) => {
     hard_facilities: Leaf,
     pm_service: Settings,
     fmsp_approval: CheckCircle,
+    // Gate pass roles
+    store_manager: Package,
+    finance: BarChart3,
+    security: Shield,
     admin: Settings,
   };
 
