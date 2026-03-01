@@ -24,6 +24,10 @@ import GenerateVapidKeys from './admin/GenerateVapidKeys';
 import QRCodePoster from './admin/QRCodePoster';
 import Settings from './Settings';
 import UserManuals from './UserManuals';
+import GatePassDashboard from './GatePassDashboard';
+import NewGatePass from './NewGatePass';
+import GatePassDetail from './GatePassDetail';
+import GatePassApprovals from './GatePassApprovals';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -108,6 +112,10 @@ const Index = () => {
           element={isAdmin ? <WorkflowBuilder /> : <Navigate to="/" replace />} 
         />
         <Route path="user-manuals" element={<UserManuals />} />
+        <Route path="gate-passes" element={<GatePassDashboard />} />
+        <Route path="gate-passes/new" element={<NewGatePass />} />
+        <Route path="gate-passes/:id" element={<GatePassDetail />} />
+        <Route path="gate-passes/approvals" element={<GatePassApprovals />} />
       </Routes>
     </AppLayout>
   );

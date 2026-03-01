@@ -52,6 +52,182 @@ export type Database = {
           },
         ]
       }
+      gate_pass_items: {
+        Row: {
+          gate_pass_id: string
+          id: string
+          is_high_value: boolean
+          item_details: string
+          quantity: string
+          remarks: string | null
+          serial_number: number
+        }
+        Insert: {
+          gate_pass_id: string
+          id?: string
+          is_high_value?: boolean
+          item_details: string
+          quantity?: string
+          remarks?: string | null
+          serial_number: number
+        }
+        Update: {
+          gate_pass_id?: string
+          id?: string
+          is_high_value?: boolean
+          item_details?: string
+          quantity?: string
+          remarks?: string | null
+          serial_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_pass_items_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gate_passes: {
+        Row: {
+          client_contractor_name: string | null
+          client_rep_contact: string | null
+          client_rep_email: string | null
+          client_rep_name: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          date_of_request: string
+          delivery_area: string | null
+          delivery_type: string | null
+          finance_comments: string | null
+          finance_date: string | null
+          finance_name: string | null
+          finance_signature: string | null
+          has_high_value_asset: boolean
+          id: string
+          pass_category: string
+          pass_no: string
+          pass_type: string
+          pdf_url: string | null
+          purpose: string | null
+          requester_email: string
+          requester_id: string
+          requester_name: string
+          security_cctv_confirmed: boolean | null
+          security_comments: string | null
+          security_date: string | null
+          security_name: string | null
+          security_signature: string | null
+          shifting_method: string | null
+          status: string
+          store_manager_comments: string | null
+          store_manager_date: string | null
+          store_manager_name: string | null
+          store_manager_signature: string | null
+          time_from: string | null
+          time_to: string | null
+          unit_floor: string | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          vehicle_license_plate: string | null
+          vehicle_make_model: string | null
+        }
+        Insert: {
+          client_contractor_name?: string | null
+          client_rep_contact?: string | null
+          client_rep_email?: string | null
+          client_rep_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          date_of_request?: string
+          delivery_area?: string | null
+          delivery_type?: string | null
+          finance_comments?: string | null
+          finance_date?: string | null
+          finance_name?: string | null
+          finance_signature?: string | null
+          has_high_value_asset?: boolean
+          id?: string
+          pass_category: string
+          pass_no: string
+          pass_type: string
+          pdf_url?: string | null
+          purpose?: string | null
+          requester_email: string
+          requester_id: string
+          requester_name: string
+          security_cctv_confirmed?: boolean | null
+          security_comments?: string | null
+          security_date?: string | null
+          security_name?: string | null
+          security_signature?: string | null
+          shifting_method?: string | null
+          status?: string
+          store_manager_comments?: string | null
+          store_manager_date?: string | null
+          store_manager_name?: string | null
+          store_manager_signature?: string | null
+          time_from?: string | null
+          time_to?: string | null
+          unit_floor?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_make_model?: string | null
+        }
+        Update: {
+          client_contractor_name?: string | null
+          client_rep_contact?: string | null
+          client_rep_email?: string | null
+          client_rep_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          date_of_request?: string
+          delivery_area?: string | null
+          delivery_type?: string | null
+          finance_comments?: string | null
+          finance_date?: string | null
+          finance_name?: string | null
+          finance_signature?: string | null
+          has_high_value_asset?: boolean
+          id?: string
+          pass_category?: string
+          pass_no?: string
+          pass_type?: string
+          pdf_url?: string | null
+          purpose?: string | null
+          requester_email?: string
+          requester_id?: string
+          requester_name?: string
+          security_cctv_confirmed?: boolean | null
+          security_comments?: string | null
+          security_date?: string | null
+          security_name?: string | null
+          security_signature?: string | null
+          shifting_method?: string | null
+          status?: string
+          store_manager_comments?: string | null
+          store_manager_date?: string | null
+          store_manager_name?: string | null
+          store_manager_signature?: string | null
+          time_from?: string | null
+          time_to?: string | null
+          unit_floor?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_make_model?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -1082,6 +1258,7 @@ export type Database = {
         Returns: boolean
       }
       is_approver: { Args: { _user_id: string }; Returns: boolean }
+      is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
