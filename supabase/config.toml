@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.generate-gate-pass-pdf]
 verify_jwt = false
+
+[functions.email-gate-pass-pdf]
+verify_jwt = false

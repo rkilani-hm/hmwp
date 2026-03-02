@@ -9,11 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Printer, CheckCircle, XCircle, Clock, FileDown, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Printer, CheckCircle, XCircle, Clock, FileDown, Loader2, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, useRef } from 'react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import GatePassPrintView from '@/components/GatePassPrintView';
 import { useGenerateGatePassPdf } from '@/hooks/useGenerateGatePassPdf';
 
@@ -40,6 +44,10 @@ export default function GatePassDetail() {
   const [showPrint, setShowPrint] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const { generatePdf, isGenerating } = useGenerateGatePassPdf();
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailName, setEmailName] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   if (isLoading) return <p className="text-muted-foreground p-8">Loading...</p>;
   if (!gp) return <p className="text-destructive p-8">Gate pass not found.</p>;
@@ -77,6 +85,66 @@ export default function GatePassDetail() {
     }
   };
 
+  const handleOpenEmailDialog = () => {
+    // Pre-fill with client rep email if available
+    setEmailTo(gp.client_rep_email || gp.requester_email || '');
+    setEmailName(gp.client_rep_name || gp.requester_name || '');
+    setShowEmailDialog(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailTo.trim()) {
+      toast.error('Please enter a recipient email address.');
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      // First ensure PDF exists - generate if needed
+      if (!gp.pdf_url) {
+        toast.info('Generating PDF first...');
+        const url = await generatePdf(gp.id);
+        if (!url) {
+          toast.error('Failed to generate PDF. Cannot send email.');
+          return;
+        }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        toast.error('Session expired. Please sign in again.');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('email-gate-pass-pdf', {
+        body: {
+          gatePassId: gp.id,
+          recipientEmail: emailTo.trim(),
+          recipientName: emailName.trim(),
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (error) {
+        console.error('Email error:', error);
+        toast.error('Failed to send email. Please try again.');
+        return;
+      }
+
+      if (data?.success) {
+        toast.success(`Gate pass PDF emailed to ${emailTo}`);
+        setShowEmailDialog(false);
+      } else {
+        toast.error(data?.error || 'Failed to send email.');
+      }
+    } catch (err) {
+      console.error('Email error:', err);
+      toast.error('An error occurred while sending the email.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const statusTimeline = [
     { label: 'Submitted', done: true, date: gp.created_at },
     { label: 'Store Manager', done: !!gp.store_manager_date, date: gp.store_manager_date },
@@ -107,6 +175,9 @@ export default function GatePassDetail() {
             <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
             {(gp.status === 'approved' || gp.status === 'completed') && (
               <>
+                <Button variant="outline" onClick={handleOpenEmailDialog}>
+                  <Mail className="mr-2 h-4 w-4" /> Email to Client
+                </Button>
                 <Button variant="outline" onClick={handleDownloadPdf} disabled={isGenerating}>
                   {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
                   {isGenerating ? 'Generating...' : 'Download PDF'}
@@ -248,6 +319,46 @@ export default function GatePassDetail() {
           </Card>
         )}
       </div>
+
+      {/* Email to Client Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Gate Pass PDF</DialogTitle>
+            <DialogDescription>
+              Send the gate pass PDF as an email attachment to the client representative.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="email-name">Recipient Name</Label>
+              <Input
+                id="email-name"
+                value={emailName}
+                onChange={e => setEmailName(e.target.value)}
+                placeholder="Client representative name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-to">Recipient Email</Label>
+              <Input
+                id="email-to"
+                type="email"
+                value={emailTo}
+                onChange={e => setEmailTo(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>Cancel</Button>
+            <Button onClick={handleSendEmail} disabled={isSendingEmail || !emailTo.trim()}>
+              {isSendingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              {isSendingEmail ? 'Sending...' : 'Send Email'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
