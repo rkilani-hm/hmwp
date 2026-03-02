@@ -11,10 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Printer, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Printer, CheckCircle, XCircle, Clock, FileDown, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, useRef } from 'react';
 import GatePassPrintView from '@/components/GatePassPrintView';
+import { useGenerateGatePassPdf } from '@/hooks/useGenerateGatePassPdf';
 
 const statusColors: Record<GatePassStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -38,6 +39,7 @@ export default function GatePassDetail() {
   const [cctvConfirmed, setCctvConfirmed] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const { generatePdf, isGenerating } = useGenerateGatePassPdf();
 
   if (isLoading) return <p className="text-muted-foreground p-8">Loading...</p>;
   if (!gp) return <p className="text-destructive p-8">Gate pass not found.</p>;
@@ -66,6 +68,13 @@ export default function GatePassDetail() {
   const handlePrint = () => {
     setShowPrint(true);
     setTimeout(() => window.print(), 300);
+  };
+
+  const handleDownloadPdf = async () => {
+    const url = await generatePdf(gp.id);
+    if (url) {
+      window.open(url, '_blank');
+    }
   };
 
   const statusTimeline = [
@@ -97,7 +106,13 @@ export default function GatePassDetail() {
           <div className="flex items-center gap-2">
             <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
             {(gp.status === 'approved' || gp.status === 'completed') && (
-              <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+              <>
+                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                  {isGenerating ? 'Generating...' : 'Download PDF'}
+                </Button>
+                <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+              </>
             )}
           </div>
         </div>
