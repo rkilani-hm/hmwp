@@ -75,7 +75,10 @@ export default function GatePassDetail() {
 
   const handlePrint = () => {
     setShowPrint(true);
-    setTimeout(() => window.print(), 300);
+    setTimeout(() => {
+      window.print();
+      setShowPrint(false);
+    }, 400);
   };
 
   const handleDownloadPdf = async () => {
@@ -155,9 +158,9 @@ export default function GatePassDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Print view (hidden on screen) */}
+      {/* Print view */}
       {showPrint && (
-        <div className="hidden print:block">
+        <div className="gate-pass-print-area">
           <GatePassPrintView gatePass={gp} ref={printRef} />
         </div>
       )}
@@ -173,6 +176,7 @@ export default function GatePassDetail() {
           </div>
           <div className="flex items-center gap-2">
             <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
+            <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
             {(gp.status === 'approved' || gp.status === 'completed') && (
               <>
                 <Button variant="outline" onClick={handleOpenEmailDialog}>
@@ -182,7 +186,6 @@ export default function GatePassDetail() {
                   {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
                   {isGenerating ? 'Generating...' : 'Download PDF'}
                 </Button>
-                <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
               </>
             )}
           </div>
