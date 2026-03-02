@@ -10,7 +10,7 @@ interface Props {
 
 const GatePassPrintView = forwardRef<HTMLDivElement, Props>(({ gatePass: gp }, ref) => {
   return (
-    <div ref={ref} className="p-8 bg-white text-black max-w-[210mm] mx-auto text-sm print:p-6">
+    <div ref={ref} className="p-8 bg-white text-black max-w-[210mm] mx-auto text-sm" style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-6">
         <img src={alHamraLogo} alt="Al Hamra" className="h-16 w-auto object-contain" />

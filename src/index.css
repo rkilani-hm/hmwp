@@ -153,3 +153,26 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 }
+
+/* Print styles for gate pass */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .gate-pass-print-area,
+  .gate-pass-print-area * {
+    visibility: visible !important;
+  }
+  .gate-pass-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+}
