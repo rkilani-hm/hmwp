@@ -1,0 +1,2 @@
+ALTER TABLE public.workflow_templates DROP CONSTRAINT workflow_templates_workflow_type_check;
+ALTER TABLE public.workflow_templates ADD CONSTRAINT workflow_templates_workflow_type_check CHECK (workflow_type IN ('internal', 'client', 'gate_pass'));
