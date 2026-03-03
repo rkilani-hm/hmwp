@@ -45,29 +45,27 @@ export default function WorkflowBuilder() {
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Workflow Builder</h1>
-          <p className="text-muted-foreground">
-            Configure approval workflows for different permit types
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Workflow Builder</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Configure approval workflows for different permit types
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'client' | 'internal' | 'gate_pass'); setSelectedTemplateId(null); }}>
         <TabsList className="grid w-full max-w-lg grid-cols-3">
-          <TabsTrigger value="client" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Client Workflows
+          <TabsTrigger value="client" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Users className="h-4 w-4 hidden sm:block" />
+            Client
           </TabsTrigger>
-          <TabsTrigger value="internal" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Internal Workflows
+          <TabsTrigger value="internal" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Building2 className="h-4 w-4 hidden sm:block" />
+            Internal
           </TabsTrigger>
-          <TabsTrigger value="gate_pass" className="flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Gate Pass Workflows
+          <TabsTrigger value="gate_pass" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Truck className="h-4 w-4 hidden sm:block" />
+            Gate Pass
           </TabsTrigger>
         </TabsList>
 
@@ -279,7 +277,7 @@ function WorkflowEditor({
   return (
     <Card className="mt-6">
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1">
             {editingName ? (
               <div className="space-y-4">
@@ -326,9 +324,9 @@ function WorkflowEditor({
               </>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="is-default" className="text-sm">Default</Label>
+          <div className="flex items-center gap-3 sm:gap-4 mt-3 sm:mt-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Label htmlFor="is-default" className="text-xs sm:text-sm whitespace-nowrap">Default</Label>
               <Switch
                 id="is-default"
                 checked={template.is_default}
@@ -337,8 +335,8 @@ function WorkflowEditor({
                 }
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="is-active" className="text-sm">Active</Label>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Label htmlFor="is-active" className="text-xs sm:text-sm whitespace-nowrap">Active</Label>
               <Switch
                 id="is-active"
                 checked={template.is_active}
@@ -445,7 +443,7 @@ function WorkflowEditor({
                 {steps.map((step, index) => (
                   <div
                     key={step.id}
-                    className="flex items-center gap-4 p-4 hover:bg-muted/50"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 hover:bg-muted/50"
                   >
                     <div className="flex flex-col gap-1">
                       <Button
@@ -515,10 +513,10 @@ function WorkflowEditor({
                         </Link>
                       )}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`required-${step.id}`} className="text-sm">
-                          Required by default
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Label htmlFor={`required-${step.id}`} className="text-xs sm:text-sm whitespace-nowrap">
+                          Required
                         </Label>
                         <Switch
                           id={`required-${step.id}`}
@@ -532,8 +530,8 @@ function WorkflowEditor({
                           }
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`skip-${step.id}`} className="text-sm">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Label htmlFor={`skip-${step.id}`} className="text-xs sm:text-sm whitespace-nowrap">
                           Can skip
                         </Label>
                         <Switch

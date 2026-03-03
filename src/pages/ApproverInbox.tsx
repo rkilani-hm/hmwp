@@ -302,7 +302,7 @@ export default function ApproverInbox() {
               />
             </div>
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by urgency" />
               </SelectTrigger>
               <SelectContent>
@@ -387,7 +387,7 @@ export default function ApproverInbox() {
                       </div>
 
                       {/* Right Side - SLA Timer and Actions */}
-                      <div className="flex flex-col items-end gap-3">
+                      <div className="flex flex-col sm:items-end gap-3">
                         {slaStatus && (
                           <div className={cn(
                             "flex items-center gap-2 px-3 py-2 rounded-lg",
@@ -408,7 +408,7 @@ export default function ApproverInbox() {
                         )}
                         
                         {/* Action Buttons */}
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                           <Button
                             size="sm"
                             variant="outline"
