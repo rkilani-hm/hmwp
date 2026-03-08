@@ -203,6 +203,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: Users, label: 'User Management', path: '/approvers' },
           { icon: Shield, label: 'Roles', path: '/roles' },
           { icon: Key, label: 'Permissions', path: '/permissions' },
+          { icon: Activity, label: 'Deletion Audit Log', path: '/deletion-audit-log' },
         ],
       },
       {

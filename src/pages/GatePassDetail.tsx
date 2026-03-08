@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
-import { useDeleteGatePass } from '@/hooks/useDeleteGatePass';
+import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@/hooks/useDeleteGatePass';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,8 +42,11 @@ export default function GatePassDetail() {
   const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
   const approveGatePass = useApproveGatePass();
   const completeGatePass = useCompleteGatePass();
-  const deleteGatePass = useDeleteGatePass();
+  const archiveGP = useArchiveGatePass();
+  const restoreGP = useRestoreGatePass();
+  const hardDeleteGP = useHardDeleteGatePass();
   const isAdmin = roles.includes('admin');
+  const isGPArchived = (gp as any)?.is_archived;
 
   const [comments, setComments] = useState('');
   const [cctvConfirmed, setCctvConfirmed] = useState(false);
@@ -195,17 +198,47 @@ export default function GatePassDetail() {
           <div className="flex items-center gap-2">
             <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
             <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
-            {isAdmin && (
+            {isAdmin && !isGPArchived && (
               <AdminDeleteDialog
-                title="Delete Gate Pass"
-                description={`Are you sure you want to delete gate pass ${gp.pass_no}? This will permanently remove the gate pass and all associated items. This action cannot be undone.`}
+                title="Archive Gate Pass"
+                description={`Archive gate pass ${gp.pass_no}? It can be restored later.`}
                 onConfirm={() => {
-                  deleteGatePass.mutate(gp.id, {
+                  archiveGP.mutate({ id: gp.id, pass_no: gp.pass_no, requester_name: gp.requester_name }, {
                     onSuccess: () => navigate('/gate-passes'),
                   });
                 }}
-                isPending={deleteGatePass.isPending}
+                isPending={archiveGP.isPending}
+                actionLabel="Archive"
+                actionIcon="archive"
+                destructive={false}
               />
+            )}
+            {isAdmin && isGPArchived && (
+              <>
+                <AdminDeleteDialog
+                  title="Restore Gate Pass"
+                  description={`Restore gate pass ${gp.pass_no} back to active?`}
+                  onConfirm={() => {
+                    restoreGP.mutate({ id: gp.id, pass_no: gp.pass_no, requester_name: gp.requester_name }, {
+                      onSuccess: () => navigate('/gate-passes'),
+                    });
+                  }}
+                  isPending={restoreGP.isPending}
+                  actionLabel="Restore"
+                  actionIcon="restore"
+                  destructive={false}
+                />
+                <AdminDeleteDialog
+                  title="Permanently Delete"
+                  description={`Permanently delete gate pass ${gp.pass_no}? This cannot be undone.`}
+                  onConfirm={() => {
+                    hardDeleteGP.mutate({ id: gp.id, pass_no: gp.pass_no, requester_name: gp.requester_name }, {
+                      onSuccess: () => navigate('/gate-passes'),
+                    });
+                  }}
+                  isPending={hardDeleteGP.isPending}
+                />
+              </>
             )}
             {(gp.status === 'approved' || gp.status === 'completed') && (
               <>

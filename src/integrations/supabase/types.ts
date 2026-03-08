@@ -52,6 +52,45 @@ export type Database = {
           },
         ]
       }
+      admin_deletion_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          performed_by: string
+          performed_by_email: string
+          performed_by_name: string
+          record_details: string | null
+          record_id: string
+          record_identifier: string
+          record_type: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          performed_by: string
+          performed_by_email: string
+          performed_by_name: string
+          record_details?: string | null
+          record_id: string
+          record_identifier: string
+          record_type: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          performed_by?: string
+          performed_by_email?: string
+          performed_by_name?: string
+          record_details?: string | null
+          record_id?: string
+          record_identifier?: string
+          record_type?: string
+        }
+        Relationships: []
+      }
       gate_pass_items: {
         Row: {
           gate_pass_id: string
@@ -124,6 +163,8 @@ export type Database = {
       }
       gate_passes: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           client_contractor_name: string | null
           client_rep_contact: string | null
           client_rep_email: string | null
@@ -140,6 +181,7 @@ export type Database = {
           finance_signature: string | null
           has_high_value_asset: boolean
           id: string
+          is_archived: boolean
           pass_category: string
           pass_no: string
           pass_type: string
@@ -169,6 +211,8 @@ export type Database = {
           vehicle_make_model: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           client_contractor_name?: string | null
           client_rep_contact?: string | null
           client_rep_email?: string | null
@@ -185,6 +229,7 @@ export type Database = {
           finance_signature?: string | null
           has_high_value_asset?: boolean
           id?: string
+          is_archived?: boolean
           pass_category: string
           pass_no: string
           pass_type: string
@@ -214,6 +259,8 @@ export type Database = {
           vehicle_make_model?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           client_contractor_name?: string | null
           client_rep_contact?: string | null
           client_rep_email?: string | null
@@ -230,6 +277,7 @@ export type Database = {
           finance_signature?: string | null
           has_high_value_asset?: boolean
           id?: string
+          is_archived?: boolean
           pass_category?: string
           pass_no?: string
           pass_type?: string
@@ -714,6 +762,8 @@ export type Database = {
       }
       work_permits: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           attachments: string[] | null
           bdcr_approver_email: string | null
           bdcr_approver_name: string | null
@@ -775,6 +825,7 @@ export type Database = {
           helpdesk_signature: string | null
           helpdesk_status: string | null
           id: string
+          is_archived: boolean
           is_internal: boolean | null
           it_approver_email: string | null
           it_approver_name: string | null
@@ -834,6 +885,8 @@ export type Database = {
           workflow_modified_by: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           attachments?: string[] | null
           bdcr_approver_email?: string | null
           bdcr_approver_name?: string | null
@@ -895,6 +948,7 @@ export type Database = {
           helpdesk_signature?: string | null
           helpdesk_status?: string | null
           id?: string
+          is_archived?: boolean
           is_internal?: boolean | null
           it_approver_email?: string | null
           it_approver_name?: string | null
@@ -954,6 +1008,8 @@ export type Database = {
           workflow_modified_by?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           attachments?: string[] | null
           bdcr_approver_email?: string | null
           bdcr_approver_name?: string | null
@@ -1015,6 +1071,7 @@ export type Database = {
           helpdesk_signature?: string | null
           helpdesk_status?: string | null
           id?: string
+          is_archived?: boolean
           is_internal?: boolean | null
           it_approver_email?: string | null
           it_approver_name?: string | null
