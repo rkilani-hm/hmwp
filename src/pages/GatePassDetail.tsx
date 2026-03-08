@@ -70,7 +70,7 @@ export default function GatePassDetail() {
 
   const canComplete = roles.includes('security') && gp.status === 'approved';
 
-  const handleApprove = (role: 'store_manager' | 'finance' | 'security', approved: boolean) => {
+  const handleApprove = (role: string, approved: boolean) => {
     approveGatePass.mutate({
       gatePassId: gp.id,
       role,
