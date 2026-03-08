@@ -37,6 +37,7 @@ export default function GatePassDetail() {
   const navigate = useNavigate();
   const { data: gp, isLoading } = useGatePass(id);
   const { roles } = useAuth();
+  const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
   const approveGatePass = useApproveGatePass();
   const completeGatePass = useCompleteGatePass();
 
@@ -53,14 +54,19 @@ export default function GatePassDetail() {
   if (isLoading) return <p className="text-muted-foreground p-8">Loading...</p>;
   if (!gp) return <p className="text-destructive p-8">Gate pass not found.</p>;
 
-  const canApproveAs = (role: 'store_manager' | 'finance' | 'security') => {
-    const statusMap = {
-      store_manager: 'pending_store_manager',
-      finance: 'pending_finance',
-      security: 'pending_security',
-    };
-    return roles.includes(role) && gp.status === statusMap[role];
+  const canApproveAs = (role: string) => {
+    return roles.includes(role) && gp.status === `pending_${role}`;
   };
+
+  // Build the list of approval roles from workflow or defaults
+  const getApprovalRoles = (): string[] => {
+    if (effectiveWorkflow?.steps) {
+      return effectiveWorkflow.steps.map(s => s.role && typeof s.role === 'object' && 'name' in s.role ? (s.role as any).name : '').filter(Boolean);
+    }
+    return ['store_manager', ...(gp.has_high_value_asset ? ['finance'] : []), 'security'];
+  };
+
+  const approvalRoles = getApprovalRoles();
 
   const canComplete = roles.includes('security') && gp.status === 'approved';
 
