@@ -624,49 +624,58 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setModifyWorkflowOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <Settings2 className="w-4 h-4 mr-2" />
-                    Modify Workflow
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setForwardDialogOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <Forward className="w-4 h-4 mr-2" />
-                    Forward
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setReworkDialogOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Rework
-                  </Button>
-                  <div className="flex-1" />
-                  <Button
-                    variant="outline"
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={handleReject}
-                    disabled={secureApprove.isPending}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button
-                    className="bg-success text-success-foreground hover:bg-success/90"
-                    onClick={handleApprove}
-                    disabled={secureApprove.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve
-                  </Button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModifyWorkflowOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <Settings2 className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Modify Workflow</span>
+                      <span className="sm:hidden">Modify</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setForwardDialogOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <Forward className="w-4 h-4 mr-1" />
+                      Forward
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReworkDialogOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" />
+                      Rework
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 sm:ml-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={handleReject}
+                      disabled={secureApprove.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                      onClick={handleApprove}
+                      disabled={secureApprove.isPending}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Approve
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
