@@ -190,8 +190,8 @@ export default function GatePassDashboard() {
                   <TableCell>{gatePassTypeLabels[p.pass_type]}</TableCell>
                   <TableCell>{p.requester_name}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusColors[p.status]}>
-                      {gatePassStatusLabels[p.status]}
+                    <Badge variant="outline" className={statusColors[p.status] || 'bg-warning/10 text-warning'}>
+                      {gatePassStatusLabels[p.status] || p.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </Badge>
                   </TableCell>
                   <TableCell>{format(new Date(p.created_at), 'dd MMM yyyy')}</TableCell>

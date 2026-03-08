@@ -69,7 +69,7 @@ export default function GatePassApprovals() {
         <div className="grid gap-4">
           {pendingPasses.map(gp => {
             const approvalRole = getApprovalRole(gp);
-            const canComplete = roles.includes('security') && gp.status === 'approved';
+            const canComplete = (roles.includes('security') || roles.includes('hm_security_pmd') || roles.includes('admin')) && gp.status === 'approved';
 
             return (
               <Card key={gp.id}>
