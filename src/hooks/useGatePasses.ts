@@ -90,6 +90,32 @@ export function useCreateGatePass() {
       const hasHighValue = input.items.some(i => i.is_high_value);
       const { items, ...passData } = input;
 
+      // Determine initial status from workflow mapping
+      let initialStatus = 'pending_store_manager';
+      try {
+        const { data: mapping } = await supabase
+          .from('gate_pass_type_workflows')
+          .select('workflow_template_id')
+          .eq('pass_type', input.pass_type)
+          .maybeSingle();
+
+        if (mapping?.workflow_template_id) {
+          const { data: firstStep } = await supabase
+            .from('workflow_steps')
+            .select('role:roles(name)')
+            .eq('workflow_template_id', mapping.workflow_template_id)
+            .order('step_order', { ascending: true })
+            .limit(1)
+            .single();
+
+          if (firstStep?.role && typeof firstStep.role === 'object' && 'name' in firstStep.role) {
+            initialStatus = `pending_${(firstStep.role as any).name}`;
+          }
+        }
+      } catch {
+        // Fallback to default
+      }
+
       const { data, error } = await supabase
         .from('gate_passes')
         .insert({
@@ -98,7 +124,7 @@ export function useCreateGatePass() {
           requester_id: user?.id,
           requester_name: profile?.full_name || user?.email || 'Unknown',
           requester_email: user?.email || '',
-          status: 'pending_store_manager',
+          status: initialStatus,
           has_high_value_asset: hasHighValue,
         } as any)
         .select()
