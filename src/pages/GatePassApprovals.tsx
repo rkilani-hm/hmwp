@@ -10,12 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 
-const statusColors: Record<GatePassStatus, string> = {
+const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   pending_store_manager: 'bg-warning/10 text-warning',
   pending_finance: 'bg-info/10 text-info',
   pending_security: 'bg-accent/10 text-accent',
   pending_security_pmd: 'bg-accent/10 text-accent',
+  pending_cr_coordinator: 'bg-warning/10 text-warning',
+  pending_head_cr: 'bg-info/10 text-info',
+  pending_hm_security_pmd: 'bg-accent/10 text-accent',
   approved: 'bg-success/10 text-success',
   rejected: 'bg-destructive/10 text-destructive',
   completed: 'bg-primary/10 text-primary',
@@ -66,7 +69,7 @@ export default function GatePassApprovals() {
         <div className="grid gap-4">
           {pendingPasses.map(gp => {
             const approvalRole = getApprovalRole(gp);
-            const canComplete = roles.includes('security') && gp.status === 'approved';
+            const canComplete = (roles.includes('security') || roles.includes('hm_security_pmd') || roles.includes('admin')) && gp.status === 'approved';
 
             return (
               <Card key={gp.id}>

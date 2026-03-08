@@ -25,12 +25,15 @@ import { supabase } from '@/integrations/supabase/client';
 import GatePassPrintView from '@/components/GatePassPrintView';
 import { useGenerateGatePassPdf } from '@/hooks/useGenerateGatePassPdf';
 
-const statusColors: Record<GatePassStatus, string> = {
+const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   pending_store_manager: 'bg-warning/10 text-warning',
   pending_finance: 'bg-info/10 text-info',
   pending_security: 'bg-accent/10 text-accent',
   pending_security_pmd: 'bg-accent/10 text-accent',
+  pending_cr_coordinator: 'bg-warning/10 text-warning',
+  pending_head_cr: 'bg-info/10 text-info',
+  pending_hm_security_pmd: 'bg-accent/10 text-accent',
   approved: 'bg-success/10 text-success',
   rejected: 'bg-destructive/10 text-destructive',
   completed: 'bg-primary/10 text-primary',
@@ -82,7 +85,7 @@ export default function GatePassDetail() {
 
   const approvalRoles = getApprovalRoles();
 
-  const canComplete = roles.includes('security') && gp.status === 'approved';
+  const canComplete = (roles.includes('security') || roles.includes('hm_security_pmd') || roles.includes('admin')) && gp.status === 'approved';
 
   const handleOpenApprovalDialog = (role: string, action: 'approve' | 'reject') => {
     setApprovalRole(role);
@@ -220,7 +223,7 @@ export default function GatePassDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
+            <Badge className={statusColors[gp.status] || 'bg-warning/10 text-warning'}>{gatePassStatusLabels[gp.status] || gp.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
             <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
             {isAdmin && !isGPArchived && (
               <AdminDeleteDialog
