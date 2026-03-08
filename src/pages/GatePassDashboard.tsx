@@ -23,12 +23,15 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Eye, Archive, RotateCcw, Trash2 } from 'lucide-react';
 import { format, subMonths, isAfter } from 'date-fns';
 
-const statusColors: Record<GatePassStatus, string> = {
+const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   pending_store_manager: 'bg-warning/10 text-warning',
   pending_finance: 'bg-info/10 text-info',
   pending_security: 'bg-accent/10 text-accent',
   pending_security_pmd: 'bg-accent/10 text-accent',
+  pending_cr_coordinator: 'bg-warning/10 text-warning',
+  pending_head_cr: 'bg-info/10 text-info',
+  pending_hm_security_pmd: 'bg-accent/10 text-accent',
   approved: 'bg-success/10 text-success',
   rejected: 'bg-destructive/10 text-destructive',
   completed: 'bg-primary/10 text-primary',
