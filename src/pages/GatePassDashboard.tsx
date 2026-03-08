@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useGatePasses } from '@/hooks/useGatePasses';
 import { gatePassStatusLabels, gatePassTypeLabels, gatePassCategoryLabels } from '@/types/gatePass';
 import type { GatePass, GatePassStatus, GatePassType } from '@/types/gatePass';
+import { useDeleteGatePass } from '@/hooks/useDeleteGatePass';
+import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,7 +28,10 @@ const statusColors: Record<GatePassStatus, string> = {
 
 export default function GatePassDashboard() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const isAdmin = roles.includes('admin');
   const { data: passes, isLoading } = useGatePasses();
+  const deleteGatePass = useDeleteGatePass();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -92,9 +98,22 @@ export default function GatePassDashboard() {
                 </TableCell>
                 <TableCell>{format(new Date(p.created_at), 'dd MMM yyyy')}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); navigate(`/gate-passes/${p.id}`); }}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); navigate(`/gate-passes/${p.id}`); }}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    {isAdmin && (
+                      <div onClick={e => e.stopPropagation()}>
+                        <AdminDeleteDialog
+                          title="Delete Gate Pass"
+                          description={`Are you sure you want to delete gate pass ${p.pass_no}? This action cannot be undone.`}
+                          onConfirm={() => deleteGatePass.mutate(p.id)}
+                          isPending={deleteGatePass.isPending}
+                          variant="icon"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

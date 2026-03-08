@@ -10,9 +10,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
+import { useDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
+import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { PermitStatus, statusLabels } from '@/types/workPermit';
 import { Search, Filter, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -22,12 +25,15 @@ interface PermitsListProps {
 
 export default function PermitsList({ currentRole }: PermitsListProps) {
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const isAdmin = roles.includes('admin');
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PermitStatus | 'all' | 'pending'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const { data: permits, isLoading, error } = useWorkPermits();
+  const deletePermit = useDeleteWorkPermit();
 
   // Initialize filter from URL params
   useEffect(() => {
@@ -192,27 +198,39 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
           )}
         >
         {filteredPermits.map((permit) => (
-            <PermitCard
-              key={permit.id}
-              permit={{
-                id: permit.id,
-                permitNo: permit.permit_no,
-                status: permit.status as PermitStatus,
-                contractorName: permit.contractor_name,
-                workDescription: permit.work_description,
-                workTypeName: permit.work_types?.name || 'General',
-                workDateFrom: permit.work_date_from,
-                workDateTo: permit.work_date_to,
-                createdAt: permit.created_at,
-                unit: permit.unit,
-                floor: permit.floor,
-                workLocation: permit.work_location,
-                workTimeFrom: permit.work_time_from,
-                workTimeTo: permit.work_time_to,
-                attachments: permit.attachments || [],
-              }}
-              onClick={() => navigate(`/permits/${permit.id}`)}
-            />
+            <div key={permit.id} className="relative">
+              <PermitCard
+                permit={{
+                  id: permit.id,
+                  permitNo: permit.permit_no,
+                  status: permit.status as PermitStatus,
+                  contractorName: permit.contractor_name,
+                  workDescription: permit.work_description,
+                  workTypeName: permit.work_types?.name || 'General',
+                  workDateFrom: permit.work_date_from,
+                  workDateTo: permit.work_date_to,
+                  createdAt: permit.created_at,
+                  unit: permit.unit,
+                  floor: permit.floor,
+                  workLocation: permit.work_location,
+                  workTimeFrom: permit.work_time_from,
+                  workTimeTo: permit.work_time_to,
+                  attachments: permit.attachments || [],
+                }}
+                onClick={() => navigate(`/permits/${permit.id}`)}
+              />
+              {isAdmin && (
+                <div className="absolute top-2 right-2 z-10" onClick={e => e.stopPropagation()}>
+                  <AdminDeleteDialog
+                    title="Delete Work Permit"
+                    description={`Are you sure you want to delete permit ${permit.permit_no}? This action cannot be undone.`}
+                    onConfirm={() => deletePermit.mutate(permit.id)}
+                    isPending={deletePermit.isPending}
+                    variant="icon"
+                  />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useDeleteGatePass } from '@/hooks/useDeleteGatePass';
+import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
@@ -40,6 +42,8 @@ export default function GatePassDetail() {
   const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
   const approveGatePass = useApproveGatePass();
   const completeGatePass = useCompleteGatePass();
+  const deleteGatePass = useDeleteGatePass();
+  const isAdmin = roles.includes('admin');
 
   const [comments, setComments] = useState('');
   const [cctvConfirmed, setCctvConfirmed] = useState(false);
@@ -191,6 +195,18 @@ export default function GatePassDetail() {
           <div className="flex items-center gap-2">
             <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
             <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+            {isAdmin && (
+              <AdminDeleteDialog
+                title="Delete Gate Pass"
+                description={`Are you sure you want to delete gate pass ${gp.pass_no}? This will permanently remove the gate pass and all associated items. This action cannot be undone.`}
+                onConfirm={() => {
+                  deleteGatePass.mutate(gp.id, {
+                    onSuccess: () => navigate('/gate-passes'),
+                  });
+                }}
+                isPending={deleteGatePass.isPending}
+              />
+            )}
             {(gp.status === 'approved' || gp.status === 'completed') && (
               <>
                 <Button variant="outline" onClick={handleOpenEmailDialog}>
