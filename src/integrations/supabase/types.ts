@@ -194,6 +194,11 @@ export type Database = {
           security_comments: string | null
           security_date: string | null
           security_name: string | null
+          security_pmd_comments: string | null
+          security_pmd_date: string | null
+          security_pmd_material_action: string | null
+          security_pmd_name: string | null
+          security_pmd_signature: string | null
           security_signature: string | null
           shifting_method: string | null
           status: string
@@ -242,6 +247,11 @@ export type Database = {
           security_comments?: string | null
           security_date?: string | null
           security_name?: string | null
+          security_pmd_comments?: string | null
+          security_pmd_date?: string | null
+          security_pmd_material_action?: string | null
+          security_pmd_name?: string | null
+          security_pmd_signature?: string | null
           security_signature?: string | null
           shifting_method?: string | null
           status?: string
@@ -290,6 +300,11 @@ export type Database = {
           security_comments?: string | null
           security_date?: string | null
           security_name?: string | null
+          security_pmd_comments?: string | null
+          security_pmd_date?: string | null
+          security_pmd_material_action?: string | null
+          security_pmd_name?: string | null
+          security_pmd_signature?: string | null
           security_signature?: string | null
           shifting_method?: string | null
           status?: string

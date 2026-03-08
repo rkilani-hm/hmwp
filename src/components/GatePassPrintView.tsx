@@ -257,6 +257,51 @@ const GatePassPrintView = forwardRef<HTMLDivElement, Props>(({ gatePass: gp }, r
           </div>
         </div>
       )}
+
+      {/* ===== SECURITY PMD VERIFICATION (Gate) ===== */}
+      {(gp.security_pmd_name || gp.security_pmd_date) && (
+        <div className="border border-black border-t-0 mt-0">
+          <div className="bg-gray-100 text-center font-bold text-xs py-1 border-b border-black">Security Verification at Gate</div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr>
+                <td className={cellClass} style={{ width: '50%' }}>
+                  <span className={labelClass}>Security Officer:</span> <span className={valueClass}>{gp.security_pmd_name || ''}</span>
+                </td>
+                <td className={cellClass}>
+                  <span className={labelClass}>Date & Time:</span> <span className={valueClass}>{gp.security_pmd_date ? format(new Date(gp.security_pmd_date), 'dd/MM/yyyy HH:mm') : ''}</span>
+                </td>
+              </tr>
+              <tr>
+                <td className={cellClass}>
+                  <span className={labelClass}>Materials:</span>{' '}
+                  <span className={`${valueClass} font-bold uppercase`}>
+                    {gp.security_pmd_material_action === 'received' ? '✓ RECEIVED' : gp.security_pmd_material_action === 'released' ? '✓ RELEASED' : ''}
+                  </span>
+                  <span className="text-[9px] ml-2">
+                    ({isMaterialIn ? 'Material Entry' : isMaterialOut ? 'Material Exit' : 'Internal Shifting'})
+                  </span>
+                </td>
+                <td className={cellClass}>
+                  <div className="flex items-center justify-between">
+                    <span className={labelClass}>Sign:</span>
+                    {gp.security_pmd_signature && gp.security_pmd_signature.startsWith('data:image') && (
+                      <img src={gp.security_pmd_signature} alt="Security PMD Signature" className="inline-block h-8 ml-1" />
+                    )}
+                  </div>
+                </td>
+              </tr>
+              {gp.security_pmd_comments && (
+                <tr>
+                  <td className={cellClass} colSpan={2}>
+                    <span className={labelClass}>Remarks:</span> <span className={valueClass}>{gp.security_pmd_comments}</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 });

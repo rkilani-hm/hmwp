@@ -13,6 +13,7 @@ export type GatePassStatus =
   | 'pending_store_manager'
   | 'pending_finance'
   | 'pending_security'
+  | 'pending_security_pmd'
   | 'approved'
   | 'rejected'
   | 'completed';
@@ -69,6 +70,11 @@ export interface GatePass {
   security_comments: string | null;
   security_signature: string | null;
   security_cctv_confirmed: boolean;
+  security_pmd_name: string | null;
+  security_pmd_date: string | null;
+  security_pmd_comments: string | null;
+  security_pmd_signature: string | null;
+  security_pmd_material_action: string | null;
   completed_at: string | null;
   completed_by: string | null;
   delivery_type: DeliveryType | null;
@@ -98,6 +104,7 @@ export const gatePassStatusLabels: Record<GatePassStatus, string> = {
   pending_store_manager: 'Pending Store Manager',
   pending_finance: 'Pending Finance',
   pending_security: 'Pending Security',
+  pending_security_pmd: 'Pending Security PMD',
   approved: 'Approved',
   rejected: 'Rejected',
   completed: 'Completed',
