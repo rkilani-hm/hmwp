@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +11,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Archive, RotateCcw, Loader2 } from 'lucide-react';
 
 interface AdminDeleteDialogProps {
   title?: string;
@@ -19,6 +20,9 @@ interface AdminDeleteDialogProps {
   isPending?: boolean;
   variant?: 'button' | 'icon';
   size?: 'sm' | 'default';
+  actionLabel?: string;
+  actionIcon?: 'delete' | 'archive' | 'restore';
+  destructive?: boolean;
 }
 
 export function AdminDeleteDialog({
@@ -28,28 +32,44 @@ export function AdminDeleteDialog({
   isPending = false,
   variant = 'button',
   size = 'sm',
+  actionLabel = 'Delete Permanently',
+  actionIcon = 'delete',
+  destructive = true,
 }: AdminDeleteDialogProps) {
+  const [open, setOpen] = useState(false);
+
+  const IconComponent = actionIcon === 'archive' ? Archive : actionIcon === 'restore' ? RotateCcw : Trash2;
+
+  const handleConfirm = () => {
+    onConfirm();
+    setOpen(false);
+  };
+
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         {variant === 'icon' ? (
           <Button
             size="sm"
             variant="ghost"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            className={destructive 
+              ? "text-destructive hover:text-destructive hover:bg-destructive/10" 
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"}
             disabled={isPending}
           >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <IconComponent className="h-4 w-4" />}
           </Button>
         ) : (
           <Button
             size={size}
             variant="outline"
-            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            className={destructive
+              ? "border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              : ""}
             disabled={isPending}
           >
-            {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-            Delete
+            {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <IconComponent className="w-4 h-4 mr-2" />}
+            {actionLabel}
           </Button>
         )}
       </AlertDialogTrigger>
@@ -61,10 +81,12 @@ export function AdminDeleteDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={handleConfirm}
+            className={destructive 
+              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              : ""}
           >
-            Delete Permanently
+            {actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
