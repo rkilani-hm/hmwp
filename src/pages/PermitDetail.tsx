@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
-import { useDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
+import { useArchiveWorkPermit, useRestoreWorkPermit, useHardDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { useResendNotification } from '@/hooks/useResendNotification';
@@ -76,7 +76,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const secureApprove = useSecureApprovePermit();
   const { generatePdf, isGenerating } = useGeneratePdf();
   const resendNotification = useResendNotification();
-  const deletePermit = useDeleteWorkPermit();
+  const archivePermit = useArchiveWorkPermit();
+  const restorePermit = useRestoreWorkPermit();
+  const hardDeletePermit = useHardDeleteWorkPermit();
+  const isPermitArchived = (permit as any)?.is_archived;
 
   const isAdmin = roles.includes('admin');
   const isPendingStatus = (status: string) => 
@@ -388,17 +391,53 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <span className="sm:hidden">PDF</span>
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && !isPermitArchived && (
             <AdminDeleteDialog
-              title="Delete Work Permit"
-              description={`Are you sure you want to delete permit ${permit.permit_no}? This will permanently remove the permit and all associated data. This action cannot be undone.`}
+              title="Archive Work Permit"
+              description={`Archive permit ${permit.permit_no}? It can be restored later from the Archived tab.`}
               onConfirm={() => {
-                deletePermit.mutate(permit.id, {
-                  onSuccess: () => navigate('/permits'),
-                });
+                archivePermit.mutate({
+                  id: permit.id,
+                  permit_no: permit.permit_no,
+                  requester_name: permit.requester_name,
+                }, { onSuccess: () => navigate('/permits') });
               }}
-              isPending={deletePermit.isPending}
+              isPending={archivePermit.isPending}
+              actionLabel="Archive"
+              actionIcon="archive"
+              destructive={false}
             />
+          )}
+          {isAdmin && isPermitArchived && (
+            <>
+              <AdminDeleteDialog
+                title="Restore Work Permit"
+                description={`Restore permit ${permit.permit_no} back to active?`}
+                onConfirm={() => {
+                  restorePermit.mutate({
+                    id: permit.id,
+                    permit_no: permit.permit_no,
+                    requester_name: permit.requester_name,
+                  }, { onSuccess: () => navigate('/permits') });
+                }}
+                isPending={restorePermit.isPending}
+                actionLabel="Restore"
+                actionIcon="restore"
+                destructive={false}
+              />
+              <AdminDeleteDialog
+                title="Permanently Delete"
+                description={`Permanently delete permit ${permit.permit_no}? This action cannot be undone.`}
+                onConfirm={() => {
+                  hardDeletePermit.mutate({
+                    id: permit.id,
+                    permit_no: permit.permit_no,
+                    requester_name: permit.requester_name,
+                  }, { onSuccess: () => navigate('/permits') });
+                }}
+                isPending={hardDeletePermit.isPending}
+              />
+            </>
           )}
         </div>
       </div>
