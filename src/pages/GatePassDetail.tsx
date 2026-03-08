@@ -30,6 +30,7 @@ const statusColors: Record<GatePassStatus, string> = {
   pending_store_manager: 'bg-warning/10 text-warning',
   pending_finance: 'bg-info/10 text-info',
   pending_security: 'bg-accent/10 text-accent',
+  pending_security_pmd: 'bg-accent/10 text-accent',
   approved: 'bg-success/10 text-success',
   rejected: 'bg-destructive/10 text-destructive',
   completed: 'bg-primary/10 text-primary',
