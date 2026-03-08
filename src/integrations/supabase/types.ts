@@ -90,6 +90,38 @@ export type Database = {
           },
         ]
       }
+      gate_pass_type_workflows: {
+        Row: {
+          created_at: string | null
+          id: string
+          pass_type: string
+          updated_at: string | null
+          workflow_template_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          pass_type: string
+          updated_at?: string | null
+          workflow_template_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          pass_type?: string
+          updated_at?: string | null
+          workflow_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_pass_type_workflows_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gate_passes: {
         Row: {
           client_contractor_name: string | null
