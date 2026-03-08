@@ -155,12 +155,19 @@ export default function GatePassDetail() {
     }
   };
 
+  // Build dynamic status timeline
   const statusTimeline = [
     { label: 'Submitted', done: true, date: gp.created_at },
-    { label: 'Store Manager', done: !!gp.store_manager_date, date: gp.store_manager_date },
-    ...(gp.has_high_value_asset ? [{ label: 'Finance', done: !!gp.finance_date, date: gp.finance_date }] : []),
-    { label: 'Security', done: !!gp.security_date, date: gp.security_date },
-    { label: gp.status === 'completed' ? 'Completed' : 'Approved', done: gp.status === 'approved' || gp.status === 'completed', date: gp.completed_at || gp.security_date },
+    ...approvalRoles.map(role => {
+      const dateKey = `${role}_date` as keyof typeof gp;
+      const roleLabel = role.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+      return {
+        label: roleLabel,
+        done: !!gp[dateKey],
+        date: gp[dateKey] as string | null,
+      };
+    }),
+    { label: gp.status === 'completed' ? 'Completed' : 'Approved', done: gp.status === 'approved' || gp.status === 'completed', date: gp.completed_at },
   ];
 
   return (
