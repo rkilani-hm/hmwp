@@ -4,7 +4,7 @@ import { useGatePasses, useApproveGatePass, useCompleteGatePass } from '@/hooks/
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassTypeLabels } from '@/types/gatePass';
 import type { GatePass, GatePassStatus } from '@/types/gatePass';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Eye } from 'lucide-react';
@@ -30,17 +30,19 @@ export default function GatePassApprovals() {
   const pendingPasses = useMemo(() => {
     if (!passes) return [];
     return passes.filter(p => {
-      if (roles.includes('store_manager') && p.status === 'pending_store_manager') return true;
-      if (roles.includes('finance') && p.status === 'pending_finance') return true;
-      if (roles.includes('security') && (p.status === 'pending_security' || p.status === 'approved')) return true;
+      // Check if any of the user's roles match the pending status
+      for (const role of roles) {
+        if (p.status === `pending_${role}`) return true;
+      }
+      if (roles.includes('security') && p.status === 'approved') return true;
       return false;
     });
   }, [passes, roles]);
 
-  const getApprovalRole = (gp: GatePass): 'store_manager' | 'finance' | 'security' | null => {
-    if (roles.includes('store_manager') && gp.status === 'pending_store_manager') return 'store_manager';
-    if (roles.includes('finance') && gp.status === 'pending_finance') return 'finance';
-    if (roles.includes('security') && gp.status === 'pending_security') return 'security';
+  const getApprovalRole = (gp: GatePass): string | null => {
+    for (const role of roles) {
+      if (gp.status === `pending_${role}`) return role;
+    }
     return null;
   };
 
@@ -72,7 +74,9 @@ export default function GatePassApprovals() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{gp.pass_no}</span>
-                        <Badge className={statusColors[gp.status]}>{gatePassStatusLabels[gp.status]}</Badge>
+                        <Badge className={statusColors[gp.status] || 'bg-muted text-muted-foreground'}>
+                          {gatePassStatusLabels[gp.status] || gp.status}
+                        </Badge>
                         {gp.has_high_value_asset && <Badge variant="destructive">High Value</Badge>}
                       </div>
                       <p className="text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
+import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import type { GatePassItem, GatePassCategory, GatePassType, ShiftingMethod, DeliveryType } from '@/types/gatePass';
 import { gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, Plus, Trash2, ChevronLeft, ChevronRight, GitBranch, CheckCircle, Loader2 } from 'lucide-react';
 
 const STEPS_DETAILED = ['Category & Type', 'Entity & Location', 'Schedule & Logistics', 'Item Details', 'Purpose & Review'];
 const STEPS_GENERIC = ['Category & Type', 'Delivery Details', 'Material Details', 'Review'];
@@ -42,6 +44,9 @@ export default function GatePassFormWizard() {
   const [items, setItems] = useState<GatePassItem[]>([
     { serial_number: 1, item_details: '', quantity: '1', remarks: '', is_high_value: false },
   ]);
+
+  // Fetch workflow for selected pass type
+  const { data: effectiveWorkflow, isLoading: loadingWorkflow } = useGatePassEffectiveWorkflow(passType || undefined);
 
   const isGeneric = category === 'generic_delivery_permit';
   const steps = isGeneric ? STEPS_GENERIC : STEPS_DETAILED;
@@ -85,6 +90,73 @@ export default function GatePassFormWizard() {
     } catch {}
   };
 
+  const renderWorkflowPreview = () => {
+    if (!passType) return null;
+
+    if (loadingWorkflow) {
+      return (
+        <Card className="border-dashed">
+          <CardContent className="py-4 flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading workflow...</span>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!effectiveWorkflow) {
+      return (
+        <Card className="border-dashed">
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-muted-foreground" />
+              Approval Path
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <p className="text-sm text-muted-foreground mb-2">Default flow (no custom workflow assigned):</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs">1. Store Manager</Badge>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Badge variant="outline" className="text-xs text-warning">2. Finance (if high-value)</Badge>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Badge variant="outline" className="text-xs">3. Security</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-primary" />
+            Approval Path: {effectiveWorkflow.template.name}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {effectiveWorkflow.steps.map((step, i) => (
+              <div key={step.id} className="flex items-center gap-2">
+                <Badge
+                  variant={step.is_required_default ? 'default' : 'outline'}
+                  className="text-xs"
+                >
+                  {i + 1}. {step.role?.label || step.step_name || 'Unknown'}
+                  {!step.is_required_default && ' (optional)'}
+                </Badge>
+                {i < effectiveWorkflow.steps.length - 1 && (
+                  <span className="text-muted-foreground text-xs">→</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderCategoryStep = () => (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -108,6 +180,7 @@ export default function GatePassFormWizard() {
           </SelectContent>
         </Select>
       </div>
+      {renderWorkflowPreview()}
     </div>
   );
 
@@ -225,6 +298,7 @@ export default function GatePassFormWizard() {
           {!isGeneric && <p><strong>Items:</strong> {items.filter(i => i.item_details).length} item(s), {items.some(i => i.is_high_value) ? '⚠️ Contains high-value assets' : 'No high-value assets'}</p>}
         </CardContent>
       </Card>
+      {renderWorkflowPreview()}
     </div>
   );
 
@@ -255,17 +329,20 @@ export default function GatePassFormWizard() {
   );
 
   const renderGenericReviewStep = () => (
-    <Card>
-      <CardHeader><CardTitle className="text-lg">Review</CardTitle></CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        <p><strong>Category:</strong> Generic Delivery Permit</p>
-        <p><strong>Type:</strong> {passType ? gatePassTypeLabels[passType] : '-'}</p>
-        <p><strong>Delivery Type:</strong> {deliveryType ? deliveryTypeLabels[deliveryType] : '-'}</p>
-        <p><strong>Vehicle:</strong> {vehicleMakeModel || '-'} ({vehicleLicensePlate || '-'})</p>
-        <p><strong>Validity:</strong> {validFrom || '-'} to {validTo || '-'}</p>
-        <p><strong>Items:</strong> {items.filter(i => i.item_details).length} item(s), {items.some(i => i.is_high_value) ? '⚠️ Contains high-value assets' : 'No high-value assets'}</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Review</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p><strong>Category:</strong> Generic Delivery Permit</p>
+          <p><strong>Type:</strong> {passType ? gatePassTypeLabels[passType] : '-'}</p>
+          <p><strong>Delivery Type:</strong> {deliveryType ? deliveryTypeLabels[deliveryType] : '-'}</p>
+          <p><strong>Vehicle:</strong> {vehicleMakeModel || '-'} ({vehicleLicensePlate || '-'})</p>
+          <p><strong>Validity:</strong> {validFrom || '-'} to {validTo || '-'}</p>
+          <p><strong>Items:</strong> {items.filter(i => i.item_details).length} item(s), {items.some(i => i.is_high_value) ? '⚠️ Contains high-value assets' : 'No high-value assets'}</p>
+        </CardContent>
+      </Card>
+      {renderWorkflowPreview()}
+    </div>
   );
 
   const renderCurrentStep = () => {

@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
@@ -36,6 +37,7 @@ export default function GatePassDetail() {
   const navigate = useNavigate();
   const { data: gp, isLoading } = useGatePass(id);
   const { roles } = useAuth();
+  const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
   const approveGatePass = useApproveGatePass();
   const completeGatePass = useCompleteGatePass();
 
@@ -52,18 +54,23 @@ export default function GatePassDetail() {
   if (isLoading) return <p className="text-muted-foreground p-8">Loading...</p>;
   if (!gp) return <p className="text-destructive p-8">Gate pass not found.</p>;
 
-  const canApproveAs = (role: 'store_manager' | 'finance' | 'security') => {
-    const statusMap = {
-      store_manager: 'pending_store_manager',
-      finance: 'pending_finance',
-      security: 'pending_security',
-    };
-    return roles.includes(role) && gp.status === statusMap[role];
+  const canApproveAs = (role: string) => {
+    return roles.includes(role) && gp.status === `pending_${role}`;
   };
+
+  // Build the list of approval roles from workflow or defaults
+  const getApprovalRoles = (): string[] => {
+    if (effectiveWorkflow?.steps) {
+      return effectiveWorkflow.steps.map(s => s.role && typeof s.role === 'object' && 'name' in s.role ? (s.role as any).name : '').filter(Boolean);
+    }
+    return ['store_manager', ...(gp.has_high_value_asset ? ['finance'] : []), 'security'];
+  };
+
+  const approvalRoles = getApprovalRoles();
 
   const canComplete = roles.includes('security') && gp.status === 'approved';
 
-  const handleApprove = (role: 'store_manager' | 'finance' | 'security', approved: boolean) => {
+  const handleApprove = (role: string, approved: boolean) => {
     approveGatePass.mutate({
       gatePassId: gp.id,
       role,
@@ -148,12 +155,19 @@ export default function GatePassDetail() {
     }
   };
 
+  // Build dynamic status timeline
   const statusTimeline = [
     { label: 'Submitted', done: true, date: gp.created_at },
-    { label: 'Store Manager', done: !!gp.store_manager_date, date: gp.store_manager_date },
-    ...(gp.has_high_value_asset ? [{ label: 'Finance', done: !!gp.finance_date, date: gp.finance_date }] : []),
-    { label: 'Security', done: !!gp.security_date, date: gp.security_date },
-    { label: gp.status === 'completed' ? 'Completed' : 'Approved', done: gp.status === 'approved' || gp.status === 'completed', date: gp.completed_at || gp.security_date },
+    ...approvalRoles.map(role => {
+      const dateKey = `${role}_date` as keyof typeof gp;
+      const roleLabel = role.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+      return {
+        label: roleLabel,
+        done: !!gp[dateKey],
+        date: gp[dateKey] as string | null,
+      };
+    }),
+    { label: gp.status === 'completed' ? 'Completed' : 'Approved', done: gp.status === 'approved' || gp.status === 'completed', date: gp.completed_at },
   ];
 
   return (
@@ -280,7 +294,7 @@ export default function GatePassDetail() {
         )}
 
         {/* Approval Actions */}
-        {(canApproveAs('store_manager') || canApproveAs('finance') || canApproveAs('security') || canComplete) && (
+        {(approvalRoles.some(r => canApproveAs(r)) || canComplete) && (
           <Card>
             <CardHeader><CardTitle className="text-lg">Actions</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -298,20 +312,20 @@ export default function GatePassDetail() {
 
               <Separator />
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 {canComplete && (
                   <Button onClick={() => completeGatePass.mutate(gp.id)} disabled={completeGatePass.isPending}>
                     <CheckCircle className="mr-2 h-4 w-4" /> Mark Completed
                   </Button>
                 )}
-                {['store_manager', 'finance', 'security'].map(role => {
-                  if (!canApproveAs(role as any)) return null;
+                {approvalRoles.map(role => {
+                  if (!canApproveAs(role)) return null;
                   return (
                     <div key={role} className="flex gap-2">
-                      <Button onClick={() => handleApprove(role as any, true)} disabled={approveGatePass.isPending}>
+                      <Button onClick={() => handleApprove(role, true)} disabled={approveGatePass.isPending}>
                         <CheckCircle className="mr-2 h-4 w-4" /> Approve
                       </Button>
-                      <Button variant="destructive" onClick={() => handleApprove(role as any, false)} disabled={approveGatePass.isPending}>
+                      <Button variant="destructive" onClick={() => handleApprove(role, false)} disabled={approveGatePass.isPending}>
                         <XCircle className="mr-2 h-4 w-4" /> Reject
                       </Button>
                     </div>

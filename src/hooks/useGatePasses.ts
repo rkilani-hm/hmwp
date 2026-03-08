@@ -90,6 +90,32 @@ export function useCreateGatePass() {
       const hasHighValue = input.items.some(i => i.is_high_value);
       const { items, ...passData } = input;
 
+      // Determine initial status from workflow mapping
+      let initialStatus = 'pending_store_manager';
+      try {
+        const { data: mapping } = await supabase
+          .from('gate_pass_type_workflows')
+          .select('workflow_template_id')
+          .eq('pass_type', input.pass_type)
+          .maybeSingle();
+
+        if (mapping?.workflow_template_id) {
+          const { data: firstStep } = await supabase
+            .from('workflow_steps')
+            .select('role:roles(name)')
+            .eq('workflow_template_id', mapping.workflow_template_id)
+            .order('step_order', { ascending: true })
+            .limit(1)
+            .single();
+
+          if (firstStep?.role && typeof firstStep.role === 'object' && 'name' in firstStep.role) {
+            initialStatus = `pending_${(firstStep.role as any).name}`;
+          }
+        }
+      } catch {
+        // Fallback to default
+      }
+
       const { data, error } = await supabase
         .from('gate_passes')
         .insert({
@@ -98,7 +124,7 @@ export function useCreateGatePass() {
           requester_id: user?.id,
           requester_name: profile?.full_name || user?.email || 'Unknown',
           requester_email: user?.email || '',
-          status: 'pending_store_manager',
+          status: initialStatus,
           has_high_value_asset: hasHighValue,
         } as any)
         .select()
@@ -147,7 +173,7 @@ export function useApproveGatePass() {
       cctvConfirmed,
     }: {
       gatePassId: string;
-      role: 'store_manager' | 'finance' | 'security';
+      role: string;
       approved: boolean;
       comments?: string;
       signature?: string;
@@ -168,38 +194,74 @@ export function useApproveGatePass() {
 
       if (!approved) {
         updateData = { status: 'rejected' };
-      } else if (role === 'store_manager') {
-        updateData = {
-          store_manager_name: approverName,
-          store_manager_date: now,
-          store_manager_comments: comments || null,
-          store_manager_signature: signature || null,
-          status: gp.has_high_value_asset ? 'pending_finance' : 'pending_security',
-        };
-      } else if (role === 'finance') {
-        updateData = {
-          finance_name: approverName,
-          finance_date: now,
-          finance_comments: comments || null,
-          finance_signature: signature || null,
-          status: 'pending_security',
-        };
-      } else if (role === 'security') {
-        updateData = {
-          security_name: approverName,
-          security_date: now,
-          security_comments: comments || null,
-          security_signature: signature || null,
-          security_cctv_confirmed: cctvConfirmed || false,
-          status: 'approved',
-        };
-      }
-
-      // Add rejection comments
-      if (!approved) {
         updateData[`${role}_name`] = approverName;
         updateData[`${role}_date`] = now;
         updateData[`${role}_comments`] = comments || null;
+      } else {
+        // Set approval fields for the current role (if columns exist)
+        const roleColumns = ['store_manager', 'finance', 'security'];
+        if (roleColumns.includes(role)) {
+          updateData[`${role}_name`] = approverName;
+          updateData[`${role}_date`] = now;
+          updateData[`${role}_comments`] = comments || null;
+          updateData[`${role}_signature`] = signature || null;
+          if (role === 'security') {
+            updateData.security_cctv_confirmed = cctvConfirmed || false;
+          }
+        }
+
+        // Determine next status from workflow mapping
+        let nextStatus: string | null = null;
+        try {
+          const { data: mapping } = await supabase
+            .from('gate_pass_type_workflows')
+            .select('workflow_template_id')
+            .eq('pass_type', gp.pass_type)
+            .maybeSingle();
+
+          if (mapping?.workflow_template_id) {
+            const { data: steps } = await supabase
+              .from('workflow_steps')
+              .select('step_order, role:roles(name)')
+              .eq('workflow_template_id', mapping.workflow_template_id)
+              .order('step_order');
+
+            if (steps && steps.length > 0) {
+              // Find the current step index
+              const currentIdx = steps.findIndex(s =>
+                s.role && typeof s.role === 'object' && 'name' in s.role && (s.role as any).name === role
+              );
+
+              if (currentIdx >= 0 && currentIdx < steps.length - 1) {
+                // Move to next step
+                const nextStep = steps[currentIdx + 1];
+                if (nextStep.role && typeof nextStep.role === 'object' && 'name' in nextStep.role) {
+                  nextStatus = `pending_${(nextStep.role as any).name}`;
+                }
+              } else if (currentIdx === steps.length - 1) {
+                // Last step - mark approved
+                nextStatus = 'approved';
+              }
+            }
+          }
+        } catch {
+          // Fall through to default logic
+        }
+
+        // Default logic if no workflow mapping resolved
+        if (!nextStatus) {
+          if (role === 'store_manager') {
+            nextStatus = gp.has_high_value_asset ? 'pending_finance' : 'pending_security';
+          } else if (role === 'finance') {
+            nextStatus = 'pending_security';
+          } else if (role === 'security') {
+            nextStatus = 'approved';
+          } else {
+            nextStatus = 'approved';
+          }
+        }
+
+        updateData.status = nextStatus;
       }
 
       const { error } = await supabase
