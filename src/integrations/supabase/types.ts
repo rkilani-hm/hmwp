@@ -171,6 +171,10 @@ export type Database = {
           client_rep_name: string | null
           completed_at: string | null
           completed_by: string | null
+          cr_coordinator_comments: string | null
+          cr_coordinator_date: string | null
+          cr_coordinator_name: string | null
+          cr_coordinator_signature: string | null
           created_at: string
           date_of_request: string
           delivery_area: string | null
@@ -180,6 +184,15 @@ export type Database = {
           finance_name: string | null
           finance_signature: string | null
           has_high_value_asset: boolean
+          head_cr_comments: string | null
+          head_cr_date: string | null
+          head_cr_name: string | null
+          head_cr_signature: string | null
+          hm_security_pmd_comments: string | null
+          hm_security_pmd_date: string | null
+          hm_security_pmd_material_action: string | null
+          hm_security_pmd_name: string | null
+          hm_security_pmd_signature: string | null
           id: string
           is_archived: boolean
           pass_category: string
@@ -224,6 +237,10 @@ export type Database = {
           client_rep_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          cr_coordinator_comments?: string | null
+          cr_coordinator_date?: string | null
+          cr_coordinator_name?: string | null
+          cr_coordinator_signature?: string | null
           created_at?: string
           date_of_request?: string
           delivery_area?: string | null
@@ -233,6 +250,15 @@ export type Database = {
           finance_name?: string | null
           finance_signature?: string | null
           has_high_value_asset?: boolean
+          head_cr_comments?: string | null
+          head_cr_date?: string | null
+          head_cr_name?: string | null
+          head_cr_signature?: string | null
+          hm_security_pmd_comments?: string | null
+          hm_security_pmd_date?: string | null
+          hm_security_pmd_material_action?: string | null
+          hm_security_pmd_name?: string | null
+          hm_security_pmd_signature?: string | null
           id?: string
           is_archived?: boolean
           pass_category: string
@@ -277,6 +303,10 @@ export type Database = {
           client_rep_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          cr_coordinator_comments?: string | null
+          cr_coordinator_date?: string | null
+          cr_coordinator_name?: string | null
+          cr_coordinator_signature?: string | null
           created_at?: string
           date_of_request?: string
           delivery_area?: string | null
@@ -286,6 +316,15 @@ export type Database = {
           finance_name?: string | null
           finance_signature?: string | null
           has_high_value_asset?: boolean
+          head_cr_comments?: string | null
+          head_cr_date?: string | null
+          head_cr_name?: string | null
+          head_cr_signature?: string | null
+          hm_security_pmd_comments?: string | null
+          hm_security_pmd_date?: string | null
+          hm_security_pmd_material_action?: string | null
+          hm_security_pmd_name?: string | null
+          hm_security_pmd_signature?: string | null
           id?: string
           is_archived?: boolean
           pass_category?: string
