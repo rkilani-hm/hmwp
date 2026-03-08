@@ -294,7 +294,7 @@ export default function GatePassDetail() {
         )}
 
         {/* Approval Actions */}
-        {(canApproveAs('store_manager') || canApproveAs('finance') || canApproveAs('security') || canComplete) && (
+        {(approvalRoles.some(r => canApproveAs(r)) || canComplete) && (
           <Card>
             <CardHeader><CardTitle className="text-lg">Actions</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -312,20 +312,20 @@ export default function GatePassDetail() {
 
               <Separator />
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 {canComplete && (
                   <Button onClick={() => completeGatePass.mutate(gp.id)} disabled={completeGatePass.isPending}>
                     <CheckCircle className="mr-2 h-4 w-4" /> Mark Completed
                   </Button>
                 )}
-                {['store_manager', 'finance', 'security'].map(role => {
-                  if (!canApproveAs(role as any)) return null;
+                {approvalRoles.map(role => {
+                  if (!canApproveAs(role)) return null;
                   return (
                     <div key={role} className="flex gap-2">
-                      <Button onClick={() => handleApprove(role as any, true)} disabled={approveGatePass.isPending}>
+                      <Button onClick={() => handleApprove(role, true)} disabled={approveGatePass.isPending}>
                         <CheckCircle className="mr-2 h-4 w-4" /> Approve
                       </Button>
-                      <Button variant="destructive" onClick={() => handleApprove(role as any, false)} disabled={approveGatePass.isPending}>
+                      <Button variant="destructive" onClick={() => handleApprove(role, false)} disabled={approveGatePass.isPending}>
                         <XCircle className="mr-2 h-4 w-4" /> Reject
                       </Button>
                     </div>
