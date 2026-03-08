@@ -199,7 +199,7 @@ export function useApproveGatePass() {
         updateData[`${role}_comments`] = comments || null;
       } else {
         // Set approval fields for the current role (if columns exist)
-        const roleColumns = ['store_manager', 'finance', 'security', 'security_pmd'];
+        const roleColumns = ['store_manager', 'finance', 'security', 'security_pmd', 'cr_coordinator', 'head_cr', 'hm_security_pmd'];
         if (roleColumns.includes(role)) {
           updateData[`${role}_name`] = approverName;
           updateData[`${role}_date`] = now;
@@ -208,10 +208,10 @@ export function useApproveGatePass() {
           if (role === 'security') {
             updateData.security_cctv_confirmed = cctvConfirmed || false;
           }
-          if (role === 'security_pmd') {
+          if (role === 'security_pmd' || role === 'hm_security_pmd') {
             // Determine material action based on pass type
             const materialAction = gp.pass_type === 'material_in' ? 'received' : 'released';
-            updateData.security_pmd_material_action = materialAction;
+            updateData[`${role}_material_action`] = materialAction;
           }
         }
 
