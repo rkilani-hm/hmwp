@@ -284,36 +284,39 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       className="space-y-6"
     >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-display font-bold">
-              {permit.permit_no}
-              {(permit as any).rework_version > 0 && (
-                <span className="text-lg font-normal text-muted-foreground ml-2">
-                  V{(permit as any).rework_version}
-                </span>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" className="flex-shrink-0 mt-1" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-bold truncate">
+                {permit.permit_no}
+                {(permit as any).rework_version > 0 && (
+                  <span className="text-base font-normal text-muted-foreground ml-2">
+                    V{(permit as any).rework_version}
+                  </span>
+                )}
+              </h1>
+              <StatusBadge status={permit.status as PermitStatus} />
+              {/* Workflow Modified Badge */}
+              {(permit as any).workflow_customized && (
+                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
+                  <Settings2 className="h-3 w-3 mr-1" />
+                  Modified
+                </Badge>
               )}
-            </h1>
-            <StatusBadge status={permit.status as PermitStatus} />
-            {/* Workflow Modified Badge */}
-            {(permit as any).workflow_customized && (
-              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
-                <Settings2 className="h-3 w-3 mr-1" />
-                Workflow Modified
-              </Badge>
-            )}
+            </div>
+            <p className="text-muted-foreground mt-1 text-sm">{permit.work_types?.name || 'General Work'}</p>
           </div>
-          <p className="text-muted-foreground mt-1">{permit.work_types?.name || 'General Work'}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Edit button for rework_needed permits - only for creators */}
           {permit.requester_id === user?.id && permit.status === 'rework_needed' && (
             <Button 
               variant="default"
+              size="sm"
               onClick={() => navigate(`/permits/${permit.id}/edit`)}
             >
               <Edit className="w-4 h-4 mr-2" />
@@ -325,17 +328,19 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
            !['cancelled', 'rejected', 'closed', 'approved', 'rework_needed'].includes(permit.status) && (
             <Button 
               variant="outline" 
+              size="sm"
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
               onClick={() => setCancelDialogOpen(true)}
             >
               <Ban className="w-4 h-4 mr-2" />
-              Cancel Permit
+              Cancel
             </Button>
           )}
           {/* Admin: Resend Notification button for pending permits */}
           {isAdmin && isPendingStatus(permit.status) && (
             <Button 
               variant="outline"
+              size="sm"
               onClick={() => resendNotification.mutate(permit.id)}
               disabled={resendNotification.isPending}
             >
@@ -344,12 +349,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               ) : (
                 <Bell className="w-4 h-4 mr-2" />
               )}
-              Resend Notification
+              <span className="hidden sm:inline">Resend</span>
+              <span className="sm:hidden">Notify</span>
             </Button>
           )}
           {!permit.pdf_url && (
             <Button 
               variant="default" 
+              size="sm"
               onClick={handleGeneratePdf}
               disabled={isGenerating}
             >
@@ -358,12 +365,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               ) : (
                 <FileText className="w-4 h-4 mr-2" />
               )}
-              Generate PDF
+              <span className="hidden sm:inline">Generate PDF</span>
+              <span className="sm:hidden">PDF</span>
             </Button>
           )}
           {permit.pdf_url && (
             <Button 
               variant="outline" 
+              size="sm"
               onClick={handlePreviewPdf}
               disabled={isGenerating}
             >
@@ -372,7 +381,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               ) : (
                 <Eye className="w-4 h-4 mr-2" />
               )}
-              View PDF
+              <span className="hidden sm:inline">View PDF</span>
+              <span className="sm:hidden">PDF</span>
             </Button>
           )}
         </div>
@@ -614,49 +624,58 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setModifyWorkflowOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <Settings2 className="w-4 h-4 mr-2" />
-                    Modify Workflow
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setForwardDialogOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <Forward className="w-4 h-4 mr-2" />
-                    Forward
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setReworkDialogOpen(true)}
-                    disabled={secureApprove.isPending}
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Rework
-                  </Button>
-                  <div className="flex-1" />
-                  <Button
-                    variant="outline"
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={handleReject}
-                    disabled={secureApprove.isPending}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button
-                    className="bg-success text-success-foreground hover:bg-success/90"
-                    onClick={handleApprove}
-                    disabled={secureApprove.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve
-                  </Button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModifyWorkflowOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <Settings2 className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Modify Workflow</span>
+                      <span className="sm:hidden">Modify</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setForwardDialogOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <Forward className="w-4 h-4 mr-1" />
+                      Forward
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReworkDialogOpen(true)}
+                      disabled={secureApprove.isPending}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" />
+                      Rework
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 sm:ml-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={handleReject}
+                      disabled={secureApprove.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                      onClick={handleApprove}
+                      disabled={secureApprove.isPending}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Approve
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
