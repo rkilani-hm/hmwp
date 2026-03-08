@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
