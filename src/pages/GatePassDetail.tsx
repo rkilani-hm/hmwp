@@ -3,6 +3,7 @@ import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/us
 import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@/hooks/useDeleteGatePass';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
+import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
@@ -58,6 +59,11 @@ export default function GatePassDetail() {
   const [emailName, setEmailName] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  // Secure approval dialog state
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
+  const [approvalRole, setApprovalRole] = useState<string>('');
+
   if (isLoading) return <p className="text-muted-foreground p-8">Loading...</p>;
   if (!gp) return <p className="text-destructive p-8">Gate pass not found.</p>;
 
@@ -77,14 +83,33 @@ export default function GatePassDetail() {
 
   const canComplete = roles.includes('security') && gp.status === 'approved';
 
-  const handleApprove = (role: string, approved: boolean) => {
-    approveGatePass.mutate({
+  const handleOpenApprovalDialog = (role: string, action: 'approve' | 'reject') => {
+    setApprovalRole(role);
+    setApprovalAction(action);
+    setApprovalDialogOpen(true);
+  };
+
+  const handleSecureApproval = async (password: string, signature: string) => {
+    // Verify password by re-authenticating
+    if (password !== '__BIOMETRIC_VERIFIED__') {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: supabase.auth.getUser ? (await supabase.auth.getUser()).data.user?.email || '' : '',
+        password,
+      });
+      if (authError) throw new Error('Invalid password. Please try again.');
+    }
+
+    await approveGatePass.mutateAsync({
       gatePassId: gp.id,
-      role,
-      approved,
+      role: approvalRole,
+      approved: approvalAction === 'approve',
       comments,
-      cctvConfirmed: role === 'security' ? cctvConfirmed : undefined,
+      signature: approvalAction === 'approve' ? signature : undefined,
+      cctvConfirmed: approvalRole === 'security' ? cctvConfirmed : undefined,
     });
+
+    setApprovalDialogOpen(false);
+    setComments('');
   };
 
   const handlePrint = () => {
@@ -103,7 +128,6 @@ export default function GatePassDetail() {
   };
 
   const handleOpenEmailDialog = () => {
-    // Pre-fill with client rep email if available
     setEmailTo(gp.client_rep_email || gp.requester_email || '');
     setEmailName(gp.client_rep_name || gp.requester_name || '');
     setShowEmailDialog(true);
@@ -116,7 +140,6 @@ export default function GatePassDetail() {
     }
     setIsSendingEmail(true);
     try {
-      // First ensure PDF exists - generate if needed
       if (!gp.pdf_url) {
         toast.info('Generating PDF first...');
         const url = await generatePdf(gp.id);
@@ -342,6 +365,44 @@ export default function GatePassDetail() {
           </Card>
         )}
 
+        {/* Approval Signatures Display */}
+        {approvalRoles.some(role => {
+          const sigKey = `${role}_signature` as keyof typeof gp;
+          return gp[sigKey];
+        }) && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Approval Signatures</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {approvalRoles.map(role => {
+                  const nameKey = `${role}_name` as keyof typeof gp;
+                  const dateKey = `${role}_date` as keyof typeof gp;
+                  const sigKey = `${role}_signature` as keyof typeof gp;
+                  const commentsKey = `${role}_comments` as keyof typeof gp;
+                  const sig = gp[sigKey] as string | null;
+                  if (!sig) return null;
+                  const roleLabel = role.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+                  return (
+                    <div key={role} className="border rounded-lg p-3 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">{roleLabel}</p>
+                      <p className="text-sm font-medium">{(gp[nameKey] as string) || ''}</p>
+                      {sig.startsWith('data:image') && (
+                        <img src={sig} alt={`${roleLabel} signature`} className="h-12 object-contain border rounded bg-card" />
+                      )}
+                      {gp[dateKey] && (
+                        <p className="text-xs text-muted-foreground">{format(new Date(gp[dateKey] as string), 'dd MMM yyyy HH:mm')}</p>
+                      )}
+                      {gp[commentsKey] && (
+                        <p className="text-xs text-muted-foreground italic">"{gp[commentsKey] as string}"</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Approval Actions */}
         {(approvalRoles.some(r => canApproveAs(r)) || canComplete) && (
           <Card>
@@ -371,10 +432,10 @@ export default function GatePassDetail() {
                   if (!canApproveAs(role)) return null;
                   return (
                     <div key={role} className="flex gap-2">
-                      <Button onClick={() => handleApprove(role, true)} disabled={approveGatePass.isPending}>
+                      <Button onClick={() => handleOpenApprovalDialog(role, 'approve')} disabled={approveGatePass.isPending}>
                         <CheckCircle className="mr-2 h-4 w-4" /> Approve
                       </Button>
-                      <Button variant="destructive" onClick={() => handleApprove(role, false)} disabled={approveGatePass.isPending}>
+                      <Button variant="destructive" onClick={() => handleOpenApprovalDialog(role, 'reject')} disabled={approveGatePass.isPending}>
                         <XCircle className="mr-2 h-4 w-4" /> Reject
                       </Button>
                     </div>
@@ -385,6 +446,21 @@ export default function GatePassDetail() {
           </Card>
         )}
       </div>
+
+      {/* Secure Approval Dialog - reuses the same component from Work Permits */}
+      <SecureApprovalDialog
+        isOpen={approvalDialogOpen}
+        onClose={() => setApprovalDialogOpen(false)}
+        onConfirm={handleSecureApproval}
+        title={approvalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+        description={
+          approvalAction === 'approve'
+            ? `Please verify your identity and provide your signature to approve gate pass ${gp.pass_no}.`
+            : `Please verify your identity to reject gate pass ${gp.pass_no}.`
+        }
+        actionType={approvalAction}
+        isLoading={approveGatePass.isPending}
+      />
 
       {/* Email to Client Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
