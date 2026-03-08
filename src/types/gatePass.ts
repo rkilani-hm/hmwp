@@ -14,6 +14,9 @@ export type GatePassStatus =
   | 'pending_finance'
   | 'pending_security'
   | 'pending_security_pmd'
+  | 'pending_cr_coordinator'
+  | 'pending_head_cr'
+  | 'pending_hm_security_pmd'
   | 'approved'
   | 'rejected'
   | 'completed';
@@ -99,12 +102,15 @@ export const gatePassTypeLabels: Record<GatePassType, string> = {
   internal_shifting: 'Internal Shifting',
 };
 
-export const gatePassStatusLabels: Record<GatePassStatus, string> = {
+export const gatePassStatusLabels: Record<string, string> = {
   draft: 'Draft',
   pending_store_manager: 'Pending Store Manager',
   pending_finance: 'Pending Finance',
   pending_security: 'Pending Security',
   pending_security_pmd: 'Pending Security PMD',
+  pending_cr_coordinator: 'Pending CR Coordinator',
+  pending_head_cr: 'Pending Head CR',
+  pending_hm_security_pmd: 'Pending HM Security PMD',
   approved: 'Approved',
   rejected: 'Rejected',
   completed: 'Completed',
