@@ -1,0 +1,1 @@
+ALTER TABLE public.gate_passes DROP CONSTRAINT gate_passes_status_check;
