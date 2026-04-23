@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useSecureApproveGatePass } from '@/hooks/useSecureApproveGatePass';
 import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@/hooks/useDeleteGatePass';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
@@ -46,7 +47,7 @@ export default function GatePassDetail() {
   const { data: gp, isLoading } = useGatePass(id);
   const { roles } = useAuth();
   const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
-  const approveGatePass = useApproveGatePass();
+  const approveGatePass = useSecureApproveGatePass();
   const completeGatePass = useCompleteGatePass();
   const archiveGP = useArchiveGatePass();
   const restoreGP = useRestoreGatePass();
@@ -95,27 +96,13 @@ export default function GatePassDetail() {
   };
 
   const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
-    // TEMPORARY (Phase 1): password path still verified client-side here.
-    // Phase 1b introduces verify-gate-pass-approval edge function with
-    // server-side WebAuthn assertion verification. Do NOT ship this to
-    // production without Phase 1b.
-    if (auth.authMethod === 'password') {
-      const userResp = await supabase.auth.getUser();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: userResp.data.user?.email || '',
-        password: auth.password,
-      });
-      if (authError) throw new Error('Invalid password. Please try again.');
-    }
-    // For webauthn: assertion was bound server-side by webauthn-auth-challenge,
-    // but full verification only lands in Phase 1b.
-
     await approveGatePass.mutateAsync({
       gatePassId: gp.id,
       role: approvalRole,
       approved: approvalAction === 'approve',
       comments,
-      signature: approvalAction === 'approve' ? signature ?? undefined : undefined,
+      signature: approvalAction === 'approve' ? signature : null,
+      auth,
       cctvConfirmed: approvalRole === 'security' ? cctvConfirmed : undefined,
     });
 
