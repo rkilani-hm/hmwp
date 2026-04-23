@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,14 +18,37 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+/**
+ * AuthPayload — what the dialog hands back to the caller on confirm.
+ * The caller must forward this verbatim to verify-signature-approval.
+ */
+export type AuthPayload =
+  | { authMethod: 'password'; password: string }
+  | {
+      authMethod: 'webauthn';
+      webauthn: { challengeId: string; assertion: unknown };
+    };
+
 interface SecureApprovalDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (password: string, signature: string) => Promise<void>;
+  onConfirm: (auth: AuthPayload, signature: string | null) => Promise<void>;
   title: string;
   description: string;
   actionType: 'approve' | 'reject';
   isLoading: boolean;
+  /**
+   * Binding used when the user chooses the biometric path. The server will
+   * bind the issued challenge to these fields so the resulting assertion
+   * cannot be replayed on a different resource or action.
+   *
+   * Exactly one of permitId / gatePassId should be provided.
+   */
+  authBinding: {
+    permitId?: string;
+    gatePassId?: string;
+    role: string;
+  };
 }
 
 export function SecureApprovalDialog({
@@ -36,84 +59,106 @@ export function SecureApprovalDialog({
   description,
   actionType,
   isLoading,
+  authBinding,
 }: SecureApprovalDialogProps) {
   const { profile } = useAuth();
   const [password, setPassword] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [authMethod, setAuthMethod] = useState<'password' | 'biometric'>('password');
-  const [biometricVerified, setBiometricVerified] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'password' | 'webauthn'>('password');
+
+  // Produced when user successfully completes WebAuthn; reset on dialog close.
+  const [webauthnPayload, setWebauthnPayload] = useState<
+    { challengeId: string; assertion: unknown } | null
+  >(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const { isSupported: biometricSupported, isChecking: checkingBiometric, verifyIdentity } = useBiometricAuth();
+  const {
+    isSupported: webauthnSupported,
+    platformAvailable,
+    isChecking: checkingBiometric,
+    authenticateForApproval,
+  } = useBiometricAuth();
   const isMobile = useIsMobile();
 
-  // Set default auth method from user preference when dialog opens
+  // Default auth method from user preference when dialog opens
   useEffect(() => {
     if (isOpen && profile?.auth_preference) {
       const preference = profile.auth_preference as 'password' | 'biometric';
-      // Only use biometric preference if device supports it
-      if (preference === 'biometric' && isMobile && biometricSupported) {
-        setAuthMethod('biometric');
+      if (
+        preference === 'biometric' &&
+        isMobile &&
+        webauthnSupported &&
+        platformAvailable
+      ) {
+        setAuthMethod('webauthn');
       } else if (preference === 'password') {
         setAuthMethod('password');
       }
-      // If biometric preference but no support, default to password (already set)
     }
-  }, [isOpen, profile?.auth_preference, isMobile, biometricSupported]);
+  }, [isOpen, profile?.auth_preference, isMobile, webauthnSupported, platformAvailable]);
 
   const handleBiometricAuth = async () => {
     setError(null);
     setIsVerifying(true);
-    
+
     try {
-      const result = await verifyIdentity();
-      if (result.success) {
-        setBiometricVerified(true);
+      const result = await authenticateForApproval({
+        permitId: authBinding.permitId,
+        gatePassId: authBinding.gatePassId,
+        role: authBinding.role,
+        action: actionType,
+      });
+      if (result.ok) {
+        setWebauthnPayload(result.data);
         setError(null);
       } else {
-        setError(result.error || 'Biometric verification failed');
-        setBiometricVerified(false);
+        setError(result.error);
+        setWebauthnPayload(null);
       }
-    } catch (err: any) {
-      setError(err.message || 'Biometric verification failed');
-      setBiometricVerified(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Biometric verification failed');
+      setWebauthnPayload(null);
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleConfirm = async () => {
-    // Validate based on auth method
-    if (authMethod === 'password') {
-      if (!password) {
-        setError('Please enter your password');
-        return;
-      }
-    } else if (authMethod === 'biometric') {
-      if (!biometricVerified) {
-        setError('Please verify your identity using fingerprint/Face ID');
-        return;
-      }
-    }
-
+    // Validate signature for approval
     if (!signature && actionType === 'approve') {
       setError('Please provide your signature');
       return;
     }
 
+    let payload: AuthPayload;
+    if (authMethod === 'password') {
+      if (!password) {
+        setError('Please enter your password');
+        return;
+      }
+      payload = { authMethod: 'password', password };
+    } else {
+      if (!webauthnPayload) {
+        setError('Please verify your identity using fingerprint/Face ID');
+        return;
+      }
+      payload = { authMethod: 'webauthn', webauthn: webauthnPayload };
+    }
+
     try {
       setError(null);
-      // For biometric auth, pass a special token that the backend recognizes
-      const authValue = authMethod === 'biometric' ? '__BIOMETRIC_VERIFIED__' : password;
-      await onConfirm(authValue, signature || '');
+      await onConfirm(payload, signature);
       // Reset on success
       setPassword('');
       setSignature(null);
-      setBiometricVerified(false);
+      setWebauthnPayload(null);
       setAuthMethod('password');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      // WebAuthn assertion is single-use on the server. If we hit an error at
+      // approval submission, invalidate it so the user can retry.
+      setWebauthnPayload(null);
     }
   };
 
@@ -121,17 +166,18 @@ export function SecureApprovalDialog({
     setPassword('');
     setSignature(null);
     setError(null);
-    setBiometricVerified(false);
+    setWebauthnPayload(null);
     setAuthMethod('password');
     onClose();
   };
 
-  const showBiometricOption = isMobile && biometricSupported && !checkingBiometric;
+  const showBiometricOption =
+    isMobile && webauthnSupported && platformAvailable && !checkingBiometric;
 
   const canSubmit = () => {
     if (actionType === 'approve' && !signature) return false;
     if (authMethod === 'password' && !password) return false;
-    if (authMethod === 'biometric' && !biometricVerified) return false;
+    if (authMethod === 'webauthn' && !webauthnPayload) return false;
     return true;
   };
 
@@ -153,15 +199,20 @@ export function SecureApprovalDialog({
             </Alert>
           )}
 
-          {/* Authentication Method Selection */}
           {showBiometricOption ? (
-            <Tabs value={authMethod} onValueChange={(v) => setAuthMethod(v as 'password' | 'biometric')}>
+            <Tabs
+              value={authMethod}
+              onValueChange={(v) => {
+                setAuthMethod(v as 'password' | 'webauthn');
+                setError(null);
+              }}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="password" className="flex items-center gap-2">
                   <KeyRound className="h-4 w-4" />
                   Password
                 </TabsTrigger>
-                <TabsTrigger value="biometric" className="flex items-center gap-2">
+                <TabsTrigger value="webauthn" className="flex items-center gap-2">
                   <Fingerprint className="h-4 w-4" />
                   Fingerprint
                 </TabsTrigger>
@@ -179,33 +230,39 @@ export function SecureApprovalDialog({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  autoComplete="current-password"
                 />
                 <p className="text-xs text-muted-foreground">
                   Your password is required to verify your identity for this action.
                 </p>
               </TabsContent>
 
-              <TabsContent value="biometric" className="space-y-4 mt-4">
+              <TabsContent value="webauthn" className="space-y-4 mt-4">
                 <div className="text-center space-y-4">
-                  <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
-                    biometricVerified 
-                      ? 'bg-green-100 dark:bg-green-900/30' 
-                      : 'bg-muted'
-                  }`}>
-                    <Fingerprint className={`h-10 w-10 ${
-                      biometricVerified 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-muted-foreground'
-                    }`} />
+                  <div
+                    className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
+                      webauthnPayload
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    <Fingerprint
+                      className={`h-10 w-10 ${
+                        webauthnPayload
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-muted-foreground'
+                      }`}
+                    />
                   </div>
-                  
-                  {biometricVerified ? (
+
+                  {webauthnPayload ? (
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-green-600 dark:text-green-400">
                         ✓ Identity Verified
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        You can now proceed with the {actionType === 'approve' ? 'approval' : 'rejection'}
+                        You can now proceed with the{' '}
+                        {actionType === 'approve' ? 'approval' : 'rejection'}
                       </p>
                     </div>
                   ) : (
@@ -233,13 +290,16 @@ export function SecureApprovalDialog({
                           </>
                         )}
                       </Button>
+                      <p className="text-xs text-muted-foreground">
+                        This assertion is cryptographically bound to this specific{' '}
+                        {actionType}. It cannot be reused for any other action.
+                      </p>
                     </div>
                   )}
                 </div>
               </TabsContent>
             </Tabs>
           ) : (
-            /* Password-only mode for desktop or when biometric not available */
             <div className="space-y-2">
               <Label htmlFor="password" className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
@@ -252,6 +312,7 @@ export function SecureApprovalDialog({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
+                autoComplete="current-password"
               />
               <p className="text-xs text-muted-foreground">
                 Your password is required to verify your identity for this action.
@@ -277,7 +338,9 @@ export function SecureApprovalDialog({
               <li>Device information</li>
               <li>Timestamp</li>
               <li>Digital signature hash</li>
-              {authMethod === 'biometric' && <li>Biometric verification record</li>}
+              {authMethod === 'webauthn' && (
+                <li>WebAuthn credential ID + assertion verification</li>
+              )}
             </ul>
           </div>
         </div>
@@ -289,7 +352,11 @@ export function SecureApprovalDialog({
           <Button
             onClick={handleConfirm}
             disabled={isLoading || !canSubmit()}
-            className={actionType === 'reject' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            className={
+              actionType === 'reject'
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : ''
+            }
           >
             {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {actionType === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
