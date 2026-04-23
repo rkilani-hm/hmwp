@@ -672,6 +672,7 @@ export type Database = {
       signature_audit_logs: {
         Row: {
           action: string
+          auth_method: string | null
           created_at: string
           device_info: Json | null
           id: string
@@ -684,9 +685,11 @@ export type Database = {
           user_email: string
           user_id: string
           user_name: string
+          webauthn_credential_id: string | null
         }
         Insert: {
           action: string
+          auth_method?: string | null
           created_at?: string
           device_info?: Json | null
           id?: string
@@ -699,9 +702,11 @@ export type Database = {
           user_email: string
           user_id: string
           user_name: string
+          webauthn_credential_id?: string | null
         }
         Update: {
           action?: string
+          auth_method?: string | null
           created_at?: string
           device_info?: Json | null
           id?: string
@@ -714,6 +719,7 @@ export type Database = {
           user_email?: string
           user_id?: string
           user_name?: string
+          webauthn_credential_id?: string | null
         }
         Relationships: [
           {
@@ -721,6 +727,13 @@ export type Database = {
             columns: ["permit_id"]
             isOneToOne: false
             referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_audit_logs_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
             referencedColumns: ["id"]
           },
         ]
@@ -783,6 +796,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webauthn_challenges: {
+        Row: {
+          binding: Json
+          challenge: string
+          consumed: boolean
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          binding?: Json
+          challenge: string
+          consumed?: boolean
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          binding?: Json
+          challenge?: string
+          consumed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webauthn_credentials: {
+        Row: {
+          aaguid: string | null
+          backup_eligible: boolean | null
+          backup_state: boolean | null
+          counter: number
+          created_at: string
+          credential_id: string
+          device_name: string | null
+          id: string
+          last_used_at: string | null
+          public_key: string
+          transports: string[] | null
+          user_id: string
+        }
+        Insert: {
+          aaguid?: string | null
+          backup_eligible?: boolean | null
+          backup_state?: boolean | null
+          counter?: number
+          created_at?: string
+          credential_id: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          public_key: string
+          transports?: string[] | null
+          user_id: string
+        }
+        Update: {
+          aaguid?: string | null
+          backup_eligible?: boolean | null
+          backup_state?: boolean | null
+          counter?: number
+          created_at?: string
+          credential_id?: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          public_key?: string
+          transports?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
       }
       work_locations: {
         Row: {
@@ -1389,6 +1480,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
