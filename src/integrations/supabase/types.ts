@@ -675,6 +675,7 @@ export type Database = {
           auth_method: string | null
           created_at: string
           device_info: Json | null
+          gate_pass_id: string | null
           id: string
           ip_address: string | null
           password_verified: boolean | null
@@ -692,6 +693,7 @@ export type Database = {
           auth_method?: string | null
           created_at?: string
           device_info?: Json | null
+          gate_pass_id?: string | null
           id?: string
           ip_address?: string | null
           password_verified?: boolean | null
@@ -709,6 +711,7 @@ export type Database = {
           auth_method?: string | null
           created_at?: string
           device_info?: Json | null
+          gate_pass_id?: string | null
           id?: string
           ip_address?: string | null
           password_verified?: boolean | null
@@ -722,6 +725,13 @@ export type Database = {
           webauthn_credential_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "signature_audit_logs_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "signature_audit_logs_permit_id_fkey"
             columns: ["permit_id"]
