@@ -555,6 +555,13 @@ export function useApprovePermit() {
 
 // User-friendly error parsing is now handled by '@/utils/edgeFunctionErrors'
 
+export type ApprovalAuth =
+  | { authMethod: 'password'; password: string }
+  | {
+      authMethod: 'webauthn';
+      webauthn: { challengeId: string; assertion: unknown };
+    };
+
 export function useSecureApprovePermit() {
   const queryClient = useQueryClient();
 
@@ -565,44 +572,60 @@ export function useSecureApprovePermit() {
       comments,
       signature,
       approved,
-      password,
+      auth,
     }: {
       permitId: string;
       role: string;
       comments: string;
       signature: string | null;
       approved: boolean;
-      password: string;
+      auth: ApprovalAuth;
     }) => {
-      const { data, error } = await supabase.functions.invoke('verify-signature-approval', {
-        body: { permitId, role, comments, signature, approved, password },
-      });
+      const body: Record<string, unknown> = {
+        permitId,
+        role,
+        comments,
+        signature,
+        approved,
+        authMethod: auth.authMethod,
+      };
+      if (auth.authMethod === 'password') {
+        body.password = auth.password;
+      } else {
+        body.webauthn = auth.webauthn;
+      }
 
-      // Handle edge function errors with user-friendly messages
+      const { data, error } = await supabase.functions.invoke(
+        'verify-signature-approval',
+        { body },
+      );
+
       if (error) {
         const userFriendlyMessage = parseEdgeFunctionError(error, data);
         console.error('Edge function error:', error, 'Data:', data);
         throw new Error(userFriendlyMessage);
       }
-      
-      // Handle errors returned in the response body
       if (data?.error) {
         const userFriendlyMessage = parseEdgeFunctionError({ message: data.error }, data);
         throw new Error(userFriendlyMessage);
       }
-      
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
-      toast.success(variables.approved ? 'Permit approved with verified signature!' : 'Permit rejected');
+      toast.success(
+        variables.approved
+          ? 'Permit approved with verified signature!'
+          : 'Permit rejected',
+      );
     },
-    onError: (error: any) => {
-      // Don't show duplicate toast if it's a password error (shown in dialog)
+    onError: (error: Error) => {
       const message = error.message || 'Failed to process approval';
-      if (!message.toLowerCase().includes('password') && 
-          !message.toLowerCase().includes('incorrect')) {
+      if (
+        !message.toLowerCase().includes('password') &&
+        !message.toLowerCase().includes('incorrect')
+      ) {
         toast.error(message);
       }
     },

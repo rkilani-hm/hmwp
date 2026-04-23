@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
+import { BiometricDevices } from '@/components/BiometricDevices';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -540,6 +541,9 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+
+          {/* Registered biometric devices (WebAuthn) */}
+          <BiometricDevices />
         </div>
       </div>
     </div>

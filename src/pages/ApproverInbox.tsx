@@ -36,6 +36,7 @@ import { motion } from 'framer-motion';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { toast } from 'sonner';
@@ -176,7 +177,7 @@ export default function ApproverInbox() {
     setForwardDialogOpen(true);
   };
 
-  const handleSecureApproval = async (password: string, signature: string) => {
+  const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
     if (!selectedPermit) return;
     
     const role = getApprovalRole(selectedPermit);
@@ -186,7 +187,7 @@ export default function ApproverInbox() {
         permitId: selectedPermit.id,
         role,
         approved: true,
-        password,
+        auth,
         signature,
         comments: '',
       });
@@ -199,7 +200,7 @@ export default function ApproverInbox() {
     }
   };
 
-  const handleSecureReject = async (password: string, signature: string) => {
+  const handleSecureReject = async (auth: AuthPayload, signature: string | null) => {
     if (!selectedPermit) return;
     
     const role = getApprovalRole(selectedPermit);
@@ -209,7 +210,7 @@ export default function ApproverInbox() {
         permitId: selectedPermit.id,
         role,
         approved: false,
-        password,
+        auth,
         signature: null,
         comments: 'Rejected from approver inbox',
       });
@@ -514,6 +515,10 @@ export default function ApproverInbox() {
         description="Enter your password and signature to approve this permit."
         actionType="approve"
         isLoading={secureApprove.isPending}
+        authBinding={selectedPermit ? {
+          permitId: selectedPermit.id,
+          role: getApprovalRole(selectedPermit),
+        } : { role: 'helpdesk' }}
       />
 
       <SecureApprovalDialog
@@ -527,6 +532,10 @@ export default function ApproverInbox() {
         description="Enter your password to confirm rejection."
         actionType="reject"
         isLoading={secureApprove.isPending}
+        authBinding={selectedPermit ? {
+          permitId: selectedPermit.id,
+          role: getApprovalRole(selectedPermit),
+        } : { role: 'helpdesk' }}
       />
 
       {selectedPermit && (
