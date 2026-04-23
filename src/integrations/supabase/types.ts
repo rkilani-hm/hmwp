@@ -91,6 +91,107 @@ export type Database = {
         }
         Relationships: []
       }
+      gate_pass_approvals: {
+        Row: {
+          approved_at: string | null
+          approver_email: string | null
+          approver_name: string | null
+          approver_user_id: string | null
+          auth_method: string | null
+          comments: string | null
+          created_at: string
+          device_info: Json | null
+          extra: Json | null
+          gate_pass_id: string
+          id: string
+          ip_address: string | null
+          role_id: string | null
+          role_name: string
+          signature: string | null
+          signature_hash: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+          webauthn_credential_id: string | null
+          workflow_step_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_email?: string | null
+          approver_name?: string | null
+          approver_user_id?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          device_info?: Json | null
+          extra?: Json | null
+          gate_pass_id: string
+          id?: string
+          ip_address?: string | null
+          role_id?: string | null
+          role_name: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          webauthn_credential_id?: string | null
+          workflow_step_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approver_email?: string | null
+          approver_name?: string | null
+          approver_user_id?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          device_info?: Json | null
+          extra?: Json | null
+          gate_pass_id?: string
+          id?: string
+          ip_address?: string | null
+          role_id?: string | null
+          role_name?: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          webauthn_credential_id?: string | null
+          workflow_step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gate_pass_items: {
         Row: {
           gate_pass_id: string
@@ -430,6 +531,104 @@ export type Database = {
         }
         Relationships: []
       }
+      permit_approvals: {
+        Row: {
+          approved_at: string | null
+          approver_email: string | null
+          approver_name: string | null
+          approver_user_id: string | null
+          auth_method: string | null
+          comments: string | null
+          created_at: string
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          permit_id: string
+          role_id: string | null
+          role_name: string
+          signature: string | null
+          signature_hash: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+          webauthn_credential_id: string | null
+          workflow_step_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_email?: string | null
+          approver_name?: string | null
+          approver_user_id?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          permit_id: string
+          role_id?: string | null
+          role_name: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          webauthn_credential_id?: string | null
+          workflow_step_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approver_email?: string | null
+          approver_name?: string | null
+          approver_user_id?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          permit_id?: string
+          role_id?: string | null
+          role_name?: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          webauthn_credential_id?: string | null
+          workflow_step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_approvals_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_workflow_audit: {
         Row: {
           created_at: string | null
@@ -672,8 +871,10 @@ export type Database = {
       signature_audit_logs: {
         Row: {
           action: string
+          auth_method: string | null
           created_at: string
           device_info: Json | null
+          gate_pass_id: string | null
           id: string
           ip_address: string | null
           password_verified: boolean | null
@@ -684,11 +885,14 @@ export type Database = {
           user_email: string
           user_id: string
           user_name: string
+          webauthn_credential_id: string | null
         }
         Insert: {
           action: string
+          auth_method?: string | null
           created_at?: string
           device_info?: Json | null
+          gate_pass_id?: string | null
           id?: string
           ip_address?: string | null
           password_verified?: boolean | null
@@ -699,11 +903,14 @@ export type Database = {
           user_email: string
           user_id: string
           user_name: string
+          webauthn_credential_id?: string | null
         }
         Update: {
           action?: string
+          auth_method?: string | null
           created_at?: string
           device_info?: Json | null
+          gate_pass_id?: string | null
           id?: string
           ip_address?: string | null
           password_verified?: boolean | null
@@ -714,13 +921,28 @@ export type Database = {
           user_email?: string
           user_id?: string
           user_name?: string
+          webauthn_credential_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "signature_audit_logs_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "signature_audit_logs_permit_id_fkey"
             columns: ["permit_id"]
             isOneToOne: false
             referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_audit_logs_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
             referencedColumns: ["id"]
           },
         ]
@@ -783,6 +1005,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webauthn_challenges: {
+        Row: {
+          binding: Json
+          challenge: string
+          consumed: boolean
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          binding?: Json
+          challenge: string
+          consumed?: boolean
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          binding?: Json
+          challenge?: string
+          consumed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webauthn_credentials: {
+        Row: {
+          aaguid: string | null
+          backup_eligible: boolean | null
+          backup_state: boolean | null
+          counter: number
+          created_at: string
+          credential_id: string
+          device_name: string | null
+          id: string
+          last_used_at: string | null
+          public_key: string
+          transports: string[] | null
+          user_id: string
+        }
+        Insert: {
+          aaguid?: string | null
+          backup_eligible?: boolean | null
+          backup_state?: boolean | null
+          counter?: number
+          created_at?: string
+          credential_id: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          public_key: string
+          transports?: string[] | null
+          user_id: string
+        }
+        Update: {
+          aaguid?: string | null
+          backup_eligible?: boolean | null
+          backup_state?: boolean | null
+          counter?: number
+          created_at?: string
+          credential_id?: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          public_key?: string
+          transports?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
       }
       work_locations: {
         Row: {
@@ -1386,9 +1686,128 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      gate_pass_pending_approvals: {
+        Row: {
+          approved_at: string | null
+          approver_email: string | null
+          approver_name: string | null
+          approver_user_id: string | null
+          auth_method: string | null
+          comments: string | null
+          created_at: string | null
+          device_info: Json | null
+          extra: Json | null
+          gate_pass_id: string | null
+          has_high_value_asset: boolean | null
+          id: string | null
+          ip_address: string | null
+          pass_no: string | null
+          pass_status: string | null
+          pass_type: string | null
+          requester_name: string | null
+          role_id: string | null
+          role_name: string | null
+          signature: string | null
+          signature_hash: string | null
+          status: string | null
+          updated_at: string | null
+          user_agent: string | null
+          webauthn_credential_id: string | null
+          workflow_step_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permit_pending_approvals: {
+        Row: {
+          approved_at: string | null
+          approver_email: string | null
+          approver_name: string | null
+          approver_user_id: string | null
+          auth_method: string | null
+          comments: string | null
+          created_at: string | null
+          device_info: Json | null
+          id: string | null
+          ip_address: string | null
+          permit_id: string | null
+          permit_no: string | null
+          permit_status: Database["public"]["Enums"]["permit_status"] | null
+          requester_name: string | null
+          role_id: string | null
+          role_name: string | null
+          signature: string | null
+          signature_hash: string | null
+          sla_deadline: string | null
+          status: string | null
+          updated_at: string | null
+          urgency: string | null
+          user_agent: string | null
+          webauthn_credential_id: string | null
+          workflow_step_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_approvals_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_webauthn_credential_id_fkey"
+            columns: ["webauthn_credential_id"]
+            isOneToOne: false
+            referencedRelation: "webauthn_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
@@ -1402,6 +1821,10 @@ export type Database = {
       }
       is_approver: { Args: { _user_id: string }; Returns: boolean }
       is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
+      reconcile_permit_approvals: {
+        Args: { _permit_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
