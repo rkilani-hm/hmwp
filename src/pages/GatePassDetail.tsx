@@ -4,6 +4,7 @@ import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
@@ -93,22 +94,28 @@ export default function GatePassDetail() {
     setApprovalDialogOpen(true);
   };
 
-  const handleSecureApproval = async (password: string, signature: string) => {
-    // Verify password by re-authenticating
-    if (password !== '__BIOMETRIC_VERIFIED__') {
+  const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
+    // TEMPORARY (Phase 1): password path still verified client-side here.
+    // Phase 1b introduces verify-gate-pass-approval edge function with
+    // server-side WebAuthn assertion verification. Do NOT ship this to
+    // production without Phase 1b.
+    if (auth.authMethod === 'password') {
+      const userResp = await supabase.auth.getUser();
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: supabase.auth.getUser ? (await supabase.auth.getUser()).data.user?.email || '' : '',
-        password,
+        email: userResp.data.user?.email || '',
+        password: auth.password,
       });
       if (authError) throw new Error('Invalid password. Please try again.');
     }
+    // For webauthn: assertion was bound server-side by webauthn-auth-challenge,
+    // but full verification only lands in Phase 1b.
 
     await approveGatePass.mutateAsync({
       gatePassId: gp.id,
       role: approvalRole,
       approved: approvalAction === 'approve',
       comments,
-      signature: approvalAction === 'approve' ? signature : undefined,
+      signature: approvalAction === 'approve' ? signature ?? undefined : undefined,
       cctvConfirmed: approvalRole === 'security' ? cctvConfirmed : undefined,
     });
 
@@ -464,6 +471,7 @@ export default function GatePassDetail() {
         }
         actionType={approvalAction}
         isLoading={approveGatePass.isPending}
+        authBinding={{ gatePassId: gp.id, role: approvalRole }}
       />
 
       {/* Email to Client Dialog */}

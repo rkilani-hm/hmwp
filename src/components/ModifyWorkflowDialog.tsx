@@ -23,12 +23,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, AlertTriangle, Settings2, Fingerprint, ArrowRight } from 'lucide-react';
+import { Loader2, AlertTriangle, Settings2, ArrowRight } from 'lucide-react';
 import { useAdminWorkTypes, WorkType } from '@/hooks/useAdminWorkTypes';
 import { useWorkflowSteps, useWorkTypeStepConfig, WorkflowStep } from '@/hooks/useWorkflowTemplates';
 import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
 import { useModifyPermitWorkflow } from '@/hooks/useModifyPermitWorkflow';
-import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { WorkflowModificationPreview } from './WorkflowModificationPreview';
 import { useHasPermission } from '@/hooks/useHasPermission';
 import { toast } from 'sonner';
@@ -41,8 +40,6 @@ interface ModifyWorkflowDialogProps {
   currentWorkTypeName: string | null;
   workflowTemplateId: string | null;
 }
-
-const BIOMETRIC_TOKEN = '__BIOMETRIC_VERIFIED__';
 
 export function ModifyWorkflowDialog({
   open,
@@ -66,7 +63,8 @@ export function ModifyWorkflowDialog({
   const { data: permitOverrides } = usePermitWorkflowOverridesMap(permitId);
   
   const modifyWorkflow = useModifyPermitWorkflow();
-  const { isSupported: biometricSupported, verifyIdentity, isChecking: biometricChecking } = useBiometricAuth();
+  // Phase 1: biometric path temporarily removed here. Phase 1b replaces this
+  // dialog with a proper WebAuthn flow bound to purpose='workflow_modify'.
   const hasModifyPermission = useHasPermission('modify_workflow');
 
   // Get selected work type's template and steps
@@ -138,16 +136,6 @@ export function ModifyWorkflowDialog({
     }
   }, [activeTab, currentSteps, currentRequiredMap, customSteps.size]);
 
-  const handleBiometricAuth = async () => {
-    const result = await verifyIdentity();
-    if (result.success) {
-      setPassword(BIOMETRIC_TOKEN);
-      toast.success('Biometric verification successful');
-    } else {
-      toast.error(result.error || 'Biometric verification failed');
-    }
-  };
-
   const handleSubmit = async () => {
     if (!reason.trim()) {
       toast.error('Please provide a reason for the modification');
@@ -155,7 +143,7 @@ export function ModifyWorkflowDialog({
     }
 
     if (!password) {
-      toast.error('Please verify your identity with password or biometrics');
+      toast.error('Please enter your password to verify your identity');
       return;
     }
 
@@ -368,21 +356,10 @@ export function ModifyWorkflowDialog({
                   <Input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter your password"
-                    value={password === BIOMETRIC_TOKEN ? '••••••••' : password}
+                    value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={password === BIOMETRIC_TOKEN}
                   />
                 </div>
-                {biometricSupported && !biometricChecking && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBiometricAuth}
-                    disabled={password === BIOMETRIC_TOKEN}
-                  >
-                    <Fingerprint className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
             </div>
 
