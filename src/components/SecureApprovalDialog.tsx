@@ -109,7 +109,7 @@ export function SecureApprovalDialog({
         role: authBinding.role,
         action: actionType,
       });
-      if (result.ok) {
+      if (result.ok === true) {
         setWebauthnPayload(result.data);
         setError(null);
       } else {

@@ -56,7 +56,7 @@ export function BiometricDevices() {
     setRegistering(true);
     try {
       const result = await registerCredential(deviceName.trim() || undefined);
-      if (result.success) {
+      if (result.success === true) {
         toast.success('Biometric device registered');
         setRegisterOpen(false);
         setDeviceName('');
