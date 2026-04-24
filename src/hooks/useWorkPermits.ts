@@ -635,47 +635,54 @@ export function useSecureApprovePermit() {
 // Hook to get pending permits for approver inbox
 export function usePendingPermitsForApprover() {
   const { roles, user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['pending-permits-approver', roles],
     queryFn: async () => {
-      // Dynamic role to status mapping - supports all workflow roles
-      const statusMap: Record<string, string> = {
-        // Legacy internal workflow
-        helpdesk: 'submitted',
-        pm: 'pending_pm',
-        pd: 'pending_pd',
-        bdcr: 'pending_bdcr',
-        mpr: 'pending_mpr',
-        it: 'pending_it',
-        fitout: 'pending_fitout',
-        ecovert_supervisor: 'pending_ecovert_supervisor',
-        pmd_coordinator: 'pending_pmd_coordinator',
-        // Client workflow roles
-        customer_service: 'pending_customer_service',
-        cr_coordinator: 'pending_cr_coordinator',
-        head_cr: 'pending_head_cr',
-        fmsp_approval: 'pending_fmsp_approval',
-        // Additional roles
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
-      };
+      if (roles.length === 0) return [];
 
-      const relevantStatuses = roles
-        .filter(role => statusMap[role])
-        .map(role => statusMap[role]);
-
-      if (relevantStatuses.length === 0) return [];
-
-      const { data, error } = await supabase
-        .from('work_permits')
-        .select('*, work_types(*)')
-        .in('status', relevantStatuses as any)
+      // Phase 2c-5b: reads from permit_active_approvers view (backed by
+      // the permit_approvals table populated by Phase 2c-5a). The view
+      // returns one row per (permit, active-role) combination — only
+      // for the permit's CURRENT active step, so a permit appears in
+      // PM's inbox only when PM is genuinely the next approver.
+      //
+      // Two-query flow: first the view to get permit_ids, then a hydrate
+      // query to fetch full permit rows with work_types. Only the active
+      // ids are fetched, so this is cheaper than the old
+      // .in('status', [enum values…]) filter for large permit tables.
+      const { data: activeRows, error: viewErr } = await supabase
+        .from('permit_active_approvers' as any)
+        .select('permit_id, sla_deadline')
+        .in('role_name', roles as unknown as string[])
         .order('sla_deadline', { ascending: true, nullsFirst: false });
 
-      if (error) throw error;
-      return (data || []) as WorkPermit[];
+      if (viewErr) throw viewErr;
+      if (!activeRows || activeRows.length === 0) return [];
+
+      // De-dupe — a permit with parallel steps could appear once per role
+      // the user holds. Preserve order (already sorted by SLA deadline).
+      const seen = new Set<string>();
+      const permitIds: string[] = [];
+      for (const row of activeRows as Array<{ permit_id: string }>) {
+        if (!seen.has(row.permit_id)) {
+          seen.add(row.permit_id);
+          permitIds.push(row.permit_id);
+        }
+      }
+
+      const { data: permits, error: hydrateErr } = await supabase
+        .from('work_permits')
+        .select('*, work_types(*)')
+        .in('id', permitIds);
+
+      if (hydrateErr) throw hydrateErr;
+
+      // Preserve the SLA-sorted order from the view query.
+      const byId = new Map((permits ?? []).map(p => [p.id as string, p]));
+      return permitIds
+        .map(id => byId.get(id))
+        .filter(Boolean) as WorkPermit[];
     },
     enabled: roles.length > 0 && !!user,
   });
@@ -684,43 +691,22 @@ export function usePendingPermitsForApprover() {
 // Hook to get pending permits count for current user's role
 export function usePendingPermitsCount() {
   const { roles } = useAuth();
-  
+
   return useQuery({
     queryKey: ['pending-permits-count', roles],
     queryFn: async () => {
-      // Dynamic role to status mapping - supports all workflow roles
-      const statusMap: Record<string, string> = {
-        // Legacy internal workflow
-        helpdesk: 'submitted',
-        pm: 'pending_pm',
-        pd: 'pending_pd',
-        bdcr: 'pending_bdcr',
-        mpr: 'pending_mpr',
-        it: 'pending_it',
-        fitout: 'pending_fitout',
-        ecovert_supervisor: 'pending_ecovert_supervisor',
-        pmd_coordinator: 'pending_pmd_coordinator',
-        // Client workflow roles
-        customer_service: 'pending_customer_service',
-        cr_coordinator: 'pending_cr_coordinator',
-        head_cr: 'pending_head_cr',
-        fmsp_approval: 'pending_fmsp_approval',
-        // Additional roles
-        soft_facilities: 'pending_soft_facilities',
-        hard_facilities: 'pending_hard_facilities',
-        pm_service: 'pending_pm_service',
-      };
+      if (roles.length === 0) return 0;
 
-      const relevantStatuses = roles
-        .filter(role => statusMap[role])
-        .map(role => statusMap[role]);
-
-      if (relevantStatuses.length === 0) return 0;
-
+      // Phase 2c-5b: count distinct permits that have an active pending
+      // row for any of the user's roles. Using count('exact', head:true)
+      // on a view returns the raw row count, which could double-count a
+      // permit if the user holds multiple roles and the permit is pending
+      // on more than one. Acceptable because inbox count is a heuristic —
+      // a small over-count is preferable to an additional round trip.
       const { count, error } = await supabase
-        .from('work_permits')
-        .select('*', { count: 'exact', head: true })
-        .in('status', relevantStatuses as any);
+        .from('permit_active_approvers' as any)
+        .select('permit_id', { count: 'exact', head: true })
+        .in('role_name', roles as unknown as string[]);
 
       if (error) return 0;
       return count || 0;
