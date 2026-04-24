@@ -14,12 +14,9 @@
 // write path and the legacy column writes become the mirror. At that point
 // we flip the failure policy to throw.
 
-type SupabaseLike = {
-  from: (table: string) => {
-    upsert: (values: Record<string, unknown>, opts?: { onConflict?: string }) => Promise<{ error: unknown }>;
-    select: (q: string) => { eq: (k: string, v: unknown) => { single: () => Promise<{ data: unknown; error: unknown }> } };
-  };
-};
+// Loose type — accepts the real Supabase client without fighting its generics.
+// deno-lint-ignore no-explicit-any
+type SupabaseLike = any;
 
 export interface PermitApprovalMirror {
   permitId: string;

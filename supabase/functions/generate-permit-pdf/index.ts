@@ -200,7 +200,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     };
 
     const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
-    const formatDateTime = (date: string) => date ? new Date(date).toLocaleString() : 'N/A';
+    const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
 
     // Try to fetch company logo from storage
