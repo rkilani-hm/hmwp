@@ -22,6 +22,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { verifyAuthenticationResponse } from "https://esm.sh/@simplewebauthn/server@11.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { mirrorGatePassApproval } from "../_shared/approvals-dualwrite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -348,6 +349,17 @@ serve(async (req) => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
+    // ---- Phase 2b dual-write: mirror into gate_pass_approvals ----
+    // Legacy columns above are still the source of truth. This write is
+    // non-blocking — failures are logged and do not affect the approval.
+    const extra: Record<string, unknown> = {};
+    if (role === "security" && typeof cctvConfirmed === "boolean") {
+      extra.cctv_confirmed = cctvConfirmed;
+    }
+    if (role === "security_pmd" || role === "hm_security_pmd") {
+      extra.material_action = gp.pass_type === "material_in" ? "received" : "released";
+    }
+
     // Audit log
     let signatureHash: string | null = null;
     if (signature) {
@@ -382,6 +394,26 @@ serve(async (req) => {
       password_verified: authMethod === "password",
       auth_method: authMethod,
       webauthn_credential_id: webauthnCredentialRowId,
+    });
+
+    // ---- Phase 2b dual-write: mirror into gate_pass_approvals ----
+    await mirrorGatePassApproval(adminClient, {
+      gatePassId,
+      roleName: role,
+      status: (approved ? "approved" : "rejected") as "approved" | "rejected",
+      approverUserId: user.id,
+      approverName,
+      approverEmail: user.email!,
+      approvedAt: now,
+      comments: comments || null,
+      signature: signature || null,
+      signatureHash,
+      authMethod,
+      webauthnCredentialId: webauthnCredentialRowId,
+      ipAddress,
+      userAgent,
+      deviceInfo,
+      extra,
     });
 
     // Fire downstream notifications (best-effort)
