@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
 import { useSecureApproveGatePass } from '@/hooks/useSecureApproveGatePass';
 import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@/hooks/useDeleteGatePass';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import { GatePassApprovalProgress } from '@/components/GatePassApprovalProgress';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
@@ -42,6 +44,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function GatePassDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: gp, isLoading } = useGatePass(id);
@@ -183,20 +186,8 @@ export default function GatePassDetail() {
     }
   };
 
-  // Build dynamic status timeline
-  const statusTimeline = [
-    { label: 'Submitted', done: true, date: gp.created_at },
-    ...approvalRoles.map(role => {
-      const dateKey = `${role}_date` as keyof typeof gp;
-      const roleLabel = role.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-      return {
-        label: roleLabel,
-        done: !!gp[dateKey],
-        date: gp[dateKey] as string | null,
-      };
-    }),
-    { label: gp.status === 'completed' ? 'Completed' : 'Approved', done: gp.status === 'approved' || gp.status === 'completed', date: gp.completed_at },
-  ];
+  // (Phase 2c-4: legacy statusTimeline removed — GatePassApprovalProgress
+  // now derives all workflow state from gate_pass_approvals.)
 
   return (
     <div className="space-y-6">
@@ -277,19 +268,15 @@ export default function GatePassDetail() {
 
         {/* Status Timeline */}
         <Card>
-          <CardHeader><CardTitle className="text-lg">Workflow Progress</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('gatePasses.approvalProgress.title')}</CardTitle>
+          </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {statusTimeline.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${s.done ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
-                    {s.done ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                    {s.label}
-                  </div>
-                  {i < statusTimeline.length - 1 && <div className="w-6 h-px bg-border flex-shrink-0" />}
-                </div>
-              ))}
-            </div>
+            <GatePassApprovalProgress
+              gatePassId={gp.id}
+              expectedRoles={approvalRoles}
+              gatePassStatus={gp.status}
+            />
           </CardContent>
         </Card>
 
@@ -360,44 +347,6 @@ export default function GatePassDetail() {
           <Card>
             <CardHeader><CardTitle className="text-lg">Purpose</CardTitle></CardHeader>
             <CardContent><p className="text-sm">{gp.purpose}</p></CardContent>
-          </Card>
-        )}
-
-        {/* Approval Signatures Display */}
-        {approvalRoles.some(role => {
-          const sigKey = `${role}_signature` as keyof typeof gp;
-          return gp[sigKey];
-        }) && (
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Approval Signatures</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {approvalRoles.map(role => {
-                  const nameKey = `${role}_name` as keyof typeof gp;
-                  const dateKey = `${role}_date` as keyof typeof gp;
-                  const sigKey = `${role}_signature` as keyof typeof gp;
-                  const commentsKey = `${role}_comments` as keyof typeof gp;
-                  const sig = gp[sigKey] as string | null;
-                  if (!sig) return null;
-                  const roleLabel = role.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-                  return (
-                    <div key={role} className="border rounded-lg p-3 space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground">{roleLabel}</p>
-                      <p className="text-sm font-medium">{(gp[nameKey] as string) || ''}</p>
-                      {sig.startsWith('data:image') && (
-                        <img src={sig} alt={`${roleLabel} signature`} className="h-12 object-contain border rounded bg-card" />
-                      )}
-                      {gp[dateKey] && (
-                        <p className="text-xs text-muted-foreground">{format(new Date(gp[dateKey] as string), 'dd MMM yyyy HH:mm')}</p>
-                      )}
-                      {gp[commentsKey] && (
-                        <p className="text-xs text-muted-foreground italic">"{gp[commentsKey] as string}"</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
           </Card>
         )}
 

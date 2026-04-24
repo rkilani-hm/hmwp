@@ -204,7 +204,14 @@
     "cctvConfirmed": "CCTV verified",
     "storeManager": "Store manager",
     "finance": "Finance",
-    "security": "Security"
+    "security": "Security",
+    "approvalProgress": {
+      "title": "Approval progress",
+      "stepCount": "{{completed}} of {{total}} steps completed",
+      "submitted": "Submitted",
+      "awaitingApproval": "Awaiting approval",
+      "upcoming": "Upcoming"
+    }
   },
   "biometric": {
     "title": "Biometric devices",

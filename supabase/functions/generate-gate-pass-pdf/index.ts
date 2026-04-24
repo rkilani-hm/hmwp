@@ -377,31 +377,91 @@ const handler = async (req: Request): Promise<Response> => {
     drawText(page, "APPROVALS & SIGNATURES", margin, yPos, 12, helveticaBold);
     yPos -= 25;
 
-    const sigBlocks = [
-      {
-        title: "Approved By (Store Manager)",
-        name: gp.store_manager_name,
-        date: gp.store_manager_date,
-        comments: gp.store_manager_comments,
-        signature: gp.store_manager_signature,
-      },
-      {
-        title: "Department Verification (Finance)",
-        name: gp.finance_name,
-        date: gp.finance_date,
-        comments: gp.finance_comments,
-        signature: gp.finance_signature,
-      },
-      {
-        title: "Security Sign-off",
-        name: gp.security_name,
-        date: gp.security_date,
-        comments: gp.security_comments,
-        signature: gp.security_signature,
-      },
+    // ---- Phase 2c-4: approvals sourced from gate_pass_approvals ----
+    // Populated by Phase 2b dual-write. Replaces the hardcoded 3-block
+    // array that read store_manager_*, finance_*, security_* columns
+    // directly off the gate pass row. Titles + render order preserved.
+    const ROLE_BLOCK_TITLES: Record<string, string> = {
+      store_manager:   "Approved By (Store Manager)",
+      finance:         "Department Verification (Finance)",
+      security:        "Security Sign-off",
+      // PMD-workflow passes — legacy never rendered these so they only
+      // appear when gate_pass_approvals has rows for them.
+      security_pmd:    "Security (PMD)",
+      cr_coordinator:  "CR Coordinator",
+      head_cr:         "Head CR",
+      hm_security_pmd: "HM Security (PMD)",
+    };
+    const ROLE_RENDER_ORDER = [
+      'store_manager', 'finance', 'security',
+      'security_pmd', 'cr_coordinator', 'head_cr', 'hm_security_pmd',
     ];
+    const ROLE_ORDER_INDEX: Record<string, number> = Object.fromEntries(
+      ROLE_RENDER_ORDER.map((r, i) => [r, i]),
+    );
 
-    // Filter to only show blocks that have been actioned
+    type SigBlock = {
+      title: string;
+      roleKey: string;
+      name: string | null;
+      date: string | null;
+      comments: string | null;
+      signature: string | null;
+    };
+
+    let sigBlocks: SigBlock[] = [];
+
+    const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
+      .from('gate_pass_approvals')
+      .select('role_name, status, approver_name, approved_at, signature, comments')
+      .eq('gate_pass_id', gatePassId);
+
+    if (approvalsErr) {
+      console.error('gate_pass_approvals fetch error:', approvalsErr);
+    }
+
+    if (approvalRows && approvalRows.length > 0) {
+      sigBlocks = approvalRows
+        .filter((r) => r.status === 'approved' || r.status === 'rejected')
+        .map((r): SigBlock => ({
+          title: ROLE_BLOCK_TITLES[r.role_name] ?? r.role_name,
+          roleKey: r.role_name,
+          name: r.approver_name,
+          date: r.approved_at,
+          signature: r.signature,
+          comments: r.comments,
+        }));
+    } else {
+      // Fallback for pre-Phase-2b passes that never got reconciled. Builds
+      // the same shape from legacy columns so the PDF still renders.
+      // Removable in the cleanup phase once legacy columns are dropped.
+      const rec = gp as Record<string, unknown>;
+      const legacyRoles: string[] = ['store_manager', 'finance', 'security'];
+      for (const roleKey of legacyRoles) {
+        const name = (rec[`${roleKey}_name`] as string | null) ?? null;
+        const date = (rec[`${roleKey}_date`] as string | null) ?? null;
+        if (!name && !date) continue;
+        sigBlocks.push({
+          title: ROLE_BLOCK_TITLES[roleKey],
+          roleKey,
+          name,
+          date,
+          comments: (rec[`${roleKey}_comments`] as string | null) ?? null,
+          signature: (rec[`${roleKey}_signature`] as string | null) ?? null,
+        });
+      }
+    }
+
+    // Stable sort by render order so grid layout is byte-identical for
+    // identical input data.
+    sigBlocks.sort((a, b) => {
+      const oa = ROLE_ORDER_INDEX[a.roleKey] ?? Number.POSITIVE_INFINITY;
+      const ob = ROLE_ORDER_INDEX[b.roleKey] ?? Number.POSITIVE_INFINITY;
+      return oa - ob;
+    });
+
+    // Filter to only show blocks that have been actioned (existing
+    // behavior preserved — pending blocks never appeared on the PDF).
     const activeSigs = sigBlocks.filter(s => s.name || s.date);
 
     const sigColCount = 3;

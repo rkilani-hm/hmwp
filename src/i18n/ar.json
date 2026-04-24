@@ -207,7 +207,14 @@
     "cctvConfirmed": "تم التحقق عبر الكاميرات",
     "storeManager": "مدير المخزن",
     "finance": "المالية",
-    "security": "الأمن"
+    "security": "الأمن",
+    "approvalProgress": {
+      "title": "تقدم الاعتماد",
+      "stepCount": "{{completed}} من {{total}} خطوة مكتملة",
+      "submitted": "تم الإرسال",
+      "awaitingApproval": "بانتظار الاعتماد",
+      "upcoming": "قادم"
+    }
   },
   "biometric": {
     "title": "الأجهزة البيومترية",
