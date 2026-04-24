@@ -182,6 +182,13 @@
       "listLabel": "Approval history",
       "empty": "No approval activity yet.",
       "skipped": "Skipped"
+    },
+    "approvalProgress": {
+      "title": "Approval progress",
+      "stepCount": "{{completed}} of {{total}} steps completed",
+      "submitted": "Submitted",
+      "awaitingApproval": "Awaiting approval",
+      "upcoming": "Upcoming"
     }
   },
   "gatePasses": {
