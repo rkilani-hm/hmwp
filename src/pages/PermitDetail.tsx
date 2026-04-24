@@ -502,7 +502,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 requesterName={permit.requester_name}
                 approvals={{
                   customer_service: {
-                    status: permit.customer_service_status,
+                    status: (permit as any).customer_service_status,
                     approver_name: permit.customer_service_approver_name,
                     date: permit.customer_service_date,
                     comments: permit.customer_service_comments,
