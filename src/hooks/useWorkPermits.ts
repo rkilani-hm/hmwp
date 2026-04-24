@@ -664,7 +664,7 @@ export function usePendingPermitsForApprover() {
       // the user holds. Preserve order (already sorted by SLA deadline).
       const seen = new Set<string>();
       const permitIds: string[] = [];
-      for (const row of activeRows as Array<{ permit_id: string }>) {
+      for (const row of activeRows as unknown as Array<{ permit_id: string }>) {
         if (!seen.has(row.permit_id)) {
           seen.add(row.permit_id);
           permitIds.push(row.permit_id);
