@@ -1,0 +1,192 @@
+{
+  "app": {
+    "name": "تصاريح عمل الحمراء",
+    "tagline": "الحمراء — إدارة تصاريح العمل وإذن الخروج"
+  },
+  "common": {
+    "yes": "نعم",
+    "no": "لا",
+    "ok": "موافق",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "submit": "إرسال",
+    "submitting": "جارٍ الإرسال…",
+    "confirm": "تأكيد",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق",
+    "continue": "متابعة",
+    "done": "تم",
+    "loading": "جارٍ التحميل…",
+    "search": "بحث",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "view": "عرض",
+    "details": "التفاصيل",
+    "actions": "إجراءات",
+    "optional": "اختياري",
+    "required": "مطلوب",
+    "today": "اليوم",
+    "yesterday": "أمس",
+    "tomorrow": "غداً",
+    "notApplicable": "غير متاح",
+    "all": "الكل",
+    "none": "لا شيء",
+    "open": "مفتوح",
+    "closed": "مغلق",
+    "retry": "إعادة المحاولة",
+    "refresh": "تحديث"
+  },
+  "status": {
+    "draft": "مسودة",
+    "submitted": "مُرسل",
+    "pending": "قيد الانتظار",
+    "underReview": "قيد المراجعة",
+    "approved": "معتمد",
+    "rejected": "مرفوض",
+    "completed": "مكتمل",
+    "cancelled": "ملغى",
+    "expired": "منتهي الصلاحية",
+    "archived": "مؤرشف"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    "enterPassword": "أدخل كلمة المرور",
+    "verifyIdentity": "التحقق من الهوية"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "myPermits": "تصاريحي",
+    "approverInbox": "صندوق المُعتمِد",
+    "gatePasses": "تصاريح الخروج",
+    "workflows": "سير العمل",
+    "admin": "الإدارة",
+    "settings": "الإعدادات",
+    "users": "المستخدمون",
+    "roles": "الأدوار",
+    "audit": "سجل التدقيق",
+    "reports": "التقارير"
+  },
+  "permits": {
+    "title": "تصاريح العمل",
+    "new": "تصريح جديد",
+    "permitNo": "رقم التصريح",
+    "workType": "نوع العمل",
+    "location": "الموقع",
+    "requester": "مقدم الطلب",
+    "submittedOn": "تاريخ الإرسال",
+    "slaDeadline": "الموعد النهائي",
+    "urgency": "الأولوية",
+    "noPermits": "لا توجد تصاريح بعد",
+    "noPermitsHint": "ستظهر تصاريح العمل التي أرسلتها هنا.",
+    "create": {
+      "title": "إنشاء تصريح عمل",
+      "step1": "المعلومات الأساسية",
+      "step2": "تفاصيل العمل",
+      "step3": "السلامة",
+      "step4": "مراجعة وإرسال"
+    },
+    "approve": {
+      "title": "اعتماد تصريح العمل",
+      "subtitle": "تحقق من هويتك ووقّع للاعتماد.",
+      "comments": "ملاحظات (اختياري)",
+      "signature": "توقيعك",
+      "clearSignature": "مسح التوقيع",
+      "confirmSignature": "تأكيد التوقيع",
+      "approveButton": "اعتماد",
+      "rejectButton": "رفض",
+      "rejectConfirm": "رفض التصريح",
+      "rejectReason": "سبب الرفض",
+      "passwordTab": "كلمة المرور",
+      "fingerprintTab": "البصمة",
+      "identityVerified": "تم التحقق من الهوية",
+      "identityVerifiedHint": "يمكنك الآن متابعة عملية الاعتماد.",
+      "biometricUnavailable": "المصادقة البيومترية غير متوفرة على هذا الجهاز."
+    }
+  },
+  "gatePasses": {
+    "title": "تصاريح الخروج",
+    "new": "تصريح خروج جديد",
+    "passNo": "رقم التصريح",
+    "passType": "نوع التصريح",
+    "materialIn": "إدخال مواد",
+    "materialOut": "إخراج مواد",
+    "personnel": "أفراد",
+    "vendor": "مورّد",
+    "highValue": "أصل عالي القيمة",
+    "cctvConfirmed": "تم التحقق عبر الكاميرات",
+    "storeManager": "مدير المخزن",
+    "finance": "المالية",
+    "security": "الأمن"
+  },
+  "biometric": {
+    "title": "الأجهزة البيومترية",
+    "description": "استخدم المصادقة البيومترية على الهاتف لاعتماد الطلبات بسرعة وأمان.",
+    "registerDevice": "تسجيل جهاز بيومتري",
+    "registerDialog": {
+      "title": "تسجيل جهاز بيومتري",
+      "subtitle": "اختر اسماً لهذا الجهاز حتى تتمكن من التعرف عليه لاحقاً. سيُطلب منك التحقق ببصمتك.",
+      "deviceName": "اسم الجهاز",
+      "deviceNamePlaceholder": "مثلاً: آيفون خاصتي",
+      "register": "تسجيل",
+      "registering": "جارٍ التسجيل…",
+      "success": "تم تسجيل الجهاز البيومتري",
+      "failure": "فشل التسجيل"
+    },
+    "noDevices": "لم يتم تسجيل أي أجهزة بيومترية بعد.",
+    "noDevicesHint": "سجّل جهازاً لاعتماد الطلبات بالبصمة أو التعرف على الوجه.",
+    "registeredOn": "تاريخ التسجيل",
+    "lastUsed": "آخر استخدام",
+    "neverUsed": "لم يُستخدم بعد",
+    "deleteConfirm": "هل تريد إزالة هذا الجهاز البيومتري؟",
+    "deleteDescription": "ستحتاج إلى تسجيل الجهاز مرة أخرى لاستخدام الاعتماد البيومتري.",
+    "unsupported": "المصادقة البيومترية غير متوفرة على هذا الجهاز أو المتصفح."
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "account": {
+      "title": "الحساب",
+      "name": "الاسم الكامل",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "update": "تحديث",
+      "updated": "تم تحديث الحساب"
+    },
+    "language": {
+      "title": "اللغة",
+      "description": "اختر اللغة المستخدمة في التطبيق.",
+      "english": "English",
+      "arabic": "العربية",
+      "current": "اللغة الحالية"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "enable": "تفعيل الإشعارات الفورية",
+      "test": "إرسال إشعار تجريبي",
+      "sending": "جارٍ الإرسال…"
+    }
+  },
+  "errors": {
+    "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "network": "خطأ في الشبكة. تحقق من الاتصال.",
+    "unauthorized": "ليس لديك صلاحية للقيام بذلك.",
+    "notFound": "غير موجود.",
+    "validationFailed": "يرجى تصحيح الحقول المميزة.",
+    "serverError": "حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى."
+  },
+  "toast": {
+    "saveSuccess": "تم الحفظ",
+    "submitSuccess": "تم الإرسال",
+    "approveSuccess": "تم اعتماد التصريح",
+    "rejectSuccess": "تم رفض التصريح",
+    "deleteSuccess": "تم الحذف"
+  }
+}

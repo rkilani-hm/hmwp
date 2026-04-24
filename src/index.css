@@ -1,4 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+/* =============================================================================
+ * Al Hamra brand tokens (Phase 3a).
+ *
+ * Palette is derived from the Al Hamra Identity Guidelines:
+ *   Primary red  #CD1719  hsl(0 80% 45%)   — brand identifier, used sparingly for CTAs
+ *   Sub-grey     #B2B2B2  hsl(0 0% 70%)    — supporting, borders, dividers
+ *   Charcoal     #1D1D1B  hsl(60 3% 11%)   — text only, avoided in large fills
+ *   Light grey   #EDEDED  hsl(0 0% 93%)    — surfaces, muted backgrounds
+ *
+ * Per brand direction, black is used sparingly — we keep backgrounds
+ * white and use soft neutrals, so the red reads as the accent it is rather
+ * than one of several competing heavy colors.
+ *
+ * Fonts (Phase 3a i18n): Jost is a geometric Google font that sits in the
+ * same visual territory as Century Gothic (the brand English face) and is
+ * freely licensable for web. Noto Kufi Arabic covers Arabic with the same
+ * geometric character as Ge Flow (the brand Arabic face). Replacing with
+ * licensed Century Gothic / Ge Flow .woff2 files later is a one-line swap.
+ * ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=Noto+Kufi+Arabic:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,122 +26,129 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    /* Surfaces — white-first, no heavy black */
+    --background: 0 0% 100%;
+    --foreground: 60 3% 11%;           /* #1D1D1B — text-only */
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 60 3% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 60 3% 11%;
 
-    --primary: 213 50% 23%;
-    --primary-foreground: 210 40% 98%;
+    /* Brand red — identity color for primary CTAs and active states */
+    --primary: 0 80% 45%;              /* #CD1719 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 15% 93%;
-    --secondary-foreground: 215 25% 25%;
+    /* Sub colors — greys */
+    --secondary: 0 0% 93%;             /* #EDEDED */
+    --secondary-foreground: 60 3% 15%;
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 174 62% 47%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent used for hover/selection — soft grey with red text hint */
+    --accent: 0 0% 93%;
+    --accent-foreground: 0 80% 35%;
 
-    --destructive: 0 72% 51%;
+    /* Semantic status colors */
+    --destructive: 0 80% 45%;          /* destructive = red = on-brand */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    --success: 142 65% 38%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 60 3% 11%;
 
-    --info: 199 89% 48%;
+    --info: 210 80% 45%;
     --info-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 174 62% 47%;
+    /* Inputs / borders — soft grey, not charcoal */
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 80% 45%;                 /* focus ring = brand red */
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;                  /* tightened from 0.75rem */
 
-    --sidebar-background: 213 50% 20%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 174 62% 47%;
+    /* Sidebar — white chrome with red accents. Biggest visible departure
+       from the previous navy theme. */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 60 3% 11%;
+    --sidebar-primary: 0 80% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 50% 28%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 213 50% 30%;
-    --sidebar-ring: 174 62% 47%;
+    --sidebar-accent: 0 0% 93%;
+    --sidebar-accent-foreground: 0 80% 35%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 0 80% 45%;
 
-    /* Status colors */
-    --status-draft: 210 15% 60%;
-    --status-submitted: 199 89% 48%;
+    /* Status colors (permit lifecycle) */
+    --status-draft: 0 0% 60%;
+    --status-submitted: 210 80% 45%;
     --status-review: 38 92% 50%;
-    --status-approved: 142 71% 45%;
-    --status-rejected: 0 72% 51%;
-    --status-closed: 215 25% 35%;
+    --status-approved: 142 65% 38%;
+    --status-rejected: 0 80% 45%;
+    --status-closed: 60 3% 30%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(213 50% 23%) 0%, hsl(213 50% 35%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(174 62% 47%) 0%, hsl(174 62% 35%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 15% 95%) 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(215 25% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.1), 0 2px 4px -2px hsl(215 25% 15% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(215 25% 15% / 0.1), 0 4px 6px -4px hsl(215 25% 15% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(215 25% 15% / 0.1), 0 8px 10px -6px hsl(215 25% 15% / 0.1);
-    --shadow-card: 0 1px 3px 0 hsl(215 25% 15% / 0.1), 0 1px 2px -1px hsl(215 25% 15% / 0.1);
-    --shadow-card-hover: 0 10px 15px -3px hsl(215 25% 15% / 0.1), 0 4px 6px -4px hsl(215 25% 15% / 0.1);
+    --gradient-primary: linear-gradient(135deg, hsl(0 80% 45%) 0%, hsl(0 80% 38%) 100%);
+    --gradient-hero:    linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 95%) 100%);
+
+    /* Shadows — warmer, softer, no heavy black */
+    --shadow-sm:   0 1px 2px 0 hsl(60 3% 11% / 0.04);
+    --shadow-md:   0 4px 6px -1px hsl(60 3% 11% / 0.06), 0 2px 4px -2px hsl(60 3% 11% / 0.05);
+    --shadow-lg:   0 10px 15px -3px hsl(60 3% 11% / 0.08), 0 4px 6px -4px hsl(60 3% 11% / 0.05);
+    --shadow-xl:   0 20px 25px -5px hsl(60 3% 11% / 0.1), 0 8px 10px -6px hsl(60 3% 11% / 0.06);
+    --shadow-card:       0 1px 3px 0 hsl(60 3% 11% / 0.06), 0 1px 2px -1px hsl(60 3% 11% / 0.04);
+    --shadow-card-hover: 0 8px 14px -3px hsl(60 3% 11% / 0.1),  0 4px 6px -4px hsl(60 3% 11% / 0.05);
   }
 
+  /* Dark mode — warm dark, NOT pure black. Red brightened so it pops. */
   .dark {
-    --background: 215 25% 10%;
-    --foreground: 210 40% 98%;
+    --background: 25 8% 8%;
+    --foreground: 0 0% 95%;
 
-    --card: 215 25% 13%;
-    --card-foreground: 210 40% 98%;
+    --card: 25 8% 11%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 215 25% 13%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 25 8% 11%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 174 62% 47%;
-    --primary-foreground: 215 25% 10%;
+    --primary: 0 75% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 20%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 25 8% 18%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 215 20% 18%;
-    --muted-foreground: 215 15% 60%;
+    --muted: 25 8% 14%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 174 62% 47%;
-    --accent-foreground: 215 25% 10%;
+    --accent: 25 8% 18%;
+    --accent-foreground: 0 75% 65%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 60% 40%;
+    --success: 142 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 80% 45%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 38 80% 55%;
+    --warning-foreground: 25 8% 8%;
 
-    --info: 199 80% 45%;
+    --info: 210 75% 55%;
     --info-foreground: 0 0% 100%;
 
-    --border: 215 20% 22%;
-    --input: 215 20% 22%;
-    --ring: 174 62% 47%;
+    --border: 25 8% 22%;
+    --input: 25 8% 22%;
+    --ring: 0 75% 55%;
 
-    --sidebar-background: 215 25% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 174 62% 47%;
-    --sidebar-primary-foreground: 215 25% 10%;
-    --sidebar-accent: 215 25% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 25% 18%;
-    --sidebar-ring: 174 62% 47%;
+    --sidebar-background: 25 8% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 0 75% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 8% 14%;
+    --sidebar-accent-foreground: 0 75% 65%;
+    --sidebar-border: 25 8% 18%;
+    --sidebar-ring: 0 75% 55%;
   }
 }
 
@@ -132,11 +159,36 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Jost', 'Century Gothic', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Jost', 'Century Gothic', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Arabic typography — activated when dir="rtl" on any ancestor
+     (our <html> tag, set by the i18n provider). Noto Kufi Arabic keeps
+     the same geometric character as Jost for coherent bilingual pages. */
+  :where([dir="rtl"]) body,
+  :where([dir="rtl"]) h1,
+  :where([dir="rtl"]) h2,
+  :where([dir="rtl"]) h3,
+  :where([dir="rtl"]) h4,
+  :where([dir="rtl"]) h5,
+  :where([dir="rtl"]) h6 {
+    font-family: 'Noto Kufi Arabic', 'Ge Flow', 'Jost', sans-serif;
+  }
+
+  /* Latin numerals inside Arabic text render consistently left-to-right
+     regardless of language — permit numbers, dates, amounts. */
+  :where([dir="rtl"]) .numeric,
+  :where([dir="rtl"]) time,
+  :where([dir="rtl"]) [data-numeric] {
+    font-family: 'Jost', sans-serif;
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 }
 
@@ -146,33 +198,6 @@
   }
 
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50;
-  }
-
-  .status-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-}
-
-/* Print styles for gate pass */
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  .gate-pass-print-area,
-  .gate-pass-print-area * {
-    visibility: visible !important;
-  }
-  .gate-pass-print-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  @page {
-    size: A4;
-    margin: 10mm;
+    @apply bg-card/90 backdrop-blur-sm border border-border/60;
   }
 }
