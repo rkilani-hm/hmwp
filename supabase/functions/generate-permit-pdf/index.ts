@@ -349,26 +349,98 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Approvals section with signatures - 3 per row grid layout
     drawText(page, 'APPROVALS & SIGNATURES', margin, yPos, 12, helveticaBold);
     yPos -= 25;
-    
-    const approvals = [
-      // Client workflow roles
-      { name: 'Customer Service', roleKey: 'customer_service', status: permit.customer_service_status, approver: permit.customer_service_approver_name, date: permit.customer_service_date, signature: permit.customer_service_signature, comments: permit.customer_service_comments },
-      { name: 'CR Coordinator', roleKey: 'cr_coordinator', status: permit.cr_coordinator_status, approver: permit.cr_coordinator_approver_name, date: permit.cr_coordinator_date, signature: permit.cr_coordinator_signature, comments: permit.cr_coordinator_comments },
-      { name: 'Head CR', roleKey: 'head_cr', status: permit.head_cr_status, approver: permit.head_cr_approver_name, date: permit.head_cr_date, signature: permit.head_cr_signature, comments: permit.head_cr_comments },
-      // Internal workflow roles
-      { name: 'Helpdesk', roleKey: 'helpdesk', status: permit.helpdesk_status, approver: permit.helpdesk_approver_name, date: permit.helpdesk_date, signature: permit.helpdesk_signature, comments: permit.helpdesk_comments },
-      { name: 'PM', roleKey: 'pm', status: permit.pm_status, approver: permit.pm_approver_name, date: permit.pm_date, signature: permit.pm_signature, comments: permit.pm_comments },
-      { name: 'PD', roleKey: 'pd', status: permit.pd_status, approver: permit.pd_approver_name, date: permit.pd_date, signature: permit.pd_signature, comments: permit.pd_comments },
-      { name: 'BDCR', roleKey: 'bdcr', status: permit.bdcr_status, approver: permit.bdcr_approver_name, date: permit.bdcr_date, signature: permit.bdcr_signature, comments: permit.bdcr_comments },
-      { name: 'MPR', roleKey: 'mpr', status: permit.mpr_status, approver: permit.mpr_approver_name, date: permit.mpr_date, signature: permit.mpr_signature, comments: permit.mpr_comments },
-      { name: 'IT', roleKey: 'it', status: permit.it_status, approver: permit.it_approver_name, date: permit.it_date, signature: permit.it_signature, comments: permit.it_comments },
-      { name: 'Fit-Out', roleKey: 'fitout', status: permit.fitout_status, approver: permit.fitout_approver_name, date: permit.fitout_date, signature: permit.fitout_signature, comments: permit.fitout_comments },
-      { name: 'Ecovert Supervisor', roleKey: 'ecovert_supervisor', status: permit.ecovert_supervisor_status, approver: permit.ecovert_supervisor_approver_name, date: permit.ecovert_supervisor_date, signature: permit.ecovert_supervisor_signature, comments: permit.ecovert_supervisor_comments },
-      { name: 'PMD Coordinator', roleKey: 'pmd_coordinator', status: permit.pmd_coordinator_status, approver: permit.pmd_coordinator_approver_name, date: permit.pmd_coordinator_date, signature: permit.pmd_coordinator_signature, comments: permit.pmd_coordinator_comments },
-      // FMSP Approval (final step)
-      { name: 'FMSP Approval', roleKey: 'fmsp_approval', status: permit.fmsp_approval_status, approver: permit.fmsp_approval_approver_name, date: permit.fmsp_approval_date, signature: permit.fmsp_approval_signature, comments: permit.fmsp_approval_comments },
+
+    // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
+    // Populated by Phase 2b dual-write since 2026-04. Replaces the hardcoded
+    // 13-row array that read from per-role columns on work_permits. Role
+    // display names + render order preserved from the previous version.
+    const ROLE_DISPLAY_NAMES: Record<string, string> = {
+      customer_service: 'Customer Service',
+      cr_coordinator: 'CR Coordinator',
+      head_cr: 'Head CR',
+      helpdesk: 'Helpdesk',
+      pm: 'PM',
+      pd: 'PD',
+      bdcr: 'BDCR',
+      mpr: 'MPR',
+      it: 'IT',
+      fitout: 'Fit-Out',
+      ecovert_supervisor: 'Ecovert Supervisor',
+      pmd_coordinator: 'PMD Coordinator',
+      fmsp_approval: 'FMSP Approval',
+    };
+    // Explicit render order — the PDF grid previously placed client-
+    // workflow roles first, then internal roles, with FMSP final.
+    const ROLE_RENDER_ORDER: string[] = [
+      'customer_service', 'cr_coordinator', 'head_cr',
+      'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it',
+      'fitout', 'ecovert_supervisor', 'pmd_coordinator',
+      'fmsp_approval',
     ];
-    
+    const ROLE_ORDER_INDEX: Record<string, number> = Object.fromEntries(
+      ROLE_RENDER_ORDER.map((r, i) => [r, i]),
+    );
+
+    type ApprovalRow = {
+      name: string;
+      roleKey: string;
+      status: string | null;
+      approver: string | null;
+      date: string | null;
+      signature: string | null;
+      comments: string | null;
+    };
+
+    let approvals: ApprovalRow[] = [];
+
+    const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
+      .from('permit_approvals')
+      .select('role_name, status, approver_name, approved_at, signature, comments')
+      .eq('permit_id', permitId);
+
+    if (approvalsErr) {
+      console.error('permit_approvals fetch error:', approvalsErr);
+    }
+
+    if (approvalRows && approvalRows.length > 0) {
+      approvals = approvalRows.map((r): ApprovalRow => ({
+        name: ROLE_DISPLAY_NAMES[r.role_name] ?? r.role_name,
+        roleKey: r.role_name,
+        status: r.status,
+        approver: r.approver_name,
+        date: r.approved_at,
+        signature: r.signature,
+        comments: r.comments,
+      }));
+    } else {
+      // Fallback for legacy permits that predate Phase 2b dual-write and
+      // were never reconciled. Builds the same shape from the hardcoded
+      // columns so the PDF still renders for historical data. Can be
+      // removed once Phase 2c-5 drops the legacy columns (any permit
+      // remaining unreconciled at that point should be backfilled first).
+      const p = permit as Record<string, unknown>;
+      for (const roleKey of ROLE_RENDER_ORDER) {
+        const status = p[`${roleKey}_status`] as string | null | undefined;
+        if (status !== 'approved' && status !== 'rejected') continue;
+        approvals.push({
+          name: ROLE_DISPLAY_NAMES[roleKey],
+          roleKey,
+          status,
+          approver: (p[`${roleKey}_approver_name`] as string | null) ?? null,
+          date: (p[`${roleKey}_date`] as string | null) ?? null,
+          signature: (p[`${roleKey}_signature`] as string | null) ?? null,
+          comments: (p[`${roleKey}_comments`] as string | null) ?? null,
+        });
+      }
+    }
+
+    // Stable sort by the original render order so PDF layout is unchanged.
+    approvals.sort((a, b) => {
+      const oa = ROLE_ORDER_INDEX[a.roleKey] ?? Number.POSITIVE_INFINITY;
+      const ob = ROLE_ORDER_INDEX[b.roleKey] ?? Number.POSITIVE_INFINITY;
+      return oa - ob;
+    });
+
     // Filter to only show approved/rejected approvals
     const activeApprovals = approvals.filter(a => a.status === 'approved' || a.status === 'rejected');
     
