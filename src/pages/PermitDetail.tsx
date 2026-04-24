@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { useArchiveWorkPermit, useRestoreWorkPermit, useHardDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { UnifiedWorkflowProgress, UnifiedPermitData } from '@/components/ui/UnifiedWorkflowProgress';
-import { PermitApprovalsList } from '@/components/PermitApprovalsList';
+import { PermitApprovalProgress } from '@/components/PermitApprovalProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
@@ -60,6 +60,7 @@ interface PermitDetailProps {
 }
 
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -206,83 +207,6 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     });
     setApprovalDialogOpen(false);
     setComments('');
-  };
-
-  // Cast permit to unified data format for workflow progress
-  const p = permit as any;
-  const unifiedPermit: UnifiedPermitData = {
-    id: permit.id,
-    status: permit.status,
-    work_type_id: permit.work_type_id,
-    is_internal: p.is_internal ?? null,
-    workflow_customized: p.workflow_customized ?? false,
-    // Approval statuses
-    customer_service_status: p.customer_service_status,
-    helpdesk_status: permit.helpdesk_status,
-    cr_coordinator_status: p.cr_coordinator_status,
-    head_cr_status: p.head_cr_status,
-    pm_status: permit.pm_status,
-    pd_status: permit.pd_status,
-    bdcr_status: permit.bdcr_status,
-    mpr_status: permit.mpr_status,
-    it_status: permit.it_status,
-    fitout_status: permit.fitout_status,
-    ecovert_supervisor_status: p.ecovert_supervisor_status,
-    pmd_coordinator_status: p.pmd_coordinator_status,
-    fmsp_approval_status: p.fmsp_approval_status,
-    // Approver names
-    customer_service_approver_name: p.customer_service_approver_name,
-    helpdesk_approver_name: permit.helpdesk_approver_name,
-    cr_coordinator_approver_name: p.cr_coordinator_approver_name,
-    head_cr_approver_name: p.head_cr_approver_name,
-    pm_approver_name: permit.pm_approver_name,
-    pd_approver_name: permit.pd_approver_name,
-    bdcr_approver_name: p.bdcr_approver_name,
-    mpr_approver_name: p.mpr_approver_name,
-    it_approver_name: p.it_approver_name,
-    fitout_approver_name: p.fitout_approver_name,
-    ecovert_supervisor_approver_name: p.ecovert_supervisor_approver_name,
-    pmd_coordinator_approver_name: p.pmd_coordinator_approver_name,
-    fmsp_approval_approver_name: p.fmsp_approval_approver_name,
-    // Approval dates
-    customer_service_date: p.customer_service_date,
-    helpdesk_date: permit.helpdesk_date,
-    cr_coordinator_date: p.cr_coordinator_date,
-    head_cr_date: p.head_cr_date,
-    pm_date: permit.pm_date,
-    pd_date: permit.pd_date,
-    bdcr_date: p.bdcr_date,
-    mpr_date: p.mpr_date,
-    it_date: p.it_date,
-    fitout_date: p.fitout_date,
-    ecovert_supervisor_date: p.ecovert_supervisor_date,
-    pmd_coordinator_date: p.pmd_coordinator_date,
-    fmsp_approval_date: p.fmsp_approval_date,
-    // Approval comments
-    customer_service_comments: p.customer_service_comments,
-    helpdesk_comments: permit.helpdesk_comments,
-    cr_coordinator_comments: p.cr_coordinator_comments,
-    head_cr_comments: p.head_cr_comments,
-    pm_comments: permit.pm_comments,
-    pd_comments: permit.pd_comments,
-    bdcr_comments: p.bdcr_comments,
-    mpr_comments: p.mpr_comments,
-    it_comments: p.it_comments,
-    fitout_comments: p.fitout_comments,
-    ecovert_supervisor_comments: p.ecovert_supervisor_comments,
-    pmd_coordinator_comments: p.pmd_coordinator_comments,
-    fmsp_approval_comments: p.fmsp_approval_comments,
-    // Work type requirements for legacy fallback
-    work_types: workType ? {
-      requires_pm: workType.requires_pm,
-      requires_pd: workType.requires_pd,
-      requires_bdcr: workType.requires_bdcr,
-      requires_mpr: workType.requires_mpr,
-      requires_it: workType.requires_it,
-      requires_fitout: workType.requires_fitout,
-      requires_ecovert_supervisor: workType.requires_ecovert_supervisor,
-      requires_pmd_coordinator: workType.requires_pmd_coordinator,
-    } : null,
   };
 
   return (
@@ -770,40 +694,26 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
         {/* Workflow Timeline Sidebar */}
         <div className="space-y-6">
-          {/* Unified Workflow Progress */}
+          {/* Approval Progress — Phase 2c-2b
+              Reads from the new permit_approvals table (Phase 2b dual-write).
+              Replaces the legacy UnifiedWorkflowProgress which derived
+              everything from hardcoded per-role columns on work_permits.
+              Same UX: workflow-aware with pending/upcoming placeholders,
+              per-permit overrides, work-type config, progress bar. */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-display">Approval Progress</CardTitle>
+              <CardTitle className="text-lg font-display">
+                {t('permits.approvalProgress.title')}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <UnifiedWorkflowProgress permit={unifiedPermit} />
+              <PermitApprovalProgress
+                permitId={permit.id}
+                workTypeId={permit.work_type_id}
+                permitStatus={permit.status}
+              />
             </CardContent>
           </Card>
-
-          {/*
-            Phase 2c-2 A/B verification panel — visible to admins only while
-            we validate that the new permit_approvals table populated by
-            Phase 2b dual-write matches what the legacy per-role columns
-            say. After a verification window with zero observed drift, we
-            flip this block so PermitApprovalsList becomes the primary
-            surface and the legacy UnifiedWorkflowProgress is removed
-            (Phase 2c-2b).
-          */}
-          {isAdmin && (
-            <Card className="border-dashed border-info/40">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-display text-muted-foreground">
-                  Approvals (new data source — verification only)
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Read from <code className="text-xs">permit_approvals</code>. Should match the panel above.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <PermitApprovalsList permitId={permit.id} />
-              </CardContent>
-            </Card>
-          )}
 
           {/* Version History */}
           <PermitVersionHistory 

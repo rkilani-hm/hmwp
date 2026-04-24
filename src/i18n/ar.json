@@ -185,6 +185,13 @@
       "listLabel": "سجل الاعتمادات",
       "empty": "لا توجد أنشطة اعتماد بعد.",
       "skipped": "تم التجاوز"
+    },
+    "approvalProgress": {
+      "title": "تقدم الاعتماد",
+      "stepCount": "{{completed}} من {{total}} خطوة مكتملة",
+      "submitted": "تم الإرسال",
+      "awaitingApproval": "بانتظار الاعتماد",
+      "upcoming": "قادم"
     }
   },
   "gatePasses": {
