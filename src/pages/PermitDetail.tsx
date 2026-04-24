@@ -7,6 +7,7 @@ import { useGeneratePdf } from '@/hooks/useGeneratePdf';
 import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { UnifiedWorkflowProgress, UnifiedPermitData } from '@/components/ui/UnifiedWorkflowProgress';
+import { PermitApprovalsList } from '@/components/PermitApprovalsList';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
@@ -778,6 +779,31 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <UnifiedWorkflowProgress permit={unifiedPermit} />
             </CardContent>
           </Card>
+
+          {/*
+            Phase 2c-2 A/B verification panel — visible to admins only while
+            we validate that the new permit_approvals table populated by
+            Phase 2b dual-write matches what the legacy per-role columns
+            say. After a verification window with zero observed drift, we
+            flip this block so PermitApprovalsList becomes the primary
+            surface and the legacy UnifiedWorkflowProgress is removed
+            (Phase 2c-2b).
+          */}
+          {isAdmin && (
+            <Card className="border-dashed border-info/40">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-display text-muted-foreground">
+                  Approvals (new data source — verification only)
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Read from <code className="text-xs">permit_approvals</code>. Should match the panel above.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <PermitApprovalsList permitId={permit.id} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Version History */}
           <PermitVersionHistory 
