@@ -33,10 +33,10 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const actionLabels: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
-  approved: { label: 'Approved', icon: CheckCircle, color: 'text-green-500' },
-  rejected: { label: 'Rejected', icon: XCircle, color: 'text-red-500' },
-  forwarded: { label: 'Forwarded', icon: Forward, color: 'text-blue-500' },
-  rework: { label: 'Sent for Rework', icon: RotateCcw, color: 'text-amber-500' },
+  approved: { label: 'Approved', icon: CheckCircle, color: 'text-success' },
+  rejected: { label: 'Rejected', icon: XCircle, color: 'text-destructive' },
+  forwarded: { label: 'Forwarded', icon: Forward, color: 'text-info' },
+  rework: { label: 'Sent for Rework', icon: RotateCcw, color: 'text-warning' },
 };
 
 export default function ApproverOutbox() {
@@ -188,10 +188,10 @@ export default function ApproverOutbox() {
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-8 h-8 rounded-full flex items-center justify-center",
-                            permit.userAction === 'approved' && "bg-green-500/10",
-                            permit.userAction === 'rejected' && "bg-red-500/10",
-                            permit.userAction === 'forwarded' && "bg-blue-500/10",
-                            permit.userAction === 'rework' && "bg-amber-500/10"
+                            permit.userAction === 'approved' && "bg-success/10",
+                            permit.userAction === 'rejected' && "bg-destructive/10",
+                            permit.userAction === 'forwarded' && "bg-info/10",
+                            permit.userAction === 'rework' && "bg-warning/10"
                           )}>
                             <ActionIcon className={cn("w-4 h-4", actionInfo?.color)} />
                           </div>

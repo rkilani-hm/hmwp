@@ -178,17 +178,17 @@ export default function PublicPermitRequest() {
             />
           </div>
 
-          <Card className="border-green-200 bg-green-50/50">
+          <Card className="border-success/30 bg-success/5">
             <CardContent className="py-8 text-center">
-              <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-green-700 mb-2">
+              <CheckCircle2 className="h-16 w-16 text-success mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-success mb-2">
                 Permit Request Submitted!
               </h2>
-              <p className="text-green-600 mb-6">
+              <p className="text-success mb-6">
                 Your work permit request has been received and is pending review.
               </p>
               
-              <div className="bg-white rounded-lg p-4 border border-green-200 mb-6">
+              <div className="bg-white rounded-lg p-4 border border-success/30 mb-6">
                 <p className="text-sm text-muted-foreground mb-1">Your Permit Number</p>
                 <p className="text-2xl font-mono font-bold text-foreground">{submittedPermitNo}</p>
               </div>
@@ -654,8 +654,8 @@ export default function PublicPermitRequest() {
                       className="p-4 bg-muted/30 rounded-lg"
                     />
 
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-sm text-amber-800">
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                      <p className="text-sm text-warning">
                         <AlertTriangle className="h-4 w-4 inline mr-2" />
                         By submitting this request, you confirm that all information provided is accurate. 
                         You will receive status updates via email.

@@ -133,16 +133,16 @@ const ScanVerify = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-success/15 text-success border-success/30';
       case 'rejected':
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-destructive/15 text-destructive border-destructive/30';
       case 'closed':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
       case 'draft':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-warning/15 text-warning border-warning/30';
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-info/15 text-info border-info/30';
     }
   };
 
@@ -271,10 +271,10 @@ const ScanVerify = () => {
 
       {/* Results */}
       {permitInfo && (
-        <Card className="border-green-200 bg-green-50/50">
+        <Card className="border-success/30 bg-success/5">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-green-700">
+              <CardTitle className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-5 w-5" />
                 Permit Found
               </CardTitle>
@@ -339,11 +339,11 @@ const ScanVerify = () => {
       )}
 
       {notFound && (
-        <Card className="border-red-200 bg-red-50/50">
+        <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-8 text-center">
-            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-red-700">Permit Not Found</h3>
-            <p className="text-sm text-red-600 mt-1">
+            <XCircle className="h-12 w-12 text-destructive mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-destructive">Permit Not Found</h3>
+            <p className="text-sm text-destructive mt-1">
               No permit was found with the number "{manualPermitNo}".
               Please check the number and try again.
             </p>

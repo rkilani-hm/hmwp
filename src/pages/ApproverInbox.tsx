@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { PermitListSkeleton } from '@/components/ui/PermitListSkeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   Select,
   SelectContent,
@@ -227,8 +229,16 @@ export default function ApproverInbox() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+              <Inbox className="w-7 h-7" />
+              {t('approverInbox.title')}
+            </h1>
+          </div>
+        </div>
+        <PermitListSkeleton count={3} />
       </div>
     );
   }
@@ -240,7 +250,7 @@ export default function ApproverInbox() {
         <div>
           <h1 className="text-2xl font-display font-bold flex items-center gap-2">
             <Inbox className="w-7 h-7" />
-            Approver Inbox
+            {t('approverInbox.title')}
           </h1>
           <p className="text-muted-foreground">
             {filteredPermits.length} permit{filteredPermits.length !== 1 ? 's' : ''} awaiting your review
@@ -320,17 +330,11 @@ export default function ApproverInbox() {
 
       {/* Permits List */}
       {filteredPermits.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-              <Inbox className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">No pending approvals</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              You're all caught up! There are no work permits waiting for your review.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Inbox}
+          title={t('approverInbox.emptyTitle')}
+          description={t('approverInbox.emptyHint')}
+        />
       ) : (
         <div className="space-y-4">
           {filteredPermits.map((permit, index) => {
@@ -361,13 +365,13 @@ export default function ApproverInbox() {
                           {permit.urgency === 'urgent' && (
                             <Badge variant="destructive" className="flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
-                              URGENT
+                              {t('approverInbox.urgentBadge')}
                             </Badge>
                           )}
                           {slaStatus?.isOverdue && (
                             <Badge variant="outline" className="text-destructive border-destructive flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              SLA BREACHED
+                              {t('approverInbox.slaBreachedBadge')}
                             </Badge>
                           )}
                         </div>
@@ -401,7 +405,7 @@ export default function ApproverInbox() {
                             <Timer className="w-4 h-4" />
                             <div className="text-right">
                               <p className="text-xs font-medium">
-                                {slaStatus.isOverdue ? 'Overdue' : 'Due'}
+                                {slaStatus.isOverdue ? t('approverInbox.overdue') : t('approverInbox.due')}
                               </p>
                               <p className="text-sm font-semibold">
                                 {slaStatus.timeLeft}
