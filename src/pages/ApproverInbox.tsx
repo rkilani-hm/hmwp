@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { usePendingPermitsForApprover, useSecureApprovePermit, WorkPermit } from '@/hooks/useWorkPermits';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -71,6 +72,7 @@ const statusToRole: Record<string, string> = {
 };
 
 export default function ApproverInbox() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { roles, profile, user, refreshProfile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
@@ -417,7 +419,7 @@ export default function ApproverInbox() {
                             onClick={(e) => handleForwardClick(e, permit)}
                           >
                             <Forward className="w-4 h-4" />
-                            Forward
+                            {t('approverInbox.forward')}
                           </Button>
                           <Button
                             size="sm"
@@ -426,24 +428,24 @@ export default function ApproverInbox() {
                             onClick={(e) => handleReworkClick(e, permit)}
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Rework
+                            {t('approverInbox.rework')}
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            variant="destructive"
+                            className="gap-1.5"
                             onClick={(e) => handleRejectClick(e, permit)}
                           >
                             <XCircle className="w-4 h-4" />
-                            Reject
+                            {t('permits.approve.rejectButton')}
                           </Button>
                           <Button
                             size="sm"
-                            className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                            className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
                             onClick={(e) => handleApproveClick(e, permit)}
                           >
                             <CheckCircle className="w-4 h-4" />
-                            Approve
+                            {t('permits.approve.approveButton')}
                           </Button>
                           <Button
                             size="sm"
@@ -455,7 +457,7 @@ export default function ApproverInbox() {
                             }}
                           >
                             <Eye className="w-4 h-4" />
-                            View
+                            {t('common.view')}
                           </Button>
                         </div>
                       </div>
