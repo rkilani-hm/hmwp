@@ -75,6 +75,15 @@
     "audit": "Audit log",
     "reports": "Reports"
   },
+  "approverInbox": {
+    "title": "Approver inbox",
+    "forward": "Forward",
+    "rework": "Rework",
+    "overdue": "Overdue",
+    "due": "Due",
+    "urgentBadge": "URGENT",
+    "slaBreachedBadge": "SLA BREACHED"
+  },
   "permits": {
     "title": "Work permits",
     "new": "New permit",
@@ -109,7 +118,10 @@
       "fingerprintTab": "Fingerprint",
       "identityVerified": "Identity verified",
       "identityVerifiedHint": "You can now proceed with the approval.",
-      "biometricUnavailable": "Biometric authentication is not available on this device."
+      "biometricUnavailable": "Biometric authentication is not available on this device.",
+      "whatGetsLogged": "What gets logged",
+      "auditNotice": "For audit, this action records your IP address, device, timestamp, and signature hash.",
+      "auditNoticeWebauthn": "Biometric credential ID is also recorded."
     }
   },
   "gatePasses": {

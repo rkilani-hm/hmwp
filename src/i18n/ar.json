@@ -75,6 +75,15 @@
     "audit": "سجل التدقيق",
     "reports": "التقارير"
   },
+  "approverInbox": {
+    "title": "صندوق المُعتمِد",
+    "forward": "تحويل",
+    "rework": "إعادة",
+    "overdue": "متأخر",
+    "due": "الاستحقاق",
+    "urgentBadge": "عاجل",
+    "slaBreachedBadge": "تجاوز مهلة الاستجابة"
+  },
   "permits": {
     "title": "تصاريح العمل",
     "new": "تصريح جديد",
@@ -109,7 +118,10 @@
       "fingerprintTab": "البصمة",
       "identityVerified": "تم التحقق من الهوية",
       "identityVerifiedHint": "يمكنك الآن متابعة عملية الاعتماد.",
-      "biometricUnavailable": "المصادقة البيومترية غير متوفرة على هذا الجهاز."
+      "biometricUnavailable": "المصادقة البيومترية غير متوفرة على هذا الجهاز.",
+      "whatGetsLogged": "ما الذي يُسجَّل",
+      "auditNotice": "لأغراض التدقيق، يُسجَّل في هذا الإجراء: عنوان IP الخاص بك، ومعلومات الجهاز، والتوقيت، وبصمة التوقيع.",
+      "auditNoticeWebauthn": "كما يُسجَّل معرّف البصمة البيومترية."
     }
   },
   "gatePasses": {
