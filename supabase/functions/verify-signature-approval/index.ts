@@ -121,7 +121,8 @@ function base64UrlToBytes(b64url: string): Uint8Array {
 // Returns the credential row if valid, null otherwise.
 // ---------------------------------------------------------------------------
 async function verifyWebAuthnAssertion(opts: {
-  serviceClient: ReturnType<typeof createClient>;
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any;
   userId: string;
   challengeId: string;
   // deno-lint-ignore no-explicit-any
