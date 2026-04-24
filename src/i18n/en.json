@@ -177,6 +177,11 @@
       "whatGetsLogged": "What gets logged",
       "auditNotice": "For audit, this action records your IP address, device, timestamp, and signature hash.",
       "auditNoticeWebauthn": "Biometric credential ID is also recorded."
+    },
+    "approvals": {
+      "listLabel": "Approval history",
+      "empty": "No approval activity yet.",
+      "skipped": "Skipped"
     }
   },
   "gatePasses": {
