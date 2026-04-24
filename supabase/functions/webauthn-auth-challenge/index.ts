@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateAuthenticationOptions } from "https://esm.sh/@simplewebauthn/server@10.0.1";
+import { generateAuthenticationOptions } from "https://esm.sh/@simplewebauthn/server@11.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import {
   corsHeaders,

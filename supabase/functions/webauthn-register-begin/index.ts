@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateRegistrationOptions } from "https://esm.sh/@simplewebauthn/server@10.0.1";
+import { generateRegistrationOptions } from "https://esm.sh/@simplewebauthn/server@11.0.0";
 import {
   corsHeaders,
   getRpConfig,

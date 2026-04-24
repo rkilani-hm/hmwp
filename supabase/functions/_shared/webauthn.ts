@@ -7,7 +7,7 @@
 //   WEBAUTHN_ORIGINS    comma-separated list of allowed origins, e.g.
 //                       "https://hmwp.lovable.app,https://permits.alhamra.com.kw"
 //
-// Uses @simplewebauthn/server v10 via esm.sh.
+// Uses @simplewebauthn/server v11 via esm.sh.
 // =============================================================================
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
