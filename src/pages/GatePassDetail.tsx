@@ -1,9 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGatePass, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useSecureApproveGatePass } from '@/hooks/useSecureApproveGatePass';
 import { useArchiveGatePass, useRestoreGatePass, useHardDeleteGatePass } from '@/hooks/useDeleteGatePass';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
@@ -45,7 +47,7 @@ export default function GatePassDetail() {
   const { data: gp, isLoading } = useGatePass(id);
   const { roles } = useAuth();
   const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
-  const approveGatePass = useApproveGatePass();
+  const approveGatePass = useSecureApproveGatePass();
   const completeGatePass = useCompleteGatePass();
   const archiveGP = useArchiveGatePass();
   const restoreGP = useRestoreGatePass();
@@ -93,22 +95,14 @@ export default function GatePassDetail() {
     setApprovalDialogOpen(true);
   };
 
-  const handleSecureApproval = async (password: string, signature: string) => {
-    // Verify password by re-authenticating
-    if (password !== '__BIOMETRIC_VERIFIED__') {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: supabase.auth.getUser ? (await supabase.auth.getUser()).data.user?.email || '' : '',
-        password,
-      });
-      if (authError) throw new Error('Invalid password. Please try again.');
-    }
-
+  const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
     await approveGatePass.mutateAsync({
       gatePassId: gp.id,
       role: approvalRole,
       approved: approvalAction === 'approve',
       comments,
-      signature: approvalAction === 'approve' ? signature : undefined,
+      signature: approvalAction === 'approve' ? signature : null,
+      auth,
       cctvConfirmed: approvalRole === 'security' ? cctvConfirmed : undefined,
     });
 
@@ -464,6 +458,7 @@ export default function GatePassDetail() {
         }
         actionType={approvalAction}
         isLoading={approveGatePass.isPending}
+        authBinding={{ gatePassId: gp.id, role: approvalRole }}
       />
 
       {/* Email to Client Dialog */}

@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGatePasses, useApproveGatePass, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePasses, useCompleteGatePass } from '@/hooks/useGatePasses';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassTypeLabels } from '@/types/gatePass';
 import type { GatePass, GatePassStatus } from '@/types/gatePass';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Eye } from 'lucide-react';
+import { CheckCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 
 const statusColors: Record<string, string> = {
@@ -28,7 +28,6 @@ export default function GatePassApprovals() {
   const navigate = useNavigate();
   const { data: passes, isLoading } = useGatePasses();
   const { roles } = useAuth();
-  const approveGatePass = useApproveGatePass();
   const completeGatePass = useCompleteGatePass();
 
   const pendingPasses = useMemo(() => {
@@ -89,18 +88,14 @@ export default function GatePassApprovals() {
                       {gp.client_contractor_name && <p className="text-sm text-muted-foreground">Client: {gp.client_contractor_name}</p>}
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
-                      <Button size="sm" variant="ghost" onClick={() => navigate(`/gate-passes/${gp.id}`)}>
-                        <Eye className="mr-1 h-4 w-4" /> View
-                      </Button>
-                      {approvalRole && (
-                        <>
-                          <Button size="sm" onClick={() => approveGatePass.mutate({ gatePassId: gp.id, role: approvalRole, approved: true })} disabled={approveGatePass.isPending}>
-                            <CheckCircle className="mr-1 h-4 w-4" /> Approve
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => approveGatePass.mutate({ gatePassId: gp.id, role: approvalRole, approved: false })} disabled={approveGatePass.isPending}>
-                            <XCircle className="mr-1 h-4 w-4" /> Reject
-                          </Button>
-                        </>
+                      {approvalRole ? (
+                        <Button size="sm" onClick={() => navigate(`/gate-passes/${gp.id}`)}>
+                          <Eye className="mr-1 h-4 w-4" /> Review &amp; approve
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/gate-passes/${gp.id}`)}>
+                          <Eye className="mr-1 h-4 w-4" /> View
+                        </Button>
                       )}
                       {canComplete && (
                         <Button size="sm" onClick={() => completeGatePass.mutate(gp.id)} disabled={completeGatePass.isPending}>

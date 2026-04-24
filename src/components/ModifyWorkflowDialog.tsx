@@ -23,12 +23,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, AlertTriangle, Settings2, Fingerprint, ArrowRight } from 'lucide-react';
-import { useAdminWorkTypes, WorkType } from '@/hooks/useAdminWorkTypes';
-import { useWorkflowSteps, useWorkTypeStepConfig, WorkflowStep } from '@/hooks/useWorkflowTemplates';
+import { Loader2, AlertTriangle, Settings2, Fingerprint, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useAdminWorkTypes } from '@/hooks/useAdminWorkTypes';
+import { useWorkflowSteps, useWorkTypeStepConfig } from '@/hooks/useWorkflowTemplates';
 import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
-import { useModifyPermitWorkflow } from '@/hooks/useModifyPermitWorkflow';
+import { useModifyPermitWorkflow, WorkflowAuth } from '@/hooks/useModifyPermitWorkflow';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 import { WorkflowModificationPreview } from './WorkflowModificationPreview';
 import { useHasPermission } from '@/hooks/useHasPermission';
 import { toast } from 'sonner';
@@ -42,8 +44,6 @@ interface ModifyWorkflowDialogProps {
   workflowTemplateId: string | null;
 }
 
-const BIOMETRIC_TOKEN = '__BIOMETRIC_VERIFIED__';
-
 export function ModifyWorkflowDialog({
   open,
   onOpenChange,
@@ -56,34 +56,44 @@ export function ModifyWorkflowDialog({
   const [selectedWorkTypeId, setSelectedWorkTypeId] = useState<string | null>(null);
   const [customSteps, setCustomSteps] = useState<Map<string, boolean>>(new Map());
   const [reason, setReason] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
-  // Fetch data
+  // New auth state
+  const [authTab, setAuthTab] = useState<'password' | 'webauthn'>('password');
+  const [password, setPassword] = useState('');
+  const [webauthnPayload, setWebauthnPayload] = useState<
+    { challengeId: string; assertion: unknown } | null
+  >(null);
+  const [verifyingWebAuthn, setVerifyingWebAuthn] = useState(false);
+
+  // Data
   const { data: workTypes, isLoading: workTypesLoading } = useAdminWorkTypes();
   const { data: currentSteps, isLoading: stepsLoading } = useWorkflowSteps(workflowTemplateId ?? undefined);
   const { data: currentStepConfig } = useWorkTypeStepConfig(currentWorkTypeId ?? undefined);
   const { data: permitOverrides } = usePermitWorkflowOverridesMap(permitId);
-  
+
   const modifyWorkflow = useModifyPermitWorkflow();
-  const { isSupported: biometricSupported, verifyIdentity, isChecking: biometricChecking } = useBiometricAuth();
+  const {
+    isSupported: webauthnSupported,
+    platformAvailable,
+    isChecking: webauthnChecking,
+  } = useBiometricAuth();
+  const isMobile = useIsMobile();
   const hasModifyPermission = useHasPermission('modify_workflow');
 
-  // Get selected work type's template and steps
-  const selectedWorkType = workTypes?.find(wt => wt.id === selectedWorkTypeId);
+  const selectedWorkType = workTypes?.find((wt) => wt.id === selectedWorkTypeId);
   const { data: newWorkTypeSteps } = useWorkflowSteps(selectedWorkType?.workflow_template_id ?? undefined);
   const { data: newWorkTypeStepConfig } = useWorkTypeStepConfig(selectedWorkTypeId ?? undefined);
 
-  // Build current required map (considering overrides)
+  const showBiometricOption = isMobile && webauthnSupported && platformAvailable && !webauthnChecking;
+
   const currentRequiredMap = useMemo(() => {
     const map = new Map<string, boolean>();
     if (currentSteps) {
       for (const step of currentSteps) {
-        // Check permit overrides first, then step config, then default
         if (permitOverrides?.has(step.id)) {
           map.set(step.id, permitOverrides.get(step.id)!);
         } else if (currentStepConfig) {
-          const config = currentStepConfig.find(c => c.workflow_step_id === step.id);
+          const config = currentStepConfig.find((c) => c.workflow_step_id === step.id);
           map.set(step.id, config ? config.is_required : step.is_required_default);
         } else {
           map.set(step.id, step.is_required_default);
@@ -93,18 +103,15 @@ export function ModifyWorkflowDialog({
     return map;
   }, [currentSteps, currentStepConfig, permitOverrides]);
 
-  // Build new required map based on selection
   const newRequiredMap = useMemo(() => {
     const map = new Map<string, boolean>();
-    
     if (activeTab === 'work_type' && newWorkTypeSteps) {
       for (const step of newWorkTypeSteps) {
-        const config = newWorkTypeStepConfig?.find(c => c.workflow_step_id === step.id);
+        const config = newWorkTypeStepConfig?.find((c) => c.workflow_step_id === step.id);
         map.set(step.id, config ? config.is_required : step.is_required_default);
       }
     } else if (activeTab === 'custom' && currentSteps) {
       for (const step of currentSteps) {
-        // Use custom selection if set, otherwise current
         if (customSteps.has(step.id)) {
           map.set(step.id, customSteps.get(step.id)!);
         } else {
@@ -112,22 +119,24 @@ export function ModifyWorkflowDialog({
         }
       }
     }
-    
     return map;
   }, [activeTab, newWorkTypeSteps, newWorkTypeStepConfig, currentSteps, customSteps, currentRequiredMap]);
 
-  // Reset state when dialog opens
+  const stepsToShow = activeTab === 'work_type' ? newWorkTypeSteps || [] : currentSteps || [];
+
+  // Reset when reopened
   useEffect(() => {
     if (open) {
+      setActiveTab('work_type');
       setSelectedWorkTypeId(null);
       setCustomSteps(new Map());
       setReason('');
       setPassword('');
-      setActiveTab('work_type');
+      setWebauthnPayload(null);
+      setAuthTab(showBiometricOption ? 'webauthn' : 'password');
     }
-  }, [open]);
+  }, [open, showBiometricOption]);
 
-  // Initialize custom steps from current required map
   useEffect(() => {
     if (activeTab === 'custom' && customSteps.size === 0 && currentSteps) {
       const initial = new Map<string, boolean>();
@@ -138,14 +147,52 @@ export function ModifyWorkflowDialog({
     }
   }, [activeTab, currentSteps, currentRequiredMap, customSteps.size]);
 
-  const handleBiometricAuth = async () => {
-    const result = await verifyIdentity();
-    if (result.success) {
-      setPassword(BIOMETRIC_TOKEN);
-      toast.success('Biometric verification successful');
-    } else {
-      toast.error(result.error || 'Biometric verification failed');
+  const handleWebAuthnVerify = async () => {
+    setVerifyingWebAuthn(true);
+    try {
+      // Call challenge endpoint directly with purpose='workflow_modify'
+      const { data, error } = await supabase.functions.invoke('webauthn-auth-challenge', {
+        body: {
+          purpose: 'workflow_modify',
+          binding: { permitId },
+        },
+      });
+      if (error) throw new Error(error.message || 'Failed to issue challenge');
+
+      const { options, challengeId } = data as {
+        options: unknown;
+        challengeId: string;
+      };
+
+      // Dynamically import @simplewebauthn/browser to trigger the prompt
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+      // deno-lint-ignore no-explicit-any
+      const assertion = await startAuthentication({ optionsJSON: options as any });
+
+      setWebauthnPayload({ challengeId, assertion });
+      toast.success('Identity verified');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Biometric verification failed';
+      if (msg.includes('NotAllowed') || msg.includes('cancelled') || msg.includes('AbortError')) {
+        toast.error('Verification cancelled');
+      } else if (msg.includes('No biometric credentials')) {
+        toast.error('No biometric device registered. Register one in Settings → Security.');
+      } else {
+        toast.error(msg);
+      }
+      setWebauthnPayload(null);
+    } finally {
+      setVerifyingWebAuthn(false);
     }
+  };
+
+  const buildAuth = (): WorkflowAuth | null => {
+    if (authTab === 'password') {
+      if (!password) return null;
+      return { authMethod: 'password', password };
+    }
+    if (!webauthnPayload) return null;
+    return { authMethod: 'webauthn', webauthn: webauthnPayload };
   };
 
   const handleSubmit = async () => {
@@ -153,60 +200,62 @@ export function ModifyWorkflowDialog({
       toast.error('Please provide a reason for the modification');
       return;
     }
-
-    if (!password) {
+    const auth = buildAuth();
+    if (!auth) {
       toast.error('Please verify your identity with password or biometrics');
       return;
     }
 
-    if (activeTab === 'work_type') {
-      if (!selectedWorkTypeId) {
-        toast.error('Please select a work type');
-        return;
+    try {
+      if (activeTab === 'work_type') {
+        if (!selectedWorkTypeId) {
+          toast.error('Please select a work type');
+          return;
+        }
+        await modifyWorkflow.mutateAsync({
+          permitId,
+          modificationType: 'work_type_change',
+          newWorkTypeId: selectedWorkTypeId,
+          reason: reason.trim(),
+          auth,
+        });
+      } else {
+        const steps = Array.from(customSteps.entries()).map(([stepId, isRequired]) => ({
+          stepId,
+          isRequired,
+        }));
+        await modifyWorkflow.mutateAsync({
+          permitId,
+          modificationType: 'custom_flow',
+          customSteps: steps,
+          reason: reason.trim(),
+          auth,
+        });
       }
-
-      await modifyWorkflow.mutateAsync({
-        permitId,
-        modificationType: 'work_type_change',
-        newWorkTypeId: selectedWorkTypeId,
-        reason: reason.trim(),
-        password,
-      });
-    } else {
-      const steps = Array.from(customSteps.entries()).map(([stepId, isRequired]) => ({
-        stepId,
-        isRequired,
-      }));
-
-      await modifyWorkflow.mutateAsync({
-        permitId,
-        modificationType: 'custom_flow',
-        customSteps: steps,
-        reason: reason.trim(),
-        password,
-      });
+      onOpenChange(false);
+    } catch {
+      // Invalidate the one-shot webauthn payload on error
+      setWebauthnPayload(null);
     }
-
-    onOpenChange(false);
   };
 
   const hasChanges = useMemo(() => {
     if (activeTab === 'work_type') {
       return selectedWorkTypeId && selectedWorkTypeId !== currentWorkTypeId;
-    } else {
-      // Check if any custom step differs from current
-      for (const step of currentSteps || []) {
-        const current = currentRequiredMap.get(step.id) ?? step.is_required_default;
-        const custom = customSteps.get(step.id);
-        if (custom !== undefined && custom !== current) {
-          return true;
-        }
-      }
-      return false;
     }
+    for (const step of currentSteps || []) {
+      const current = currentRequiredMap.get(step.id) ?? step.is_required_default;
+      const custom = customSteps.get(step.id);
+      if (custom !== undefined && custom !== current) return true;
+    }
+    return false;
   }, [activeTab, selectedWorkTypeId, currentWorkTypeId, currentSteps, currentRequiredMap, customSteps]);
 
-  const stepsToShow = activeTab === 'work_type' ? (newWorkTypeSteps || []) : (currentSteps || []);
+  const canSubmit =
+    hasChanges &&
+    !!reason.trim() &&
+    ((authTab === 'password' && !!password) || (authTab === 'webauthn' && !!webauthnPayload)) &&
+    !modifyWorkflow.isPending;
 
   if (!hasModifyPermission) {
     return (
@@ -218,7 +267,8 @@ export function ModifyWorkflowDialog({
               Permission Required
             </DialogTitle>
             <DialogDescription>
-              You don't have permission to modify workflows. Contact an administrator to grant the "Modify Workflow" permission to your role.
+              You don't have permission to modify workflows. Contact an administrator to grant the
+              "Modify Workflow" permission to your role.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -249,7 +299,7 @@ export function ModifyWorkflowDialog({
               <TabsTrigger value="custom">Custom Flow</TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[400px] mt-4">
+            <ScrollArea className="h-[360px] mt-4">
               <TabsContent value="work_type" className="space-y-4 px-1">
                 <div className="space-y-2">
                   <Label>Current Work Type</Label>
@@ -257,7 +307,6 @@ export function ModifyWorkflowDialog({
                     <span className="font-medium">{currentWorkTypeName || 'Not set'}</span>
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label>Select New Work Type</Label>
                   <Select
@@ -270,8 +319,8 @@ export function ModifyWorkflowDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {workTypes
-                        ?.filter(wt => wt.id !== currentWorkTypeId && wt.workflow_template_id)
-                        .map(wt => (
+                        ?.filter((wt) => wt.id !== currentWorkTypeId && wt.workflow_template_id)
+                        .map((wt) => (
                           <SelectItem key={wt.id} value={wt.id}>
                             {wt.name}
                           </SelectItem>
@@ -279,7 +328,6 @@ export function ModifyWorkflowDialog({
                     </SelectContent>
                   </Select>
                 </div>
-
                 {selectedWorkTypeId && stepsToShow.length > 0 && (
                   <div className="space-y-2">
                     <Label>Workflow Preview</Label>
@@ -297,18 +345,20 @@ export function ModifyWorkflowDialog({
                 <p className="text-sm text-muted-foreground">
                   Toggle which approval steps are required for this specific permit.
                 </p>
-
                 {stepsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {currentSteps?.map(step => {
-                      const isRequired = customSteps.get(step.id) ?? 
+                    {currentSteps?.map((step) => {
+                      const isRequired =
+                        customSteps.get(step.id) ??
                         (currentRequiredMap.get(step.id) ?? step.is_required_default);
-                      const originalRequired = currentRequiredMap.get(step.id) ?? step.is_required_default;
-                      const changed = customSteps.has(step.id) && customSteps.get(step.id) !== originalRequired;
+                      const originalRequired =
+                        currentRequiredMap.get(step.id) ?? step.is_required_default;
+                      const changed =
+                        customSteps.has(step.id) && customSteps.get(step.id) !== originalRequired;
 
                       return (
                         <div
@@ -363,27 +413,64 @@ export function ModifyWorkflowDialog({
 
             <div className="space-y-2">
               <Label>Verify Your Identity *</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    value={password === BIOMETRIC_TOKEN ? '••••••••' : password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={password === BIOMETRIC_TOKEN}
-                  />
-                </div>
-                {biometricSupported && !biometricChecking && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBiometricAuth}
-                    disabled={password === BIOMETRIC_TOKEN}
-                  >
-                    <Fingerprint className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+              {showBiometricOption ? (
+                <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as 'password' | 'webauthn')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="password">Password</TabsTrigger>
+                    <TabsTrigger value="webauthn">
+                      <Fingerprint className="h-4 w-4 mr-1" />
+                      Fingerprint
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="password" className="mt-2">
+                    <Input
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                    />
+                  </TabsContent>
+                  <TabsContent value="webauthn" className="mt-2 space-y-2">
+                    {webauthnPayload ? (
+                      <Alert className="bg-success/10 border-success/30">
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                        <AlertDescription className="text-success">
+                          Identity verified — this assertion is bound to this workflow change only.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleWebAuthnVerify}
+                        disabled={verifyingWebAuthn}
+                        className="w-full"
+                      >
+                        {verifyingWebAuthn ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <Fingerprint className="h-4 w-4 mr-2" />
+                            Verify with Fingerprint
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <Input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              )}
             </div>
 
             <Alert variant="default" className="bg-warning/10 border-warning/30">
@@ -399,10 +486,7 @@ export function ModifyWorkflowDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!hasChanges || !reason.trim() || !password || modifyWorkflow.isPending}
-          >
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
             {modifyWorkflow.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

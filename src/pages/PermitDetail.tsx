@@ -8,6 +8,7 @@ import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { UnifiedWorkflowProgress, UnifiedPermitData } from '@/components/ui/UnifiedWorkflowProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { CancelPermitDialog } from '@/components/CancelPermitDialog';
@@ -193,14 +194,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     setApprovalDialogOpen(true);
   };
 
-  const handleSecureApproval = async (password: string, signature: string) => {
+  const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
     await secureApprove.mutateAsync({
       permitId: permit.id,
       role: getApprovalRole(),
       comments,
       signature: approvalAction === 'approve' ? signature : null,
       approved: approvalAction === 'approve',
-      password,
+      auth,
     });
     setApprovalDialogOpen(false);
     setComments('');
@@ -743,6 +744,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             description={`You are about to ${approvalAction} permit ${permit.permit_no}. Please verify your identity.`}
             actionType={approvalAction}
             isLoading={secureApprove.isPending}
+            authBinding={{ permitId: permit.id, role: getApprovalRole() }}
           />
           <ForwardPermitDialog
             open={forwardDialogOpen}
