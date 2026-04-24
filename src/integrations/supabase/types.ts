@@ -1746,6 +1746,65 @@ export type Database = {
           },
         ]
       }
+      permit_active_approvers: {
+        Row: {
+          approval_id: string | null
+          contractor_name: string | null
+          created_at: string | null
+          is_archived: boolean | null
+          permit_created_at: string | null
+          permit_id: string | null
+          permit_no: string | null
+          permit_status: Database["public"]["Enums"]["permit_status"] | null
+          permit_updated_at: string | null
+          requester_email: string | null
+          requester_id: string | null
+          requester_name: string | null
+          role_id: string | null
+          role_name: string | null
+          sla_breached: boolean | null
+          sla_deadline: string | null
+          status: string | null
+          updated_at: string | null
+          urgency: string | null
+          work_date_from: string | null
+          work_date_to: string | null
+          work_description: string | null
+          work_location: string | null
+          work_type_id: string | null
+          workflow_step_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_approvals_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_permits_work_type_id_fkey"
+            columns: ["work_type_id"]
+            isOneToOne: false
+            referencedRelation: "work_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_pending_approvals: {
         Row: {
           approved_at: string | null
