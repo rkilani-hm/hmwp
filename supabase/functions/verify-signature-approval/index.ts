@@ -15,6 +15,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { verifyAuthenticationResponse } from "https://esm.sh/@simplewebauthn/server@11.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { mirrorPermitApproval } from "../_shared/approvals-dualwrite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -573,6 +574,27 @@ const handler = async (req: Request): Promise<Response> => {
         status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    // ---- Phase 2b dual-write: mirror into permit_approvals ----
+    // Legacy columns above are still the source of truth. This write is
+    // non-blocking — failures are logged and do not affect the approval.
+    await mirrorPermitApproval(serviceClient, {
+      permitId,
+      roleName: roleField,
+      status: approvalStatus as "approved" | "rejected",
+      approverUserId: user.id,
+      approverName: userName,
+      approverEmail: user.email!,
+      approvedAt: new Date().toISOString(),
+      comments: comments || null,
+      signature: signature || null,
+      signatureHash,
+      authMethod,
+      webauthnCredentialId: webauthnCredentialRowId,
+      ipAddress,
+      userAgent,
+      deviceInfo,
+    });
 
     await serviceClient.from("activity_logs").insert({
       permit_id: permitId,
