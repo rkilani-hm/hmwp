@@ -80,11 +80,11 @@ const InstallApp = () => {
         </div>
 
         {isInstalled ? (
-          <Card className="border-green-200 bg-green-50">
+          <Card className="border-success/30 bg-success/5">
             <CardContent className="pt-6 text-center">
-              <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-green-700">App Installed!</h2>
-              <p className="text-green-600 mt-2">
+              <CheckCircle2 className="h-16 w-16 text-success mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-success">App Installed!</h2>
+              <p className="text-success/90 mt-2">
                 The app is already installed on your device.
               </p>
               <Button 
@@ -250,19 +250,19 @@ const InstallApp = () => {
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     Quick access from your home screen
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     Works offline for viewing permits
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     Faster loading times
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     Full-screen experience
                   </li>
                 </ul>

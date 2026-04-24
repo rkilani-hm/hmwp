@@ -82,7 +82,9 @@
     "overdue": "Overdue",
     "due": "Due",
     "urgentBadge": "URGENT",
-    "slaBreachedBadge": "SLA BREACHED"
+    "slaBreachedBadge": "SLA BREACHED",
+    "emptyTitle": "No pending approvals",
+    "emptyHint": "You're all caught up. There are no work permits waiting for your review."
   },
   "permits": {
     "title": "Work permits",

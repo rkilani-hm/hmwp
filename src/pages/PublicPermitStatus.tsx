@@ -164,8 +164,8 @@ const PublicPermitStatus = () => {
     if (isApproved) {
       return {
         icon: ShieldCheck,
-        color: 'text-green-600',
-        bgColor: 'bg-green-50 border-green-200',
+        color: 'text-success',
+        bgColor: 'bg-success/10 border-success/30',
         label: 'APPROVED',
         description: 'This permit is valid and approved for work.',
       };
@@ -173,8 +173,8 @@ const PublicPermitStatus = () => {
     if (isClosed) {
       return {
         icon: ShieldCheck,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-50 border-gray-200',
+        color: 'text-muted-foreground',
+        bgColor: 'bg-muted border-border',
         label: 'CLOSED',
         description: 'This permit has been completed and closed.',
       };
@@ -182,16 +182,16 @@ const PublicPermitStatus = () => {
     if (isRejected) {
       return {
         icon: ShieldX,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50 border-red-200',
+        color: 'text-destructive',
+        bgColor: 'bg-destructive/10 border-destructive/30',
         label: status.toUpperCase(),
         description: 'This permit is not valid.',
       };
     }
     return {
       icon: ShieldAlert,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50 border-amber-200',
+      color: 'text-warning',
+      bgColor: 'bg-warning/10 border-warning/30',
       label: 'PENDING',
       description: 'This permit is still under review.',
     };
@@ -206,12 +206,12 @@ const PublicPermitStatus = () => {
     toDate.setHours(0, 0, 0, 0);
 
     if (today < fromDate) {
-      return { label: 'Not Yet Valid', color: 'text-amber-600' };
+      return { label: 'Not Yet Valid', color: 'text-warning' };
     }
     if (today > toDate) {
-      return { label: 'Expired', color: 'text-red-600' };
+      return { label: 'Expired', color: 'text-destructive' };
     }
-    return { label: 'Currently Valid', color: 'text-green-600' };
+    return { label: 'Currently Valid', color: 'text-success' };
   };
 
   return (
@@ -266,8 +266,8 @@ const PublicPermitStatus = () => {
             />
             
             {cameraError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center">
-                <p className="text-red-600 text-sm">{cameraError}</p>
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-center">
+                <p className="text-destructive text-sm">{cameraError}</p>
               </div>
             )}
 
@@ -341,10 +341,10 @@ const PublicPermitStatus = () => {
                 
                 <div>
                   <Badge className={`text-lg px-4 py-1 ${
-                    statusInfo.label === 'APPROVED' ? 'bg-green-600' :
-                    statusInfo.label === 'CLOSED' ? 'bg-gray-600' :
-                    statusInfo.label === 'PENDING' ? 'bg-amber-600' :
-                    'bg-red-600'
+                    statusInfo.label === 'APPROVED' ? 'bg-success' :
+                    statusInfo.label === 'CLOSED' ? 'bg-muted-foreground' :
+                    statusInfo.label === 'PENDING' ? 'bg-warning' :
+                    'bg-destructive'
                   }`}>
                     {statusInfo.label}
                   </Badge>
@@ -375,11 +375,11 @@ const PublicPermitStatus = () => {
         })()}
 
         {notFound && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-destructive/30 bg-destructive/10">
             <CardContent className="py-6 text-center">
-              <XCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-red-700">Not Found</h3>
-              <p className="text-sm text-red-600 mt-1">
+              <XCircle className="h-12 w-12 text-destructive mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-destructive">Not Found</h3>
+              <p className="text-sm text-destructive mt-1">
                 No permit found with number "{manualPermitNo}"
               </p>
             </CardContent>
