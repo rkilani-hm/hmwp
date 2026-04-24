@@ -1808,6 +1808,10 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
+      ensure_permit_pending_approvals: {
+        Args: { _permit_id: string }
+        Returns: number
+      }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
