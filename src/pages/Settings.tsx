@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 import { BiometricDevices } from '@/components/BiometricDevices';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -504,6 +505,9 @@ export default function Settings() {
             </Card>
           )}
           
+          {/* Language toggle — English default, Arabic via one tap */}
+          <LanguageToggle />
+
           {/* Test Notification Card */}
           <Card>
             <CardHeader className="pb-3">

@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Outfit', 'sans-serif'],
+        sans: ['Jost', 'Century Gothic', 'sans-serif'],
+        display: ['Jost', 'Century Gothic', 'sans-serif'],
+        arabic: ['Noto Kufi Arabic', 'Ge Flow', 'Jost', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
