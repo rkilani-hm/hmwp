@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
 import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
+import {
+  loadArabicFont,
+  drawArabic,
+  arabicLabel,
+} from "../_shared/pdf-bilingual.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,6 +136,9 @@ const handler = async (req: Request): Promise<Response> => {
     const pdfDoc = await PDFDocument.create();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    // Phase 4b: Arabic font for bilingual labels.
+    const arabicFonts = await loadArabicFont(pdfDoc);
     const pageWidth = 612;
     const pageHeight = 792;
     const margin = 50;
@@ -166,8 +174,16 @@ const handler = async (req: Request): Promise<Response> => {
       });
     };
 
-    const drawSectionHeader = (page: PDFPage, text: string, y: number, size = 11) => {
+    const drawSectionHeader = async (page: PDFPage, text: string, y: number, size = 11) => {
       drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
+      const ar = arabicLabel(text);
+      if (arabicFonts && ar) {
+        await drawArabic(page, ar, pageWidth - margin, y, {
+          font: arabicFonts.bold,
+          size,
+          color: BRAND_RED,
+        });
+      }
       page.drawLine({
         start: { x: margin, y: y - 4 },
         end: { x: pageWidth - margin, y: y - 4 },
@@ -223,9 +239,20 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Title — Phase 4a: brand-red title, brand-dark pass_no, red divider
+    // Title — Phase 4a/4b: brand-red title with Arabic translation.
     const title = categoryLabels[gp.pass_category] || "MATERIAL GATE PASS";
     drawText(page, title.toUpperCase(), margin, yPos, 20, helveticaBold, BRAND_RED);
+    if (arabicFonts) {
+      // Map English title to Arabic via the bilingual labels table.
+      const arTitle = arabicLabel(title.toUpperCase());
+      if (arTitle) {
+        await drawArabic(page, arTitle, pageWidth - margin, yPos, {
+          font: arabicFonts.bold,
+          size: 20,
+          color: BRAND_RED,
+        });
+      }
+    }
     yPos -= 25;
     drawText(page, gp.pass_no, margin, yPos, 14, helveticaBold, BRAND_DARK);
     yPos -= 8;
@@ -252,6 +279,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     drawText(page, "REQUESTOR INFORMATION", col1, yPos, 11, helveticaBold, BRAND_RED);
     drawText(page, "LOCATION & DETAILS", col2, yPos, 11, helveticaBold, BRAND_RED);
+    if (arabicFonts) {
+      await drawArabic(page, arabicLabel('REQUESTOR INFORMATION') ?? '', col1 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+      await drawArabic(page, arabicLabel('LOCATION & DETAILS') ?? '', col2 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+    }
     yPos -= 16;
     drawText(page, "Name: " + (gp.requester_name || "N/A"), col1, yPos, 9, helvetica);
     drawText(page, "Unit/Floor: " + (gp.unit_floor || "N/A"), col2, yPos, 9, helvetica);
@@ -277,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
     yPos -= 20;
 
     // Transfer Schedule
-    drawSectionHeader(page, "TRANSFER SCHEDULE", yPos, 11);
+    await drawSectionHeader(page, "TRANSFER SCHEDULE", yPos, 11);
     yPos -= 16;
     drawText(page, "From Date: " + formatDate(gp.valid_from), col1, yPos, 9, helvetica);
     drawText(page, "To Date: " + formatDate(gp.valid_to), col2, yPos, 9, helvetica);
@@ -299,7 +334,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Items Table
     const passItems = items || [];
     if (passItems.length > 0) {
-      drawSectionHeader(page, "ITEM DETAILS", yPos, 11);
+      await drawSectionHeader(page, "ITEM DETAILS", yPos, 11);
       yPos -= 18;
 
       // Table header
@@ -365,7 +400,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
       drawLine(page, yPos);
       yPos -= 20;
-      drawSectionHeader(page, "PURPOSE OF MATERIAL SHIFTING", yPos, 11);
+      await drawSectionHeader(page, "PURPOSE OF MATERIAL SHIFTING", yPos, 11);
       yPos -= 16;
       const purposeText = String(gp.purpose).substring(0, 300);
       const words = purposeText.split(" ");
@@ -401,7 +436,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
     drawLine(page, yPos);
     yPos -= 25;
-    drawSectionHeader(page, "APPROVALS & SIGNATURES", yPos, 12);
+    await drawSectionHeader(page, "APPROVALS & SIGNATURES", yPos, 12);
     yPos -= 25;
 
     // ---- Phase 2c-4: approvals sourced from gate_pass_approvals ----
