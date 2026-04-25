@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
 import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
+import {
+  loadArabicFont,
+  drawArabic,
+  arabicLabel,
+} from "../_shared/pdf-bilingual.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -172,6 +177,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const pdfDoc = await PDFDocument.create();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    // Phase 4b: Arabic font for bilingual labels. Loaded async because the
+    // first call fetches the TTF from CDN (~400KB cold-start cost). On
+    // failure (network, invalid font, library missing) we fall back to
+    // English-only — better than crashing the whole PDF.
+    const arabicFonts = await loadArabicFont(pdfDoc);
     
     const pageWidth = 612;
     const pageHeight = 792;
@@ -222,9 +233,21 @@ const serve_handler = async (req: Request): Promise<Response> => {
     };
 
     /** Section header — "APPROVALS & SIGNATURES" style. Brand-red + thin
-     *  underline below to anchor the section visually. */
-    const drawSectionHeader = (page: PDFPage, text: string, y: number, size = 12) => {
+     *  underline below to anchor the section visually.
+     *
+     *  Phase 4b: also draws the Arabic translation right-aligned on the
+     *  same line. Falls back to English-only when arabicFonts is null
+     *  (font load failed) or the label has no Arabic translation. */
+    const drawSectionHeader = async (page: PDFPage, text: string, y: number, size = 12) => {
       drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
+      const ar = arabicLabel(text);
+      if (arabicFonts && ar) {
+        await drawArabic(page, ar, pageWidth - margin, y, {
+          font: arabicFonts.bold,
+          size,
+          color: BRAND_RED,
+        });
+      }
       page.drawLine({
         start: { x: margin, y: y - 4 },
         end: { x: pageWidth - margin, y: y - 4 },
@@ -308,10 +331,18 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
     
-    // ---- Phase 4a: Branded title block ----
-    // Brand-red filled bar with white WORK PERMIT title + permit_no in
-    // brand-red below for prominence. Logo on the right above the bar.
+    // ---- Phase 4a/4b: Branded bilingual title block ----
+    // English title on the left, Arabic on the right (large), brand red.
     drawText(page, 'WORK PERMIT', margin, yPos, 24, helveticaBold, BRAND_RED);
+    if (arabicFonts) {
+      // Arabic anchored to the right edge of the page text area, same baseline.
+      // ar = "تصريح عمل" — bold for visual parity with the 24pt English title.
+      await drawArabic(page, arabicLabel('WORK PERMIT') ?? '', pageWidth - margin, yPos, {
+        font: arabicFonts.bold,
+        size: 24,
+        color: BRAND_RED,
+      });
+    }
     yPos -= 28;
     drawText(page, permit.permit_no || '', margin, yPos, 16, helveticaBold, BRAND_DARK);
     yPos -= 8;
@@ -332,7 +363,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Work Description
-    drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 12);
+    await drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 12);
     yPos -= 18;
     const description = String(permit.work_description || '').substring(0, 200);
     const words = description.split(' ');
@@ -363,6 +394,17 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Requester Info
     drawText(page, 'REQUESTER INFORMATION', col1, yPos, 11, helveticaBold, BRAND_RED);
     drawText(page, 'CONTRACTOR INFORMATION', col2, yPos, 11, helveticaBold, BRAND_RED);
+    if (arabicFonts) {
+      // Arabic anchored below each English column header. Smaller (8pt)
+      // because the column is narrow and Arabic glyph height runs taller
+      // than Latin.
+      await drawArabic(page, arabicLabel('REQUESTER INFORMATION') ?? '', col1 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+      await drawArabic(page, arabicLabel('CONTRACTOR INFORMATION') ?? '', col2 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+    }
     yPos -= 18;
     drawText(page, 'Name: ' + (permit.requester_name || 'N/A'), col1, yPos, 10, helvetica);
     drawText(page, 'Company: ' + (permit.contractor_name || 'N/A'), col2, yPos, 10, helvetica);
@@ -374,6 +416,14 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Location & Schedule
     drawText(page, 'LOCATION', col1, yPos, 11, helveticaBold, BRAND_RED);
     drawText(page, 'SCHEDULE', col2, yPos, 11, helveticaBold, BRAND_RED);
+    if (arabicFonts) {
+      await drawArabic(page, arabicLabel('LOCATION') ?? '', col1 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+      await drawArabic(page, arabicLabel('SCHEDULE') ?? '', col2 + 175, yPos - 9, {
+        font: arabicFonts.regular, size: 8, color: BRAND_RED,
+      });
+    }
     yPos -= 18;
     drawText(page, 'Location: ' + (permit.work_location || 'N/A'), col1, yPos, 10, helvetica);
     drawText(page, 'Date: ' + formatDate(permit.work_date_from) + ' - ' + formatDate(permit.work_date_to), col2, yPos, 10, helvetica);
@@ -386,7 +436,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Approvals section with signatures - 3 per row grid layout
-    drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 12);
+    await drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 12);
     yPos -= 25;
 
     // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
@@ -620,7 +670,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       page = attachmentPageResult.page;
       yPos = attachmentPageResult.yPos;
       
-      drawSectionHeader(page, 'ATTACHMENTS', yPos, 16);
+      await drawSectionHeader(page, 'ATTACHMENTS', yPos, 16);
       yPos -= 30;
       
       for (let i = 0; i < attachments.length; i++) {
