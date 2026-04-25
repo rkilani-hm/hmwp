@@ -117,138 +117,223 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   // Public URL for company logo from company-assets bucket
   const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
-  
-  const templates: Record<EmailRequest['notificationType'], { title: string; content: string; color: string }> = {
+
+  // ---- Phase 5: Al Hamra brand palette (mirrors src/index.css) ----
+  // Used for the title bar, CTA button, and accent rules. Semantic
+  // distinctions are preserved so a glance still tells you what kind
+  // of email it is — but values come from the brand vocabulary so the
+  // email feels like part of the same product as the web app.
+  const BRAND_RED   = "#CD1719";   // primary identifier; rejected/breach use this
+  const BRAND_DARK  = "#1D1D1B";   // body text
+  const BRAND_GREY  = "#B2B2B2";   // borders, dividers
+  const SUCCESS     = "#22a34a";   // approved (slightly darker than legacy for contrast on red)
+  const WARNING     = "#d97706";   // SLA warning, rework, awaiting approval
+  const INFO        = "#1d6fdb";   // submitted, status update
+  const NEUTRAL     = "#4b5563";   // closed, archived
+
+  // Templates: title (EN + AR), one-line content (EN + AR), accent color.
+  // The notificationType drives the strip color so users can scan their
+  // inbox and recognize urgency at a glance.
+  type Template = {
+    titleEn: string;
+    titleAr: string;
+    contentEn: string;
+    contentAr: string;
+    color: string;
+  };
+
+  const templates: Record<EmailRequest['notificationType'], Template> = {
     new_permit: {
-      title: "New Work Permit Submitted",
-      content: `A new work permit <strong>${permitNo}</strong> has been submitted and requires your review.`,
-      color: "#3b82f6",
+      titleEn: "New Work Permit Submitted",
+      titleAr: "تم إرسال تصريح عمل جديد",
+      contentEn: `A new work permit <strong>${permitNo}</strong> has been submitted and requires your review.`,
+      contentAr: `تم إرسال تصريح عمل جديد <strong>${permitNo}</strong> ويتطلب مراجعتك.`,
+      color: INFO,
     },
     approval_required: {
-      title: "Work Permit Awaiting Your Approval",
-      content: `Work permit <strong>${permitNo}</strong> is now pending your approval.`,
-      color: "#f59e0b",
+      titleEn: "Work Permit Awaiting Your Approval",
+      titleAr: "تصريح عمل بانتظار اعتمادك",
+      contentEn: `Work permit <strong>${permitNo}</strong> is now pending your approval.`,
+      contentAr: `تصريح العمل <strong>${permitNo}</strong> بانتظار اعتمادك.`,
+      color: WARNING,
     },
     approved: {
-      title: "Work Permit Approved",
-      content: `Your work permit <strong>${permitNo}</strong> has been approved by ${details.approverName || 'the approver'}.`,
-      color: "#22c55e",
+      titleEn: "Work Permit Approved",
+      titleAr: "تم اعتماد تصريح العمل",
+      contentEn: `Your work permit <strong>${permitNo}</strong> has been approved by ${details.approverName || 'the approver'}.`,
+      contentAr: `تم اعتماد تصريح العمل <strong>${permitNo}</strong> من قِبَل ${details.approverName || 'المعتمِد'}.`,
+      color: SUCCESS,
     },
     rejected: {
-      title: "Work Permit Rejected",
-      content: `Work permit <strong>${permitNo}</strong> has been rejected.<br><br><strong>Reason:</strong> ${details.reason || 'No reason provided'}`,
-      color: "#ef4444",
+      titleEn: "Work Permit Rejected",
+      titleAr: "تم رفض تصريح العمل",
+      contentEn: `Work permit <strong>${permitNo}</strong> has been rejected.<br><br><strong>Reason:</strong> ${details.reason || 'No reason provided'}`,
+      contentAr: `تم رفض تصريح العمل <strong>${permitNo}</strong>.<br><br><strong>السبب:</strong> ${details.reason || 'لم يُذكر سبب'}`,
+      color: BRAND_RED,
     },
     rework: {
-      title: "Work Permit Requires Rework",
-      content: `Work permit <strong>${permitNo}</strong> has been sent back for rework.<br><br><strong>Comments:</strong> ${details.comments || 'Please review and resubmit'}`,
-      color: "#f59e0b",
+      titleEn: "Work Permit Requires Rework",
+      titleAr: "تصريح العمل يحتاج إلى إعادة",
+      contentEn: `Work permit <strong>${permitNo}</strong> has been sent back for rework.<br><br><strong>Comments:</strong> ${details.comments || 'Please review and resubmit'}`,
+      contentAr: `تمت إعادة تصريح العمل <strong>${permitNo}</strong>.<br><br><strong>الملاحظات:</strong> ${details.comments || 'يرجى المراجعة وإعادة الإرسال'}`,
+      color: WARNING,
     },
     forwarded: {
-      title: "Work Permit Forwarded",
-      content: `Work permit <strong>${permitNo}</strong> has been forwarded to the next approval stage.`,
-      color: "#8b5cf6",
+      titleEn: "Work Permit Forwarded",
+      titleAr: "تم تحويل تصريح العمل",
+      contentEn: `Work permit <strong>${permitNo}</strong> has been forwarded to the next approval stage.`,
+      contentAr: `تم تحويل تصريح العمل <strong>${permitNo}</strong> إلى مرحلة الاعتماد التالية.`,
+      color: INFO,
     },
     closed: {
-      title: "Work Permit Closed",
-      content: `Work permit <strong>${permitNo}</strong> has been closed.`,
-      color: "#6b7280",
+      titleEn: "Work Permit Closed",
+      titleAr: "تم إغلاق تصريح العمل",
+      contentEn: `Work permit <strong>${permitNo}</strong> has been closed.`,
+      contentAr: `تم إغلاق تصريح العمل <strong>${permitNo}</strong>.`,
+      color: NEUTRAL,
     },
     sla_warning: {
-      title: "SLA Warning - Action Required",
-      content: `Work permit <strong>${permitNo}</strong> is approaching its SLA deadline. Please take action soon.`,
-      color: "#f59e0b",
+      titleEn: "SLA Warning — Action Required",
+      titleAr: "تحذير: الموعد النهائي يقترب",
+      contentEn: `Work permit <strong>${permitNo}</strong> is approaching its SLA deadline. Please take action soon.`,
+      contentAr: `يقترب تصريح العمل <strong>${permitNo}</strong> من الموعد النهائي. يرجى اتخاذ الإجراء اللازم قريباً.`,
+      color: WARNING,
     },
     sla_breach: {
-      title: "SLA Breach Alert",
-      content: `Work permit <strong>${permitNo}</strong> has exceeded its SLA deadline.`,
-      color: "#ef4444",
+      titleEn: "SLA Breach Alert",
+      titleAr: "تنبيه: تجاوز الموعد النهائي",
+      contentEn: `Work permit <strong>${permitNo}</strong> has exceeded its SLA deadline.`,
+      contentAr: `تجاوز تصريح العمل <strong>${permitNo}</strong> الموعد النهائي.`,
+      color: BRAND_RED,
     },
     status_update: {
-      title: "Work Permit Status Update",
-      content: `Your work permit <strong>${permitNo}</strong> has been updated. ${details.statusMessage || 'It is now being processed by the next approver.'}`,
-      color: "#8b5cf6",
+      titleEn: "Work Permit Status Update",
+      titleAr: "تحديث حالة تصريح العمل",
+      contentEn: `Your work permit <strong>${permitNo}</strong> has been updated. ${details.statusMessage || 'It is now being processed by the next approver.'}`,
+      contentAr: `تم تحديث تصريح العمل <strong>${permitNo}</strong>. ${details.statusMessageAr || 'يتم معالجته الآن من قِبَل المعتمِد التالي.'}`,
+      color: INFO,
     },
   };
 
   const template = templates[type];
   const permitUrl = `${baseUrl}/permits/${details.permitId || ''}`;
 
+  // ---- Brand-aligned font stack ----
+  // 'Jost' renders correctly on web-mail clients that load Google Fonts
+  // (Gmail web does not by default; Outlook web with custom fonts enabled
+  // does). Falls back to a clean system stack otherwise. The Arabic block
+  // adds Noto Kufi Arabic + system Arabic stacks so devices without it
+  // still get a presentable Arabic font.
+  const FONT_LATIN  = "'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  const FONT_ARABIC = "'Noto Kufi Arabic', 'Geeza Pro', 'Damascus', 'Tahoma', Arial, sans-serif";
+
+  // ---- Bilingual layout ----
+  // English block on top, Arabic block below it, both inside a single
+  // card. Keeps the email scannable for both audiences without forcing
+  // the recipient to switch languages mid-message. The Arabic block
+  // sets dir="rtl" lang="ar" so email clients render text right-to-left
+  // (Outlook, Gmail, Apple Mail all handle this natively — no shaping
+  // pipeline needed, unlike the PDF case).
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${template.title}</title>
+  <title>${template.titleEn}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; font-family: ${FONT_LATIN}; background-color: #f3f4f6; color: ${BRAND_DARK};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Logo Header -->
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(29, 29, 27, 0.08);">
+          <!-- Brand header — logo on white -->
           <tr>
-            <td style="background-color: #ffffff; padding: 24px 40px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+            <td style="background-color: #ffffff; padding: 24px 40px; text-align: center; border-bottom: 1px solid ${BRAND_GREY};">
               <img src="${logoUrl}" alt="Al Hamra" style="max-height: 60px; max-width: 200px;" />
             </td>
           </tr>
-          
-          <!-- Title Header -->
+
+          <!-- Title strip — semantic accent color, white text -->
           <tr>
-            <td style="background-color: ${template.color}; padding: 24px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;">${template.title}</h1>
+            <td style="background-color: ${template.color}; padding: 20px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600; font-family: ${FONT_LATIN};">${template.titleEn}</h1>
+              <h1 dir="rtl" lang="ar" style="margin: 6px 0 0 0; color: #ffffff; font-size: 18px; font-weight: 500; font-family: ${FONT_ARABIC};">${template.titleAr}</h1>
             </td>
           </tr>
-          
-          <!-- Content -->
+
+          <!-- English content -->
           <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #374151;">
-                ${template.content}
+            <td style="padding: 32px 40px 16px 40px;">
+              <p style="margin: 0; font-size: 16px; line-height: 1.6; color: ${BRAND_DARK};">
+                ${template.contentEn}
               </p>
-              
-              ${details.workType ? `
-              <table style="width: 100%; margin: 20px 0; background-color: #f9fafb; border-radius: 8px; padding: 16px;">
+            </td>
+          </tr>
+
+          <!-- Arabic content -->
+          <tr>
+            <td dir="rtl" lang="ar" style="padding: 0 40px 24px 40px; font-family: ${FONT_ARABIC};">
+              <p style="margin: 0; font-size: 16px; line-height: 1.8; color: ${BRAND_DARK};">
+                ${template.contentAr}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Permit details box (rendered if workType supplied) -->
+          ${details.workType ? `
+          <tr>
+            <td style="padding: 0 40px 24px 40px;">
+              <table style="width: 100%; background-color: #f9fafb; border-radius: 6px; padding: 16px; border-left: 3px solid ${BRAND_RED};">
                 <tr>
                   <td>
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Work Type</p>
-                    <p style="margin: 0; font-size: 16px; color: #111827; font-weight: 500;">${details.workType}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em;">Work Type · <span dir="rtl" lang="ar" style="font-family: ${FONT_ARABIC}; text-transform: none; letter-spacing: 0;">نوع العمل</span></p>
+                    <p style="margin: 0; font-size: 16px; color: ${BRAND_DARK}; font-weight: 500;">${details.workType}</p>
                   </td>
                 </tr>
                 ${details.requesterName ? `
                 <tr>
                   <td style="padding-top: 12px;">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Requester</p>
-                    <p style="margin: 0; font-size: 16px; color: #111827; font-weight: 500;">${details.requesterName}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em;">Requester · <span dir="rtl" lang="ar" style="font-family: ${FONT_ARABIC}; text-transform: none; letter-spacing: 0;">مقدم الطلب</span></p>
+                    <p style="margin: 0; font-size: 16px; color: ${BRAND_DARK}; font-weight: 500;">${details.requesterName}</p>
                   </td>
                 </tr>
                 ` : ''}
                 ${details.urgency ? `
                 <tr>
                   <td style="padding-top: 12px;">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Priority</p>
-                    <p style="margin: 0; font-size: 16px; color: ${details.urgency === 'urgent' ? '#ef4444' : '#111827'}; font-weight: 500;">${details.urgency === 'urgent' ? '🚨 URGENT' : 'Normal'}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em;">Priority · <span dir="rtl" lang="ar" style="font-family: ${FONT_ARABIC}; text-transform: none; letter-spacing: 0;">الأولوية</span></p>
+                    <p style="margin: 0; font-size: 16px; color: ${details.urgency === 'urgent' ? BRAND_RED : BRAND_DARK}; font-weight: 500;">${details.urgency === 'urgent' ? '🚨 URGENT · عاجل' : 'Normal · عادي'}</p>
                   </td>
                 </tr>
                 ` : ''}
               </table>
-              ` : ''}
-              
-              <div style="text-align: center; margin-top: 30px;">
-                <a href="${permitUrl}" style="display: inline-block; padding: 14px 32px; background-color: ${template.color}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                  View Permit Details
-                </a>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding: 0 40px 32px 40px; text-align: center;">
+              <a href="${permitUrl}" style="display: inline-block; padding: 14px 36px; background-color: ${BRAND_RED}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; font-family: ${FONT_LATIN};">
+                View Permit Details
+              </a>
+              <div dir="rtl" lang="ar" style="margin-top: 8px; font-family: ${FONT_ARABIC}; font-size: 13px; color: #6b7280;">
+                <a href="${permitUrl}" style="color: ${BRAND_RED}; text-decoration: none;">عرض تفاصيل التصريح</a>
               </div>
             </td>
           </tr>
-          
+
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 40px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0; font-size: 13px; color: #6b7280; text-align: center;">
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-top: 1px solid ${BRAND_GREY};">
+              <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center; line-height: 1.6;">
                 This is an automated notification from the Al Hamra Work Permit System.<br>
                 Please do not reply to this email.
+              </p>
+              <p dir="rtl" lang="ar" style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280; text-align: center; font-family: ${FONT_ARABIC}; line-height: 1.8;">
+                هذا إشعار تلقائي من نظام تصاريح العمل في الحمراء.<br>
+                يرجى عدم الرد على هذا البريد.
               </p>
             </td>
           </tr>
