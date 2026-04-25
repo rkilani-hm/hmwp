@@ -373,9 +373,18 @@ export function useCreatePermit() {
       files?: File[];
       urgency?: 'normal' | 'urgent';
     }) => {
-      // Generate permit number
-      const permitNo = `WP-${Date.now().toString(36).toUpperCase()}`;
-      
+      // Generate permit number via Postgres RPC. The function lives at
+      // public.next_permit_number_today() and uses Asia/Kuwait local time
+      // to determine "today" — so a permit created at 01:00 Kuwait local
+      // gets that day's number even if UTC is still on the previous day.
+      // Format: WP-YYMMDD-NN (e.g. WP-260425-01).
+      const { data: rpcPermitNo, error: rpcErr } = await supabase
+        .rpc('next_permit_number_today');
+      if (rpcErr || !rpcPermitNo) {
+        throw new Error(rpcErr?.message || 'Failed to allocate permit number');
+      }
+      const permitNo = rpcPermitNo as string;
+
       // Calculate SLA deadline based on urgency
       const urgency = permitData.urgency || 'normal';
       const hoursToAdd = urgency === 'urgent' ? 4 : 48;
@@ -1166,10 +1175,18 @@ export function useUpdateAndResubmitPermit() {
       const allAttachments = [...(currentPermit.attachments || []), ...newAttachmentPaths];
       const newVersion = (currentPermit.rework_version || 0) + 1;
 
-      // Calculate new permit number with version suffix
-      // Remove any existing -Vx suffix and add new one
-      const basePermitNo = currentPermit.permit_no.replace(/-V\d+$/, '');
-      const newPermitNo = `${basePermitNo}-V${newVersion + 1}`;
+      // Calculate new permit number with rework version suffix.
+      // Format: <base>_V<n> where n is the new rework version. Strips any
+      // existing _V<n> (or legacy -V<n>) suffix from the base before
+      // appending the new one. This means a permit's *base* number stays
+      // stable across all rework cycles; only the suffix changes.
+      //
+      // Example progression:
+      //   WP-260425-01       -- original submission
+      //   WP-260425-01_V1    -- first rework resubmit
+      //   WP-260425-01_V2    -- second rework resubmit
+      const basePermitNo = currentPermit.permit_no.replace(/[_-]V\d+$/, '');
+      const newPermitNo = `${basePermitNo}_V${newVersion}`;
 
       // Calculate new SLA deadline
       const slaHours = updates.urgency === 'urgent' ? 4 : 48;

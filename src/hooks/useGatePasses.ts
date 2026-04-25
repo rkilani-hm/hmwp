@@ -86,7 +86,15 @@ export function useCreateGatePass() {
       delivery_type?: string;
       items: GatePassItem[];
     }) => {
-      const passNo = `GP-${Date.now().toString(36).toUpperCase()}`;
+      // Generate gate pass number via Postgres RPC.
+      // Uses Asia/Kuwait local time to determine "today".
+      // Format: GP-YYMMDD-NN (e.g. GP-260425-01).
+      const { data: rpcPassNo, error: rpcErr } = await supabase
+        .rpc('next_gate_pass_number_today');
+      if (rpcErr || !rpcPassNo) {
+        throw new Error(rpcErr?.message || 'Failed to allocate gate pass number');
+      }
+      const passNo = rpcPassNo as string;
       const hasHighValue = input.items.some(i => i.is_high_value);
       const { items, ...passData } = input;
 
