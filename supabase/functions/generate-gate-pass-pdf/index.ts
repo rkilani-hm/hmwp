@@ -151,6 +151,31 @@ const handler = async (req: Request): Promise<Response> => {
       page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
     };
 
+    // ---- Phase 4a: Al Hamra brand constants ----
+    // See generate-permit-pdf/index.ts for the canonical comment.
+    const BRAND_RED   = rgb(0.804, 0.090, 0.098);
+    const BRAND_GREY  = rgb(0.698, 0.698, 0.698);
+    const BRAND_DARK  = rgb(0.114, 0.114, 0.106);
+
+    const drawBrandLine = (page: PDFPage, y: number) => {
+      page.drawLine({
+        start: { x: margin, y },
+        end: { x: pageWidth - margin, y },
+        thickness: 1.5,
+        color: BRAND_RED,
+      });
+    };
+
+    const drawSectionHeader = (page: PDFPage, text: string, y: number, size = 11) => {
+      drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
+      page.drawLine({
+        start: { x: margin, y: y - 4 },
+        end: { x: pageWidth - margin, y: y - 4 },
+        thickness: 0.75,
+        color: BRAND_GREY,
+      });
+    };
+
     const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString() : "N/A";
     const formatDateTime = (d: string | null) => d ? new Date(d).toLocaleString() : "N/A";
 
@@ -198,33 +223,35 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Title
+    // Title — Phase 4a: brand-red title, brand-dark pass_no, red divider
     const title = categoryLabels[gp.pass_category] || "MATERIAL GATE PASS";
-    drawText(page, title.toUpperCase(), margin, yPos, 20, helveticaBold);
+    drawText(page, title.toUpperCase(), margin, yPos, 20, helveticaBold, BRAND_RED);
     yPos -= 25;
-    drawText(page, gp.pass_no, margin, yPos, 14, helveticaBold);
-    yPos -= 20;
+    drawText(page, gp.pass_no, margin, yPos, 14, helveticaBold, BRAND_DARK);
+    yPos -= 8;
+    drawBrandLine(page, yPos);
+    yPos -= 14;
 
     // Status
     const statusText = (gp.status || "unknown").toUpperCase().replace(/_/g, " ");
     const statusColor = gp.status === "approved" || gp.status === "completed" ? rgb(0.13, 0.77, 0.37)
-      : gp.status === "rejected" ? rgb(0.86, 0.21, 0.27) : rgb(0.42, 0.45, 0.5);
+      : gp.status === "rejected" ? BRAND_RED : rgb(0.42, 0.45, 0.5);
     drawText(page, "Status: " + statusText, margin, yPos, 11, helveticaBold, statusColor);
     yPos -= 15;
 
     // Pass type checkboxes
     const passType = typeLabels[gp.pass_type] || gp.pass_type;
-    drawText(page, "Type: " + passType, margin, yPos, 10, helvetica);
+    drawText(page, "Type: " + passType, margin, yPos, 10, helvetica, BRAND_DARK);
     yPos -= 25;
     drawLine(page, yPos);
     yPos -= 20;
 
-    // Two-column info
+    // Two-column info — section headers in brand red
     const col1 = margin;
     const col2 = pageWidth / 2 + 10;
 
-    drawText(page, "REQUESTOR INFORMATION", col1, yPos, 11, helveticaBold);
-    drawText(page, "LOCATION & DETAILS", col2, yPos, 11, helveticaBold);
+    drawText(page, "REQUESTOR INFORMATION", col1, yPos, 11, helveticaBold, BRAND_RED);
+    drawText(page, "LOCATION & DETAILS", col2, yPos, 11, helveticaBold, BRAND_RED);
     yPos -= 16;
     drawText(page, "Name: " + (gp.requester_name || "N/A"), col1, yPos, 9, helvetica);
     drawText(page, "Unit/Floor: " + (gp.unit_floor || "N/A"), col2, yPos, 9, helvetica);
@@ -250,7 +277,7 @@ const handler = async (req: Request): Promise<Response> => {
     yPos -= 20;
 
     // Transfer Schedule
-    drawText(page, "TRANSFER SCHEDULE", margin, yPos, 11, helveticaBold);
+    drawSectionHeader(page, "TRANSFER SCHEDULE", yPos, 11);
     yPos -= 16;
     drawText(page, "From Date: " + formatDate(gp.valid_from), col1, yPos, 9, helvetica);
     drawText(page, "To Date: " + formatDate(gp.valid_to), col2, yPos, 9, helvetica);
@@ -272,7 +299,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Items Table
     const passItems = items || [];
     if (passItems.length > 0) {
-      drawText(page, "ITEM DETAILS", margin, yPos, 11, helveticaBold);
+      drawSectionHeader(page, "ITEM DETAILS", yPos, 11);
       yPos -= 18;
 
       // Table header
@@ -318,7 +345,7 @@ const handler = async (req: Request): Promise<Response> => {
         xOff += colWidths[2];
 
         drawText(page, item.is_high_value ? "Yes" : "No", xOff, yPos - 12, 8, helvetica,
-          item.is_high_value ? rgb(0.86, 0.21, 0.27) : rgb(0.3, 0.3, 0.3));
+          item.is_high_value ? BRAND_RED : rgb(0.3, 0.3, 0.3));
         xOff += colWidths[3];
 
         const remarks = String(item.remarks || "-").substring(0, 30);
@@ -338,7 +365,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
       drawLine(page, yPos);
       yPos -= 20;
-      drawText(page, "PURPOSE OF MATERIAL SHIFTING", margin, yPos, 11, helveticaBold);
+      drawSectionHeader(page, "PURPOSE OF MATERIAL SHIFTING", yPos, 11);
       yPos -= 16;
       const purposeText = String(gp.purpose).substring(0, 300);
       const words = purposeText.split(" ");
@@ -362,7 +389,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Forklift warning
     if (gp.shifting_method === "forklift") {
-      drawText(page, "NOTE: Materials shifting using forklift in Al Hamra premises shall obtain a valid Work Permit.", margin, yPos, 8, helveticaBold, rgb(0.86, 0.21, 0.27));
+      drawText(page, "NOTE: Materials shifting using forklift in Al Hamra premises shall obtain a valid Work Permit.", margin, yPos, 8, helveticaBold, BRAND_RED);
       yPos -= 15;
     }
 
@@ -374,7 +401,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
     drawLine(page, yPos);
     yPos -= 25;
-    drawText(page, "APPROVALS & SIGNATURES", margin, yPos, 12, helveticaBold);
+    drawSectionHeader(page, "APPROVALS & SIGNATURES", yPos, 12);
     yPos -= 25;
 
     // ---- Phase 2c-4: approvals sourced from gate_pass_approvals ----

@@ -199,6 +199,40 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     };
 
+    // ---- Phase 4a: Al Hamra brand constants -------------------------------
+    // Mirrors src/index.css tokens. Used by the brand-styled drawing
+    // helpers below so future palette changes are one-file edits here.
+    //   BRAND_RED   #CD1719 — primary identifier (titles, accents)
+    //   BRAND_GREY  #B2B2B2 — borders, dividers, subtle hairlines
+    //   BRAND_DARK  #1D1D1B — body text (used sparingly per identity guide)
+    //   BRAND_LIGHT #EDEDED — surface fills behind headers
+    const BRAND_RED   = rgb(0.804, 0.090, 0.098);
+    const BRAND_GREY  = rgb(0.698, 0.698, 0.698);
+    const BRAND_DARK  = rgb(0.114, 0.114, 0.106);
+    const BRAND_LIGHT = rgb(0.929, 0.929, 0.929);
+
+    /** Major section divider — thicker, brand red. For top-of-section breaks. */
+    const drawBrandLine = (page: PDFPage, y: number) => {
+      page.drawLine({
+        start: { x: margin, y },
+        end: { x: pageWidth - margin, y },
+        thickness: 1.5,
+        color: BRAND_RED,
+      });
+    };
+
+    /** Section header — "APPROVALS & SIGNATURES" style. Brand-red + thin
+     *  underline below to anchor the section visually. */
+    const drawSectionHeader = (page: PDFPage, text: string, y: number, size = 12) => {
+      drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
+      page.drawLine({
+        start: { x: margin, y: y - 4 },
+        end: { x: pageWidth - margin, y: y - 4 },
+        thickness: 0.75,
+        color: BRAND_GREY,
+      });
+    };
+
     const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
     const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
@@ -274,26 +308,31 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
     
-    drawText(page, 'WORK PERMIT', margin, yPos, 24, helveticaBold);
-    yPos -= 30;
-    drawText(page, permit.permit_no || '', margin, yPos, 16, helveticaBold);
-    yPos -= 25;
-    
+    // ---- Phase 4a: Branded title block ----
+    // Brand-red filled bar with white WORK PERMIT title + permit_no in
+    // brand-red below for prominence. Logo on the right above the bar.
+    drawText(page, 'WORK PERMIT', margin, yPos, 24, helveticaBold, BRAND_RED);
+    yPos -= 28;
+    drawText(page, permit.permit_no || '', margin, yPos, 16, helveticaBold, BRAND_DARK);
+    yPos -= 8;
+    drawBrandLine(page, yPos);
+    yPos -= 18;
+
     // Status badge
     const statusText = (permit.status || 'unknown').toUpperCase();
-    const statusColor = permit.status === 'approved' ? rgb(0.13, 0.77, 0.37) : 
-                        permit.status === 'rejected' ? rgb(0.86, 0.21, 0.27) :
+    const statusColor = permit.status === 'approved' ? rgb(0.13, 0.77, 0.37) :
+                        permit.status === 'rejected' ? BRAND_RED :
                         rgb(0.42, 0.45, 0.5);
     drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
     yPos -= 20;
-    drawText(page, 'Work Type: ' + workType, margin, yPos, 11, helvetica);
+    drawText(page, 'Work Type: ' + workType, margin, yPos, 11, helvetica, BRAND_DARK);
     yPos -= 30;
     
     drawLine(page, yPos);
     yPos -= 25;
     
     // Work Description
-    drawText(page, 'WORK DESCRIPTION', margin, yPos, 12, helveticaBold);
+    drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 12);
     yPos -= 18;
     const description = String(permit.work_description || '').substring(0, 200);
     const words = description.split(' ');
@@ -322,8 +361,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const col2 = pageWidth / 2 + 10;
     
     // Requester Info
-    drawText(page, 'REQUESTER INFORMATION', col1, yPos, 11, helveticaBold);
-    drawText(page, 'CONTRACTOR INFORMATION', col2, yPos, 11, helveticaBold);
+    drawText(page, 'REQUESTER INFORMATION', col1, yPos, 11, helveticaBold, BRAND_RED);
+    drawText(page, 'CONTRACTOR INFORMATION', col2, yPos, 11, helveticaBold, BRAND_RED);
     yPos -= 18;
     drawText(page, 'Name: ' + (permit.requester_name || 'N/A'), col1, yPos, 10, helvetica);
     drawText(page, 'Company: ' + (permit.contractor_name || 'N/A'), col2, yPos, 10, helvetica);
@@ -333,8 +372,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Location & Schedule
-    drawText(page, 'LOCATION', col1, yPos, 11, helveticaBold);
-    drawText(page, 'SCHEDULE', col2, yPos, 11, helveticaBold);
+    drawText(page, 'LOCATION', col1, yPos, 11, helveticaBold, BRAND_RED);
+    drawText(page, 'SCHEDULE', col2, yPos, 11, helveticaBold, BRAND_RED);
     yPos -= 18;
     drawText(page, 'Location: ' + (permit.work_location || 'N/A'), col1, yPos, 10, helvetica);
     drawText(page, 'Date: ' + formatDate(permit.work_date_from) + ' - ' + formatDate(permit.work_date_to), col2, yPos, 10, helvetica);
@@ -347,7 +386,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Approvals section with signatures - 3 per row grid layout
-    drawText(page, 'APPROVALS & SIGNATURES', margin, yPos, 12, helveticaBold);
+    drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 12);
     yPos -= 25;
 
     // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
@@ -454,7 +493,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     
     for (let i = 0; i < activeApprovals.length; i++) {
       const approval = activeApprovals[i];
-      const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : rgb(0.86, 0.21, 0.27);
+      const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : BRAND_RED;
       const statusSymbol = approval.status === 'approved' ? '✓' : '✗';
       
       // Get audit info for IP address
@@ -581,7 +620,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       page = attachmentPageResult.page;
       yPos = attachmentPageResult.yPos;
       
-      drawText(page, 'ATTACHMENTS', margin, yPos, 16, helveticaBold);
+      drawSectionHeader(page, 'ATTACHMENTS', yPos, 16);
       yPos -= 30;
       
       for (let i = 0; i < attachments.length; i++) {
