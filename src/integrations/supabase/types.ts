@@ -1884,6 +1884,8 @@ export type Database = {
       }
       is_approver: { Args: { _user_id: string }; Returns: boolean }
       is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
+      next_gate_pass_number_today: { Args: never; Returns: string }
+      next_permit_number_today: { Args: never; Returns: string }
       reconcile_gate_pass_approvals: {
         Args: { _gate_pass_id: string }
         Returns: undefined
