@@ -1,4 +1,5 @@
 // Push Notification Service Worker
+// Cache version: numbering-rpcs-robust-20260426080000
 
 self.addEventListener('push', function(event) {
   console.log('[Push SW] Push message received:', event);
