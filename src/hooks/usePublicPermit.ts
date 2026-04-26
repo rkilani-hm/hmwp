@@ -78,9 +78,18 @@ export function useCreatePublicPermit() {
       work_time_to: string;
       urgency?: 'normal' | 'urgent';
     }) => {
-      // Generate permit number with INT prefix for internal permits
-      const permitNo = `INT-${Date.now().toString(36).toUpperCase()}`;
-      
+      // Generate permit number via Postgres RPC.
+      // Public-portal permits now share the same WP-YYMMDD-NN scheme as
+      // internal permits (no separate INT- prefix). The is_internal flag
+      // on the row still distinguishes external from internal — the
+      // permit_no doesn't need to encode it.
+      const { data: rpcPermitNo, error: rpcErr } = await supabase
+        .rpc('next_permit_number_today');
+      if (rpcErr || !rpcPermitNo) {
+        throw new Error(rpcErr?.message || 'Failed to allocate permit number');
+      }
+      const permitNo = rpcPermitNo as string;
+
       // Calculate SLA deadline based on urgency
       const urgency = permitData.urgency || 'normal';
       const hoursToAdd = urgency === 'urgent' ? 4 : 48;
