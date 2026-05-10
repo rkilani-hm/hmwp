@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 
@@ -141,13 +141,13 @@ export default function Auth() {
         <Card className="border-border/50 shadow-xl">
           <CardHeader className="text-center pb-4">
             <CardTitle className="font-display text-xl">Welcome</CardTitle>
-            <CardDescription>Sign in to your account or create a new one</CardDescription>
+            <CardDescription>Sign in to your account, or sign up as a new tenant</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="signup">Tenant Sign Up</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
@@ -194,6 +194,19 @@ export default function Auth() {
               </TabsContent>
 
               <TabsContent value="signup">
+                {/* Helper banner: clarifies who should self-register here.
+                    Internal Al Hamra staff (approvers, admins) get accounts
+                    from the admin team — they shouldn't sign up here. */}
+                <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 flex gap-3">
+                  <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" aria-hidden="true" />
+                  <p className="text-sm text-foreground/80 leading-snug">
+                    Sign up here if you're a <strong>tenant</strong> who needs to
+                    submit work permits or gate-pass requests for your unit.
+                    Al&nbsp;Hamra staff: please contact your administrator to be
+                    issued an account — don't register here.
+                  </p>
+                </div>
+
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Full Name</Label>
@@ -242,10 +255,10 @@ export default function Auth() {
                     {isLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating account...
+                        Creating tenant account...
                       </>
                     ) : (
-                      'Create Account'
+                      'Create Tenant Account'
                     )}
                   </Button>
                 </form>
