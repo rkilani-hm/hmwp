@@ -312,13 +312,13 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-display font-bold">
-            {currentRole === 'contractor' ? 'My Permits' : 'All Permits'}
+            {currentRole === 'tenant' ? 'My Permits' : 'All Permits'}
           </h1>
           <p className="text-muted-foreground mt-1">
             {filteredActive.length} active permit{filteredActive.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {currentRole === 'contractor' && (
+        {currentRole === 'tenant' && (
           <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Link to="/new-permit">
               <Plus className="w-4 h-4 mr-2" />

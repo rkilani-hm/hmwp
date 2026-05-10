@@ -166,7 +166,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   };
 
   const canApprove = () => {
-    if (currentRole === 'contractor') return false;
+    if (currentRole === 'tenant') return false;
     const requiredRole = statusToRole[permit.status];
     if (!requiredRole) return false;
     return roles.includes(requiredRole as any);

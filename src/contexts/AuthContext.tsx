@@ -226,9 +226,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: RoleName) => roles.includes(role);
 
   const isApprover = () => {
-    // Any non-contractor role is considered an approver in this system.
+    // Any non-tenant role is considered an approver in this system.
     // (Workflows are admin-configurable, so we must not hardcode role lists.)
-    return roles.some(r => r !== 'contractor');
+    return roles.some(r => r !== 'tenant');
   };
 
   const refreshProfile = async () => {

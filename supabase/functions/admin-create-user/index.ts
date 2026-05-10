@@ -197,30 +197,30 @@ serve(async (req) => {
       }
     }
 
-    // The handle_new_user trigger should have created the profile and default contractor role
+    // The handle_new_user trigger should have created the profile and default tenant role
     // Now add any additional roles
     if (roles && roles.length > 0 && newUser.user) {
       // Get role IDs from the roles table
       const { data: rolesData } = await supabaseAdmin
         .from("roles")
         .select("id, name")
-        .in("name", [...roles, "contractor"]);
+        .in("name", [...roles, "tenant"]);
 
       const roleMap = new Map(rolesData?.map(r => [r.name, r.id]) || []);
-      const contractorRoleId = roleMap.get("contractor");
+      const tenantRoleId = roleMap.get("tenant");
 
-      // First remove the default contractor role if other roles are specified
-      // and contractor is not in the list
-      if (!roles.includes("contractor") && contractorRoleId) {
+      // First remove the default tenant role if other roles are specified
+      // and tenant is not in the list
+      if (!roles.includes("tenant") && tenantRoleId) {
         await supabaseAdmin
           .from("user_roles")
           .delete()
           .eq("user_id", newUser.user.id)
-          .eq("role_id", contractorRoleId);
+          .eq("role_id", tenantRoleId);
       }
 
-      // Add the specified roles (excluding contractor if it's already added by trigger)
-      const rolesToAdd = roles.filter(role => role !== "contractor");
+      // Add the specified roles (excluding tenant if it's already added by trigger)
+      const rolesToAdd = roles.filter(role => role !== "tenant");
       
       for (const role of rolesToAdd) {
         const roleId = roleMap.get(role);

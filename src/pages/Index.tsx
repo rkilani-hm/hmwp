@@ -38,14 +38,14 @@ const Index = () => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('helpdesk')) return 'helpdesk';
 
-    // Prefer the first non-contractor role (e.g., customer_service, cr_coordinator, head_cr, etc.)
-    const nonContractorRole = roles.find(r => r !== 'contractor');
-    return nonContractorRole || 'contractor';
+    // Prefer the first non-tenant role (e.g., customer_service, cr_coordinator, head_cr, etc.)
+    const nonTenantRole = roles.find(r => r !== 'tenant');
+    return nonTenantRole || 'tenant';
   };
 
   const currentRole = getPrimaryRole();
   const isAdmin = hasRole('admin');
-  const isApprover = roles.some(r => r !== 'contractor');
+  const isApprover = roles.some(r => r !== 'tenant');
 
   return (
     <AppLayout currentRole={currentRole}>

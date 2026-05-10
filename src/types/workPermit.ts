@@ -29,7 +29,7 @@ export type PermitStatus =
   | 'superseded';
 
 export type UserRole =
-  | 'contractor'
+  | 'tenant'
   // Client workflow
   | 'customer_service'
   | 'cr_coordinator'
@@ -170,7 +170,7 @@ export const statusLabels: Record<PermitStatus, string> = {
 };
 
 export const roleLabels: Record<UserRole, string> = {
-  contractor: 'Client',
+  tenant: 'Tenant',
 
   // Client workflow
   customer_service: 'Customer Service',

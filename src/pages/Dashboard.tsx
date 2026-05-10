@@ -27,7 +27,7 @@ import { PendingWithMeWidget } from '@/components/dashboard/PendingWithMeWidget'
 type UserRole = string;
 
 const roleLabels: Record<string, string> = {
-  contractor: 'Client',
+  tenant: 'Tenant',
   // Client workflow roles
   customer_service: 'Customer Service',
   cr_coordinator: 'CR Coordinator',
@@ -100,8 +100,8 @@ export default function Dashboard({ currentRole }: DashboardProps) {
   const { data: permits, isLoading } = useWorkPermits();
   const stats = usePermitStats();
 
-  // Use dedicated Client dashboard for contractor role
-  if (currentRole === 'contractor') {
+  // Use dedicated tenant dashboard for tenant role
+  if (currentRole === 'tenant') {
     return <ClientDashboard />;
   }
   
@@ -242,7 +242,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
         {/* Quick Actions & Pending */}
         <motion.div variants={itemVariants} className="space-y-6">
           {/* Approvers: Pending with Me Widget */}
-          {currentRole !== 'contractor' && <PendingWithMeWidget />}
+          {currentRole !== 'tenant' && <PendingWithMeWidget />}
 
           {/* Admin: Stuck Permits Widget */}
           {currentRole === 'admin' && <StuckPermitsWidget />}

@@ -1908,7 +1908,7 @@ export type Database = {
     }
     Enums: {
       app_role:
-        | "contractor"
+        | "tenant"
         | "helpdesk"
         | "pm"
         | "pd"
@@ -2075,7 +2075,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: [
-        "contractor",
+        "tenant",
         "helpdesk",
         "pm",
         "pd",

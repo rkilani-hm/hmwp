@@ -67,7 +67,7 @@ export async function sendEmailNotification(
 }
 
 // Get emails for users with specific roles
-export async function getEmailsForRole(role: 'contractor' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin'): Promise<string[]> {
+export async function getEmailsForRole(role: 'tenant' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin'): Promise<string[]> {
   // First get the role_id from the roles table
   const { data: roleData } = await supabase
     .from('roles')

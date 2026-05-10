@@ -94,7 +94,7 @@ export function useMyPerformance() {
       const thirtyDaysAgo = subDays(new Date(), 30);
       
       // Get approver role for field lookup
-      const approverRole = roles.find(r => r !== 'contractor' && r !== 'admin') || roles[0];
+      const approverRole = roles.find(r => r !== 'tenant' && r !== 'admin') || roles[0];
       const roleField = approverRole?.toLowerCase().replace(' ', '_');
       
       for (const permit of permits || []) {
