@@ -169,6 +169,11 @@ serve(async (req) => {
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         full_name: fullName,
+        // Signals to the handle_new_user() trigger that this user was
+        // provisioned by an admin and should land as account_status='approved'
+        // immediately, bypassing the pending-approval queue. Self-signups
+        // omit this metadata and land as 'pending'.
+        admin_created: 'true',
       },
     });
 

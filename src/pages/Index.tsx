@@ -9,6 +9,7 @@ import PermitDetail from './PermitDetail';
 import ApproverInbox from './ApproverInbox';
 import ApproverOutbox from './ApproverOutbox';
 import ApproversManagement from './admin/ApproversManagement';
+import PendingApprovals from './admin/PendingApprovals';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import WorkLocationsManagement from './admin/WorkLocationsManagement';
 import RolesManagement from './admin/RolesManagement';
@@ -120,6 +121,10 @@ const Index = () => {
         <Route path="gate-passes/approvals" element={<GatePassApprovals />} />
         <Route path="gate-pass-workflows" element={isAdmin ? <GatePassWorkflowConfig /> : <Navigate to="/" replace />} />
         <Route path="deletion-audit-log" element={isAdmin ? <AdminDeletionAuditLog /> : <Navigate to="/" replace />} />
+        <Route
+          path="pending-tenants"
+          element={isAdmin ? <PendingApprovals /> : <Navigate to="/" replace />}
+        />
       </Routes>
     </AppLayout>
   );

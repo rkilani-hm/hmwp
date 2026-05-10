@@ -13,6 +13,8 @@ interface Profile {
   company_name: string | null;
   company_logo: string | null;
   auth_preference: string | null;
+  account_status: 'pending' | 'approved' | 'rejected';
+  account_rejection_reason: string | null;
 }
 
 interface AuthContextType {
