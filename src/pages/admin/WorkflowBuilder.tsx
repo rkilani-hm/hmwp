@@ -354,10 +354,10 @@ function WorkflowEditor({
           {validationResult && (
             <div className="space-y-2">
               {validationResult.valid ? (
-                <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertTitle className="text-green-800 dark:text-green-200">Workflow Valid</AlertTitle>
-                  <AlertDescription className="text-green-700 dark:text-green-300">
+                <Alert className="border-success/50 bg-success/10">
+                  <CheckCircle className="h-4 w-4 text-success" />
+                  <AlertTitle className="text-success">Workflow Valid</AlertTitle>
+                  <AlertDescription className="text-success/90">
                     All roles exist and the workflow is properly configured.
                   </AlertDescription>
                 </Alert>
@@ -375,10 +375,10 @@ function WorkflowEditor({
                 </Alert>
               )}
               {validationResult.warnings.length > 0 && (
-                <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <AlertTitle className="text-yellow-800 dark:text-yellow-200">Warnings</AlertTitle>
-                  <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                <Alert className="border-warning/50 bg-warning/10">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <AlertTitle className="text-warning">Warnings</AlertTitle>
+                  <AlertDescription className="text-warning/90">
                     <ul className="list-disc list-inside mt-1">
                       {validationResult.warnings.map((warning, i) => (
                         <li key={i}>{warning}</li>
