@@ -14,6 +14,7 @@ import PublicPermitStatus from "./pages/PublicPermitStatus";
 import PublicPermitRequest from "./pages/PublicPermitRequest";
 import InstallApp from "./pages/InstallApp";
 import Onboarding from "./pages/Onboarding";
+import PendingApproval from "./pages/PendingApproval";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pending-approval"
+              element={
+                <ProtectedRoute>
+                  <PendingApproval />
                 </ProtectedRoute>
               }
             />
