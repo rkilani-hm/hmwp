@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Settings2, CheckCircle, XCircle, RotateCcw, Forward, FileText, Ban, Bell, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+import { usePermitApprovals } from '@/hooks/usePermitApprovals';
 
 interface ActivityLogEntry {
   id: string;
@@ -18,33 +19,15 @@ interface ActivityLogEntry {
   reason?: string | null;
 }
 
-interface ApprovalData {
-  status?: string | null;
-  approver_name?: string | null;
-  date?: string | null;
-  comments?: string | null;
-}
-
 interface PermitActivityLogProps {
   permitId: string;
   permitCreatedAt: string;
   requesterName: string;
-  // Approval data from permit
-  approvals?: {
-    customer_service?: ApprovalData;
-    helpdesk?: ApprovalData;
-    cr_coordinator?: ApprovalData;
-    head_cr?: ApprovalData;
-    pm?: ApprovalData;
-    pd?: ApprovalData;
-    bdcr?: ApprovalData;
-    mpr?: ApprovalData;
-    it?: ApprovalData;
-    fitout?: ApprovalData;
-    ecovert_supervisor?: ApprovalData;
-    pmd_coordinator?: ApprovalData;
-    fmsp_approval?: ApprovalData;
-  };
+  // The legacy `approvals` prop has been removed — the component now
+  // reads from the permit_approvals table directly via
+  // usePermitApprovals(). Callers don't need to construct the legacy
+  // per-role approval object anymore. This decouples the activity
+  // log from the per-role columns that Phase 2c-5c will drop.
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -63,8 +46,13 @@ const ROLE_LABELS: Record<string, string> = {
   fmsp_approval: 'FMSP',
 };
 
-export function PermitActivityLog({ permitId, permitCreatedAt, requesterName, approvals }: PermitActivityLogProps) {
-  // Fetch activity logs
+export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: PermitActivityLogProps) {
+  // Approval rows from permit_approvals (post-Phase-2c source of truth).
+  // One row per role; we filter to terminal statuses below.
+  const { data: approvalRows, isLoading: isLoadingApprovals } = usePermitApprovals(permitId);
+
+  // Fetch activity logs (legacy free-form action log written by various
+  // mutations; persists alongside permit_approvals).
   const { data: activityLogs, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['permit-activity-logs', permitId],
     queryFn: async () => {
@@ -94,28 +82,30 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName, ap
     },
   });
 
-  const isLoading = isLoadingActivity || isLoadingAudit;
+  const isLoading = isLoadingApprovals || isLoadingActivity || isLoadingAudit;
 
-  // Build approval entries from permit data
-  const approvalEntries: ActivityLogEntry[] = [];
-  if (approvals) {
-    Object.entries(approvals).forEach(([role, data]) => {
-      if (data?.date && data?.status && data.status !== 'pending') {
-        const roleLabel = ROLE_LABELS[role] || role;
-        approvalEntries.push({
-          id: `approval-${role}`,
-          type: 'approval',
-          action: data.status === 'approved' 
-            ? `${roleLabel} Approved` 
-            : `${roleLabel} Rejected`,
-          performed_by: data.approver_name || 'Unknown',
-          details: data.comments,
-          created_at: data.date,
-          status: data.status as 'approved' | 'rejected',
-        });
-      }
+  // Build approval entries from permit_approvals rows. Show one entry
+  // per terminal-status row (approved or rejected); skipped and
+  // pending rows aren't surfaced — skipped is silent, pending hasn't
+  // happened yet.
+  const approvalEntries: ActivityLogEntry[] = (approvalRows ?? [])
+    .filter(row => row.status === 'approved' || row.status === 'rejected')
+    .map(row => {
+      const roleLabel = ROLE_LABELS[row.role_name] ?? row.role_name;
+      return {
+        id: `approval-${row.role_name}`,
+        type: 'approval' as const,
+        action: row.status === 'approved'
+          ? `${roleLabel} Approved`
+          : `${roleLabel} Rejected`,
+        performed_by: row.approver_name ?? 'Unknown',
+        details: row.comments,
+        // Use approved_at when present; fall back to updated_at for
+        // older rows that backfilled without an explicit timestamp.
+        created_at: row.approved_at ?? row.updated_at ?? permitCreatedAt,
+        status: row.status,
+      };
     });
-  }
 
   function getWorkflowModificationTitle(type: string): string {
     switch (type) {
@@ -140,14 +130,13 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName, ap
       performed_by: requesterName,
       created_at: permitCreatedAt,
     },
-    // Approval entries from permit data
+    // Approval entries from permit_approvals
     ...approvalEntries,
     // Activity logs (filter out duplicates with approval entries)
     ...(activityLogs || [])
       .filter(log => {
-        // Skip if this is a duplicate of an approval entry we already have
         const actionLower = log.action.toLowerCase();
-        const isDuplicateApproval = approvalEntries.some(entry => 
+        const isDuplicateApproval = approvalEntries.some(entry =>
           entry.action.toLowerCase() === actionLower
         );
         return !isDuplicateApproval;
@@ -182,65 +171,37 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName, ap
       return <FileText className="w-3 h-3" />;
     }
     if (entry.type === 'approval') {
-      return entry.status === 'approved' 
-        ? <CheckCircle className="w-3 h-3" /> 
+      return entry.status === 'approved'
+        ? <CheckCircle className="w-3 h-3" />
         : <XCircle className="w-3 h-3" />;
     }
 
     const actionLower = entry.action.toLowerCase();
-    if (actionLower.includes('approved')) {
-      return <CheckCircle className="w-3 h-3" />;
-    }
-    if (actionLower.includes('rejected')) {
-      return <XCircle className="w-3 h-3" />;
-    }
-    if (actionLower.includes('rework')) {
-      return <RotateCcw className="w-3 h-3" />;
-    }
-    if (actionLower.includes('forward')) {
-      return <Forward className="w-3 h-3" />;
-    }
-    if (actionLower.includes('cancel')) {
-      return <Ban className="w-3 h-3" />;
-    }
-    if (actionLower.includes('notification') || actionLower.includes('resend')) {
-      return <Bell className="w-3 h-3" />;
-    }
-    if (actionLower.includes('submit')) {
-      return <Clock className="w-3 h-3" />;
-    }
-    if (actionLower.includes('pdf') || actionLower.includes('document')) {
-      return <FileText className="w-3 h-3" />;
-    }
+    if (actionLower.includes('approved')) return <CheckCircle className="w-3 h-3" />;
+    if (actionLower.includes('rejected')) return <XCircle className="w-3 h-3" />;
+    if (actionLower.includes('rework'))   return <RotateCcw className="w-3 h-3" />;
+    if (actionLower.includes('forward'))  return <Forward className="w-3 h-3" />;
+    if (actionLower.includes('cancel'))   return <Ban className="w-3 h-3" />;
+    if (actionLower.includes('notification') || actionLower.includes('resend')) return <Bell className="w-3 h-3" />;
+    if (actionLower.includes('submit'))   return <Clock className="w-3 h-3" />;
+    if (actionLower.includes('pdf') || actionLower.includes('document')) return <FileText className="w-3 h-3" />;
     return <CheckCircle className="w-3 h-3" />;
   }
 
   function getActionColor(entry: ActivityLogEntry): string {
-    if (entry.type === 'workflow_modification') {
-      return 'bg-warning text-warning-foreground';
-    }
-    if (entry.type === 'creation') {
-      return 'bg-primary text-primary-foreground';
-    }
+    if (entry.type === 'workflow_modification') return 'bg-warning text-warning-foreground';
+    if (entry.type === 'creation') return 'bg-primary text-primary-foreground';
     if (entry.type === 'approval') {
-      return entry.status === 'approved' 
-        ? 'bg-success text-success-foreground' 
+      return entry.status === 'approved'
+        ? 'bg-success text-success-foreground'
         : 'bg-destructive text-destructive-foreground';
     }
 
     const actionLower = entry.action.toLowerCase();
-    if (actionLower.includes('rejected') || actionLower.includes('cancel')) {
-      return 'bg-destructive text-destructive-foreground';
-    }
-    if (actionLower.includes('rework')) {
-      return 'bg-warning text-warning-foreground';
-    }
-    if (actionLower.includes('forward')) {
-      return 'bg-accent text-accent-foreground';
-    }
-    if (actionLower.includes('submit')) {
-      return 'bg-primary text-primary-foreground';
-    }
+    if (actionLower.includes('rejected') || actionLower.includes('cancel')) return 'bg-destructive text-destructive-foreground';
+    if (actionLower.includes('rework'))  return 'bg-warning text-warning-foreground';
+    if (actionLower.includes('forward')) return 'bg-accent text-accent-foreground';
+    if (actionLower.includes('submit'))  return 'bg-primary text-primary-foreground';
     return 'bg-success text-success-foreground';
   }
 

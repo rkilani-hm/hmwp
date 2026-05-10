@@ -496,93 +496,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
-              <PermitActivityLog 
+              <PermitActivityLog
                 permitId={permit.id}
                 permitCreatedAt={permit.created_at}
                 requesterName={permit.requester_name}
-                approvals={(() => {
-                  const p: any = permit;
-                  return {
-                  customer_service: {
-                    status: p.customer_service_status,
-                    approver_name: p.customer_service_approver_name,
-                    date: p.customer_service_date,
-                    comments: p.customer_service_comments,
-                  },
-                  helpdesk: {
-                    status: p.helpdesk_status,
-                    approver_name: p.helpdesk_approver_name,
-                    date: p.helpdesk_date,
-                    comments: p.helpdesk_comments,
-                  },
-                  cr_coordinator: {
-                    status: p.cr_coordinator_status,
-                    approver_name: p.cr_coordinator_approver_name,
-                    date: p.cr_coordinator_date,
-                    comments: p.cr_coordinator_comments,
-                  },
-                  head_cr: {
-                    status: p.head_cr_status,
-                    approver_name: p.head_cr_approver_name,
-                    date: p.head_cr_date,
-                    comments: p.head_cr_comments,
-                  },
-                  pm: {
-                    status: p.pm_status,
-                    approver_name: p.pm_approver_name,
-                    date: p.pm_date,
-                    comments: p.pm_comments,
-                  },
-                  pd: {
-                    status: p.pd_status,
-                    approver_name: p.pd_approver_name,
-                    date: p.pd_date,
-                    comments: p.pd_comments,
-                  },
-                  bdcr: {
-                    status: p.bdcr_status,
-                    approver_name: p.bdcr_approver_name,
-                    date: p.bdcr_date,
-                    comments: p.bdcr_comments,
-                  },
-                  mpr: {
-                    status: p.mpr_status,
-                    approver_name: p.mpr_approver_name,
-                    date: p.mpr_date,
-                    comments: p.mpr_comments,
-                  },
-                  it: {
-                    status: p.it_status,
-                    approver_name: p.it_approver_name,
-                    date: p.it_date,
-                    comments: p.it_comments,
-                  },
-                  fitout: {
-                    status: p.fitout_status,
-                    approver_name: p.fitout_approver_name,
-                    date: p.fitout_date,
-                    comments: p.fitout_comments,
-                  },
-                  ecovert_supervisor: {
-                    status: p.ecovert_supervisor_status,
-                    approver_name: p.ecovert_supervisor_approver_name,
-                    date: p.ecovert_supervisor_date,
-                    comments: p.ecovert_supervisor_comments,
-                  },
-                  pmd_coordinator: {
-                    status: p.pmd_coordinator_status,
-                    approver_name: p.pmd_coordinator_approver_name,
-                    date: p.pmd_coordinator_date,
-                    comments: p.pmd_coordinator_comments,
-                  },
-                  fmsp_approval: {
-                    status: p.fmsp_approval_status,
-                    approver_name: p.fmsp_approval_approver_name,
-                    date: p.fmsp_approval_date,
-                    comments: p.fmsp_approval_comments,
-                  },
-                  };
-                })()}
               />
             </TabsContent>
           </Tabs>
