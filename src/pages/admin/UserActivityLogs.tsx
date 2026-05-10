@@ -9,19 +9,26 @@ import { Loader2, Search, Activity, LogIn, LogOut, AlertCircle, UserCog, FileTex
 import { format } from 'date-fns';
 
 const actionTypeIcons: Record<string, React.ReactNode> = {
-  login: <LogIn className="h-4 w-4 text-green-500" />,
-  logout: <LogOut className="h-4 w-4 text-muted-foreground" />,
+  // Positive / completion outcomes — success
+  login: <LogIn className="h-4 w-4 text-success" />,
+  permit_approve: <FileText className="h-4 w-4 text-success" />,
+  user_create: <UserCog className="h-4 w-4 text-success" />,
+  // Failure / negative outcomes — destructive
   login_failed: <AlertCircle className="h-4 w-4 text-destructive" />,
-  password_change: <UserCog className="h-4 w-4 text-amber-500" />,
-  profile_update: <UserCog className="h-4 w-4 text-blue-500" />,
-  permit_create: <FileText className="h-4 w-4 text-primary" />,
-  permit_approve: <FileText className="h-4 w-4 text-green-500" />,
   permit_reject: <FileText className="h-4 w-4 text-destructive" />,
-  permit_forward: <FileText className="h-4 w-4 text-amber-500" />,
-  permit_rework: <FileText className="h-4 w-4 text-orange-500" />,
-  user_create: <UserCog className="h-4 w-4 text-green-500" />,
-  user_role_change: <UserCog className="h-4 w-4 text-purple-500" />,
-  user_status_change: <UserCog className="h-4 w-4 text-amber-500" />,
+  // In-progress / attention-needed states — warning
+  password_change: <UserCog className="h-4 w-4 text-warning" />,
+  permit_forward: <FileText className="h-4 w-4 text-warning" />,
+  permit_rework: <FileText className="h-4 w-4 text-warning" />,
+  user_status_change: <UserCog className="h-4 w-4 text-warning" />,
+  // Informational — info (was blue)
+  profile_update: <UserCog className="h-4 w-4 text-info" />,
+  // Brand-emphasized — primary
+  permit_create: <FileText className="h-4 w-4 text-primary" />,
+  // Special category change — accent (was purple)
+  user_role_change: <UserCog className="h-4 w-4 text-accent-foreground" />,
+  // Neutral terminal — muted
+  logout: <LogOut className="h-4 w-4 text-muted-foreground" />,
 };
 
 const actionTypeBadgeVariant = (actionType: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
