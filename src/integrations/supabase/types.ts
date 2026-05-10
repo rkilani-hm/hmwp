@@ -91,6 +91,30 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gate_pass_approvals: {
         Row: {
           approved_at: string | null
@@ -732,7 +756,13 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_approved_at: string | null
+          account_rejected_at: string | null
+          account_rejection_reason: string | null
+          account_reviewed_by: string | null
+          account_status: string
           auth_preference: string | null
+          company_id: string | null
           company_logo: string | null
           company_name: string | null
           created_at: string
@@ -744,7 +774,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_approved_at?: string | null
+          account_rejected_at?: string | null
+          account_rejection_reason?: string | null
+          account_reviewed_by?: string | null
+          account_status?: string
           auth_preference?: string | null
+          company_id?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
@@ -756,7 +792,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_approved_at?: string | null
+          account_rejected_at?: string | null
+          account_rejection_reason?: string | null
+          account_reviewed_by?: string | null
+          account_status?: string
           auth_preference?: string | null
+          company_id?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
@@ -767,7 +809,15 @@ export type Database = {
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -1867,6 +1917,7 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
+      current_user_account_status: { Args: never; Returns: string }
       ensure_permit_pending_approvals: {
         Args: { _permit_id: string }
         Returns: number
@@ -1905,10 +1956,14 @@ export type Database = {
         Args: { _permit_id: string }
         Returns: undefined
       }
+      same_company: {
+        Args: { _user_a: string; _user_b: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
-        | "contractor"
+        | "tenant"
         | "helpdesk"
         | "pm"
         | "pd"
@@ -2075,7 +2130,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: [
-        "contractor",
+        "tenant",
         "helpdesk",
         "pm",
         "pd",
