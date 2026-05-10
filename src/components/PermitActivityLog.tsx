@@ -103,7 +103,7 @@ export function PermitActivityLog({ permitId, permitCreatedAt, requesterName }: 
         // Use approved_at when present; fall back to updated_at for
         // older rows that backfilled without an explicit timestamp.
         created_at: row.approved_at ?? row.updated_at ?? permitCreatedAt,
-        status: row.status,
+        status: row.status as 'approved' | 'rejected',
       };
     });
 

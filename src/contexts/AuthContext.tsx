@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (profileData) {
-        setProfile(profileData);
+        setProfile(profileData as Profile);
       } else {
         // Profile row missing: create it so updates actually persist
         const email = authUser.email;
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error('Error creating missing profile:', createError);
             setProfile(null);
           } else {
-            setProfile(createdProfile ?? null);
+            setProfile((createdProfile as Profile) ?? null);
           }
         }
       }
