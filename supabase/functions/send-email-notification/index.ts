@@ -74,8 +74,14 @@ async function getMicrosoftToken(): Promise<string> {
 
 // Send email via Microsoft Graph API
 async function sendEmail(accessToken: string, to: string[], subject: string, body: string, senderEmail?: string): Promise<void> {
-  // Use a configured sender or the first admin email
-  const fromEmail = senderEmail || Deno.env.get("MS_SENDER_EMAIL") || "rkilani@alhamra.com.kw";
+  // Resolve sender (priority order):
+  //   1. explicit `senderEmail` arg from caller (rare; reserved for one-offs)
+  //   2. MS_SENDER_EMAIL env var (per-deployment override; preferred config point)
+  //   3. permits@alhamra.com.kw — Al Hamra shared mailbox for permit notifications
+  //
+  // The Azure AD app registration must have Mail.Send (Application) permission
+  // on this mailbox. See README-EMAIL-SENDER.md for the M365 setup steps.
+  const fromEmail = senderEmail || Deno.env.get("MS_SENDER_EMAIL") || "permits@alhamra.com.kw";
   
   const emailPayload = {
     message: {
