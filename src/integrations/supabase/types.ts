@@ -1875,6 +1875,15 @@ export type Database = {
         Args: { role_name: string }
         Returns: string
       }
+      get_public_permit_status: {
+        Args: { _permit_no: string }
+        Returns: {
+          permit_no: string
+          status: Database["public"]["Enums"]["permit_status"]
+          work_date_from: string
+          work_date_to: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
