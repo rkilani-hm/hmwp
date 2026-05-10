@@ -56,17 +56,15 @@ const PublicPermitStatus = () => {
     setNotFound(false);
 
     try {
-      // Only select limited fields - no sensitive data
+      // Use SECURITY DEFINER RPC that returns only non-sensitive fields
       const { data, error } = await supabase
-        .from('work_permits')
-        .select('permit_no, status, work_date_from, work_date_to')
-        .ilike('permit_no', trimmed)
-        .maybeSingle();
+        .rpc('get_public_permit_status', { _permit_no: trimmed });
 
       if (error) throw error;
 
-      if (data) {
-        setPermitInfo(data);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        setPermitInfo(row);
         toast.success('Permit found!');
       } else {
         setNotFound(true);
