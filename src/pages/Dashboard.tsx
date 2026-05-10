@@ -129,7 +129,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         <Skeleton className="h-12 w-64" />
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
@@ -147,7 +147,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-8"
+      className="space-y-6"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -210,11 +210,11 @@ export default function Dashboard({ currentRole }: DashboardProps) {
       </motion.div>
 
       {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-5">
         {/* Recent Activity */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="font-display text-lg">Recent Permits</CardTitle>
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/permits" className="text-accent">
@@ -240,7 +240,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
         </motion.div>
 
         {/* Quick Actions & Pending */}
-        <motion.div variants={itemVariants} className="space-y-6">
+        <motion.div variants={itemVariants} className="space-y-4">
           {/* Approvers: Pending with Me Widget */}
           {currentRole !== 'tenant' && <PendingWithMeWidget />}
 
@@ -249,10 +249,10 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
           {/* Rework Needed */}
           {reworkPermits.length > 0 && (
-            <Card className="border-orange-500/30 bg-orange-500/5">
-              <CardHeader className="pb-4">
+            <Card className="border-warning/30 bg-warning/5">
+              <CardHeader className="pb-3">
                 <CardTitle className="font-display text-lg flex items-center gap-2">
-                  <RotateCcw className="w-5 h-5 text-orange-500" />
+                  <RotateCcw className="w-5 h-5 text-warning" />
                   Rework Needed
                 </CardTitle>
               </CardHeader>
@@ -260,14 +260,14 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                 {reworkPermits.map((permit) => (
                   <div
                     key={permit.id}
-                    className="flex items-center justify-between p-3 bg-card rounded-lg border border-orange-200 dark:border-orange-800/50 cursor-pointer hover:border-orange-400 transition-colors"
+                    className="flex items-center justify-between p-2.5 bg-card rounded-lg border border-warning/30 cursor-pointer hover:border-warning/60 transition-colors"
                     onClick={() => navigate(`/permits/${permit.id}/edit`)}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm truncate">{permit.permit_no}</p>
                         {permit.rework_version && permit.rework_version > 0 && (
-                          <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">
+                          <span className="text-xs bg-destructive/15 text-destructive px-1.5 py-0.5 rounded font-medium">
                             V{permit.rework_version + 1}
                           </span>
                         )}
@@ -286,7 +286,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           {/* Pending Approvals */}
           {pendingPermits.length > 0 && (
             <Card className="border-warning/30 bg-warning/5">
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-3">
                 <CardTitle className="font-display text-lg flex items-center gap-2">
                   <Clock className="w-5 h-5 text-warning" />
                   Pending Approvals
@@ -296,7 +296,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                 {pendingPermits.map((permit) => (
                   <div
                     key={permit.id}
-                    className="flex items-center justify-between p-3 bg-card rounded-lg border cursor-pointer hover:border-accent/30 transition-colors"
+                    className="flex items-center justify-between p-2.5 bg-card rounded-lg border cursor-pointer hover:border-accent/30 transition-colors"
                     onClick={() => navigate(`/permits/${permit.id}`)}
                   >
                     <div className="min-w-0">
@@ -314,14 +314,14 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
           {/* Summary */}
           <Card>
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-3">
               <CardTitle className="font-display text-lg flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-accent" />
                 This Month
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Submitted</span>
                   <span className="text-sm font-medium">{stats.total}</span>
@@ -340,7 +340,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                       <Settings2 className="w-3 h-3" />
                       Modified Workflows
                     </span>
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-xs">
                       {modifiedWorkflowCount}
                     </Badge>
                   </div>
