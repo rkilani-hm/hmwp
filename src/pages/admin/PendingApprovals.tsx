@@ -43,7 +43,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  * polling needed.
  */
 export default function PendingApprovals() {
-  const { data: pending, isLoading, isError } = usePendingTenants();
+  const { data: pending, isLoading, isError, error } = usePendingTenants();
   const approve = useApproveTenant();
   const reject = useRejectTenant();
 
@@ -112,9 +112,37 @@ export default function PendingApprovals() {
       )}
 
       {isError && (
-        <Card>
-          <CardContent className="py-8 text-center text-destructive">
-            Failed to load pending approvals. Try refreshing.
+        <Card className="border-destructive/30">
+          <CardContent className="py-6 space-y-3">
+            <p className="font-medium text-destructive">
+              Failed to load pending approvals.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {error instanceof Error ? error.message : 'Unknown error.'}
+            </p>
+            {/* PostgREST error fields */}
+            {(() => {
+              const e = error as { code?: string; details?: string; hint?: string } | null;
+              if (!e) return null;
+              return (
+                <dl className="text-xs text-muted-foreground space-y-0.5 font-mono bg-muted/30 rounded p-3 border border-border">
+                  {e.code && (
+                    <div><span className="font-semibold">code:</span> {e.code}</div>
+                  )}
+                  {e.details && (
+                    <div><span className="font-semibold">details:</span> {e.details}</div>
+                  )}
+                  {e.hint && (
+                    <div><span className="font-semibold">hint:</span> {e.hint}</div>
+                  )}
+                </dl>
+              );
+            })()}
+            <p className="text-xs text-muted-foreground">
+              Common causes: the migration adding <code className="text-xs">profiles.account_status</code>{' '}
+              hasn't applied, or PostgREST schema cache is stale (run{' '}
+              <code className="text-xs">NOTIFY pgrst, 'reload schema';</code> in the SQL editor).
+            </p>
           </CardContent>
         </Card>
       )}

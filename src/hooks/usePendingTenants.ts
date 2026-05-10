@@ -31,8 +31,28 @@ export function usePendingTenants() {
         .eq('account_status', 'pending')
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Log the full PostgREST error so it's visible in the browser
+        // console (the page-level error UI surfaces error.message; this
+        // catches the wider context: code, hint, details).
+        console.error('[usePendingTenants] query failed:', {
+          message: error.message,
+          code: (error as { code?: string }).code,
+          details: (error as { details?: string }).details,
+          hint: (error as { hint?: string }).hint,
+        });
+        throw error;
+      }
       return (data ?? []) as PendingTenant[];
+    },
+    // Don't retry on PGRST/missing-column errors — they won't fix themselves
+    retry: (failureCount, error) => {
+      const code = (error as { code?: string })?.code;
+      // 42703 = undefined_column; 42P01 = undefined_table; PGRST205 = no schema
+      if (code === '42703' || code === '42P01' || code === 'PGRST205') {
+        return false;
+      }
+      return failureCount < 2;
     },
   });
 }
