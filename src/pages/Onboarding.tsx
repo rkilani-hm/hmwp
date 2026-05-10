@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, User, Phone, Building2 } from 'lucide-react';
+import { getEmailsForRole } from '@/utils/emailNotifications';
 
 const Onboarding = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -67,6 +68,35 @@ const Onboarding = () => {
       if (error) throw error;
 
       await refreshProfile();
+
+      // If this is a self-signup tenant just completing their profile
+      // (account_status still 'pending'), notify the admin team that a
+      // new application is in the queue. Admin-created users land as
+      // 'approved' so this branch is skipped for them. Best-effort —
+      // failures here don't block the user from continuing.
+      const wasPendingSelfSignup = profile?.account_status === 'pending';
+      if (wasPendingSelfSignup) {
+        try {
+          const adminEmails = await getEmailsForRole('admin');
+          if (adminEmails.length > 0) {
+            await supabase.functions.invoke('send-email-notification', {
+              body: {
+                to: adminEmails,
+                subject: 'New tenant application — review required',
+                notificationType: 'account_pending_review',
+                details: {
+                  tenantName: fullName.trim(),
+                  tenantEmail: email,
+                  tenantCompany: companyName.trim(),
+                  tenantPhone: phone.trim(),
+                },
+              },
+            });
+          }
+        } catch (notifyErr) {
+          console.error('Admin notification failed (non-fatal):', notifyErr);
+        }
+      }
 
       toast.success('Profile completed successfully!', { id: toastId });
       navigate('/', { replace: true });

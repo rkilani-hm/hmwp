@@ -34,7 +34,30 @@ interface EmailRequest {
   subject: string;
   body: string;
   permitId?: string;
-  notificationType: 'new_permit' | 'approval_required' | 'approved' | 'rejected' | 'rework' | 'forwarded' | 'closed' | 'sla_warning' | 'sla_breach' | 'status_update';
+  notificationType:
+    // Permit / gate-pass workflow notifications (require permitNo)
+    | 'new_permit'
+    | 'approval_required'
+    | 'approved'
+    | 'rejected'
+    | 'rework'
+    | 'forwarded'
+    | 'closed'
+    | 'sla_warning'
+    | 'sla_breach'
+    | 'status_update'
+    // Tenant account-lifecycle notifications (no permit context)
+    | 'account_pending_review'  // → admins: a new tenant has signed up
+    | 'account_approved'        // → tenant: admin approved your account
+    | 'account_rejected';       // → tenant: admin rejected your account
+}
+
+// True for account-status notification types: these don't reference a
+// permit and render with a different CTA + no permit-details box.
+function isAccountNotification(type: EmailRequest['notificationType']): boolean {
+  return type === 'account_pending_review'
+      || type === 'account_approved'
+      || type === 'account_rejected';
 }
 
 // Get Microsoft Graph access token
@@ -140,12 +163,19 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
   // Templates: title (EN + AR), one-line content (EN + AR), accent color.
   // The notificationType drives the strip color so users can scan their
   // inbox and recognize urgency at a glance.
+  //
+  // Optional ctaEn / ctaAr / ctaUrlOverride: when present, replace the
+  // default "View Permit Details" CTA. Used by account-status types
+  // which don't have a permit to link to.
   type Template = {
     titleEn: string;
     titleAr: string;
     contentEn: string;
     contentAr: string;
     color: string;
+    ctaEn?: string;
+    ctaAr?: string;
+    ctaUrlOverride?: string;
   };
 
   const templates: Record<EmailRequest['notificationType'], Template> = {
@@ -219,10 +249,63 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       contentAr: `تم تحديث تصريح العمل <strong>${permitNo}</strong>. ${details.statusMessageAr || 'يتم معالجته الآن من قِبَل المعتمِد التالي.'}`,
       color: INFO,
     },
+
+    // ---------- Account-lifecycle notifications ----------
+    account_pending_review: {
+      titleEn: "New Tenant Application — Review Required",
+      titleAr: "طلب مستأجر جديد — يتطلب المراجعة",
+      contentEn: `A new tenant has signed up and is awaiting your review.<br><br>` +
+        `<strong>Name:</strong> ${details.tenantName || '—'}<br>` +
+        `<strong>Email:</strong> ${details.tenantEmail || '—'}<br>` +
+        `<strong>Company:</strong> ${details.tenantCompany || '—'}<br>` +
+        (details.tenantPhone ? `<strong>Phone:</strong> ${details.tenantPhone}<br>` : ''),
+      contentAr: `قام مستأجر جديد بالتسجيل وينتظر مراجعتك.<br><br>` +
+        `<strong>الاسم:</strong> ${details.tenantName || '—'}<br>` +
+        `<strong>البريد الإلكتروني:</strong> ${details.tenantEmail || '—'}<br>` +
+        `<strong>الشركة:</strong> ${details.tenantCompany || '—'}<br>` +
+        (details.tenantPhone ? `<strong>الهاتف:</strong> ${details.tenantPhone}<br>` : ''),
+      color: WARNING,
+      ctaEn: "Review Pending Applications",
+      ctaAr: "مراجعة الطلبات المعلقة",
+      ctaUrlOverride: `${baseUrl}/pending-tenants`,
+    },
+    account_approved: {
+      titleEn: "Your Tenant Account Has Been Approved",
+      titleAr: "تم اعتماد حساب المستأجر الخاص بك",
+      contentEn: `Welcome to the Al Hamra Work Permit System. ` +
+        `You can now sign in and submit work permits and gate-pass requests for your unit.`,
+      contentAr: `مرحباً بك في نظام تصاريح العمل في الحمراء. ` +
+        `يمكنك الآن تسجيل الدخول وتقديم تصاريح العمل وطلبات تصاريح البوابة لوحدتك.`,
+      color: SUCCESS,
+      ctaEn: "Sign In to Get Started",
+      ctaAr: "تسجيل الدخول للبدء",
+      ctaUrlOverride: `${baseUrl}/auth`,
+    },
+    account_rejected: {
+      titleEn: "Account Application Update",
+      titleAr: "تحديث طلب الحساب",
+      contentEn: `After review, your tenant account application was not approved at this time.` +
+        (details.reason ? `<br><br><strong>Reason:</strong> ${details.reason}` : '') +
+        `<br><br>If you believe this was in error, contact <a href="mailto:permits@alhamra.com.kw" style="color: ${BRAND_RED};">permits@alhamra.com.kw</a>.`,
+      contentAr: `بعد المراجعة، لم تتم الموافقة على طلب حساب المستأجر الخاص بك في هذا الوقت.` +
+        (details.reason ? `<br><br><strong>السبب:</strong> ${details.reason}` : '') +
+        `<br><br>إذا كنت تعتقد أن هذا خطأ، تواصل معنا عبر <a href="mailto:permits@alhamra.com.kw" style="color: ${BRAND_RED};">permits@alhamra.com.kw</a>.`,
+      color: BRAND_RED,
+      // No CTA — the contact link is in the body. ctaEn omitted means
+      // the CTA row renders empty (handled in HTML below).
+    },
   };
 
   const template = templates[type];
   const permitUrl = `${baseUrl}/permits/${details.permitId || ''}`;
+
+  // CTA resolution: account-status templates override the default
+  // "View Permit Details" link. account_rejected omits ctaEn entirely
+  // so the CTA row renders empty.
+  const ctaTextEn = template.ctaEn ?? "View Permit Details";
+  const ctaTextAr = template.ctaAr ?? "عرض تفاصيل التصريح";
+  const ctaUrl = template.ctaUrlOverride ?? permitUrl;
+  const showCta = !!template.ctaEn;
 
   // ---- Brand-aligned font stack ----
   // 'Jost' renders correctly on web-mail clients that load Google Fonts
@@ -319,16 +402,20 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
           ` : ''}
 
           <!-- CTA -->
+          ${showCta ? `
           <tr>
             <td style="padding: 0 40px 32px 40px; text-align: center;">
-              <a href="${permitUrl}" style="display: inline-block; padding: 14px 36px; background-color: ${BRAND_RED}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; font-family: ${FONT_LATIN};">
-                View Permit Details
+              <a href="${ctaUrl}" style="display: inline-block; padding: 14px 36px; background-color: ${BRAND_RED}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; font-family: ${FONT_LATIN};">
+                ${ctaTextEn}
               </a>
               <div dir="rtl" lang="ar" style="margin-top: 8px; font-family: ${FONT_ARABIC}; font-size: 13px; color: #6b7280;">
-                <a href="${permitUrl}" style="color: ${BRAND_RED}; text-decoration: none;">عرض تفاصيل التصريح</a>
+                <a href="${ctaUrl}" style="color: ${BRAND_RED}; text-decoration: none;">${ctaTextAr}</a>
               </div>
             </td>
           </tr>
+          ` : `
+          <tr><td style="padding: 0 40px 16px 40px;"></td></tr>
+          `}
 
           <!-- Footer -->
           <tr>

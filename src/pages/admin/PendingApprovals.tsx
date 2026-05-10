@@ -56,15 +56,31 @@ export default function PendingApprovals() {
 
   const handleApprove = () => {
     if (!approveTarget) return;
-    approve.mutate(approveTarget, {
-      onSettled: () => setApproveTarget(null),
-    });
+    const tenant = pending?.find((t) => t.id === approveTarget);
+    if (!tenant) return;
+    approve.mutate(
+      {
+        tenantId: tenant.id,
+        tenantEmail: tenant.email,
+        tenantName: tenant.full_name,
+      },
+      {
+        onSettled: () => setApproveTarget(null),
+      }
+    );
   };
 
   const handleReject = () => {
     if (!rejectTarget) return;
+    const tenant = pending?.find((t) => t.id === rejectTarget);
+    if (!tenant) return;
     reject.mutate(
-      { tenantId: rejectTarget, reason: rejectReason },
+      {
+        tenantId: tenant.id,
+        tenantEmail: tenant.email,
+        tenantName: tenant.full_name,
+        reason: rejectReason,
+      },
       {
         onSettled: () => {
           setRejectTarget(null);
