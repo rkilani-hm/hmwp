@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Shield, Trash2, UserPlus, Key, Plus, RefreshCw, Pencil, Users, Briefcase } from 'lucide-react';
+import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase } from 'lucide-react';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 
