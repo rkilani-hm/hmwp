@@ -221,7 +221,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email via Microsoft Graph with attachment
     const accessToken = await getMicrosoftToken();
-    const fromEmail = Deno.env.get("MS_SENDER_EMAIL") || "rkilani@alhamra.com.kw";
+    // Sender priority: MS_SENDER_EMAIL env var, then the shared mailbox
+    // permits@alhamra.com.kw. The Azure AD app must have Mail.Send
+    // (Application) permission on this mailbox.
+    const fromEmail = Deno.env.get("MS_SENDER_EMAIL") || "permits@alhamra.com.kw";
 
     const emailPayload = {
       message: {
