@@ -43,14 +43,27 @@ export function usePendingTenants() {
  * for audit. The viewer must be an admin (UPDATE allowed via "Admins
  * can update all profiles" policy).
  *
- * Email notification to the tenant is a separate follow-up; this PR
- * surfaces approval state in-app only.
+ * Sends a bilingual approval email to the tenant on success. The
+ * caller passes the tenant's email + name from the existing pending
+ * list query so we don't need a second round-trip.
+ *
+ * Email is best-effort — we log failures but don't fail the whole
+ * mutation if the email function errors. The DB update has already
+ * landed; the tenant just won't get an email.
  */
 export function useApproveTenant() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (tenantId: string) => {
+    mutationFn: async ({
+      tenantId,
+      tenantEmail,
+      tenantName,
+    }: {
+      tenantId: string;
+      tenantEmail: string;
+      tenantName?: string | null;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase
@@ -65,6 +78,23 @@ export function useApproveTenant() {
         .eq('id', tenantId);
 
       if (error) throw error;
+
+      // Best-effort email — don't block / fail on email errors.
+      try {
+        await supabase.functions.invoke('send-email-notification', {
+          body: {
+            to: [tenantEmail],
+            subject: 'Your Al Hamra tenant account has been approved',
+            notificationType: 'account_approved',
+            details: {
+              tenantName: tenantName ?? '',
+            },
+          },
+        });
+      } catch (emailErr) {
+        console.error('Approval email failed (non-fatal):', emailErr);
+      }
+
       return tenantId;
     },
     onSuccess: () => {
@@ -91,9 +121,13 @@ export function useRejectTenant() {
   return useMutation({
     mutationFn: async ({
       tenantId,
+      tenantEmail,
+      tenantName,
       reason,
     }: {
       tenantId: string;
+      tenantEmail: string;
+      tenantName?: string | null;
       reason?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -109,6 +143,24 @@ export function useRejectTenant() {
         .eq('id', tenantId);
 
       if (error) throw error;
+
+      // Best-effort email.
+      try {
+        await supabase.functions.invoke('send-email-notification', {
+          body: {
+            to: [tenantEmail],
+            subject: 'Your Al Hamra tenant account application — update',
+            notificationType: 'account_rejected',
+            details: {
+              tenantName: tenantName ?? '',
+              reason: reason?.trim() || '',
+            },
+          },
+        });
+      } catch (emailErr) {
+        console.error('Rejection email failed (non-fatal):', emailErr);
+      }
+
       return tenantId;
     },
     onSuccess: () => {
