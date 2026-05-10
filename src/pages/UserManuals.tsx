@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import ScreenshotPlaceholder from '@/components/manuals/ScreenshotPlaceholder';
 import FAQSection from '@/components/manuals/FAQSection';
-import VideoTutorialsSection from '@/components/manuals/VideoTutorialsSection';
 
 const UserManuals = () => {
   const [activeTab, setActiveTab] = useState('internal');
@@ -166,34 +165,6 @@ const UserManuals = () => {
 
 // Internal Workflow Manual Component
 const InternalWorkflowManual = () => {
-  const tutorials = [
-    {
-      title: "Getting Started with Work Permits",
-      description: "Learn how to navigate the system and submit your first work permit request.",
-      duration: "5:30"
-    },
-    {
-      title: "Filling Out the Permit Form",
-      description: "Step-by-step guide to completing all required fields in the permit application.",
-      duration: "8:15"
-    },
-    {
-      title: "Tracking Your Permit Status",
-      description: "How to monitor your permit through the approval workflow.",
-      duration: "4:00"
-    },
-    {
-      title: "Handling Rework Requests",
-      description: "What to do when your permit needs modifications before approval.",
-      duration: "3:45"
-    },
-    {
-      title: "Downloading & Using Approved Permits",
-      description: "How to download, print, and display your approved work permit.",
-      duration: "2:30"
-    }
-  ];
-
   const faqs = [
     {
       question: "How long does the approval process take?",
@@ -227,11 +198,6 @@ const InternalWorkflowManual = () => {
         <h1 className="text-3xl font-bold text-primary mb-2">Internal Workflow User Manual</h1>
         <p className="text-lg text-muted-foreground">For Contractors Using Internal Work Permit System</p>
       </div>
-
-      <Separator />
-
-      {/* Video Tutorials Section */}
-      <VideoTutorialsSection tutorials={tutorials} />
 
       <Separator />
 
@@ -432,29 +398,6 @@ const InternalWorkflowManual = () => {
 
 // Client Manual Component
 const ClientManual = () => {
-  const tutorials = [
-    {
-      title: "Client Registration & Login",
-      description: "How to set up your client account and access the permit system.",
-      duration: "3:00"
-    },
-    {
-      title: "Submitting a Permit Request",
-      description: "Complete walkthrough of the permit submission process for clients.",
-      duration: "7:45"
-    },
-    {
-      title: "Understanding the Client Workflow",
-      description: "Learn about the Customer Service and CR approval process.",
-      duration: "4:30"
-    },
-    {
-      title: "Managing Your Permits",
-      description: "How to view, track, and manage all your submitted permits.",
-      duration: "5:00"
-    }
-  ];
-
   const faqs = [
     {
       question: "How is the client workflow different from internal workflow?",
@@ -484,11 +427,6 @@ const ClientManual = () => {
         <h1 className="text-3xl font-bold text-primary mb-2">Client User Manual</h1>
         <p className="text-lg text-muted-foreground">For External Clients Requesting Work Permits</p>
       </div>
-
-      <Separator />
-
-      {/* Video Tutorials Section */}
-      <VideoTutorialsSection tutorials={tutorials} />
 
       <Separator />
 
@@ -690,34 +628,6 @@ const ClientManual = () => {
 
 // Approver Manual Component
 const ApproverManual = () => {
-  const tutorials = [
-    {
-      title: "Approver Dashboard Overview",
-      description: "Tour of the approver interface and inbox management.",
-      duration: "4:00"
-    },
-    {
-      title: "Reviewing Permit Applications",
-      description: "How to thoroughly review permit details and attachments.",
-      duration: "6:30"
-    },
-    {
-      title: "Approving Permits with Signature",
-      description: "Step-by-step guide to the secure approval process.",
-      duration: "5:15"
-    },
-    {
-      title: "Requesting Rework or Rejecting",
-      description: "When and how to request changes or reject permits.",
-      duration: "4:45"
-    },
-    {
-      title: "Monitoring Your Performance",
-      description: "Understanding your approval metrics and SLA compliance.",
-      duration: "3:30"
-    }
-  ];
-
   const faqs = [
     {
       question: "How do I know which permits need my attention?",
@@ -751,11 +661,6 @@ const ApproverManual = () => {
         <h1 className="text-3xl font-bold text-primary mb-2">Approver User Manual</h1>
         <p className="text-lg text-muted-foreground">For Department Heads and Approval Officers</p>
       </div>
-
-      <Separator />
-
-      {/* Video Tutorials Section */}
-      <VideoTutorialsSection tutorials={tutorials} />
 
       <Separator />
 
@@ -961,39 +866,6 @@ const ApproverManual = () => {
 
 // Admin Manual Component
 const AdminManual = () => {
-  const tutorials = [
-    {
-      title: "Admin Dashboard Overview",
-      description: "Complete tour of administrative features and capabilities.",
-      duration: "6:00"
-    },
-    {
-      title: "Managing Users & Roles",
-      description: "How to create users, assign roles, and manage permissions.",
-      duration: "8:30"
-    },
-    {
-      title: "Configuring Work Types",
-      description: "Setting up work types and their approval requirements.",
-      duration: "5:45"
-    },
-    {
-      title: "Building Custom Workflows",
-      description: "Using the Workflow Builder to create approval processes.",
-      duration: "10:00"
-    },
-    {
-      title: "Monitoring SLA & Performance",
-      description: "Using dashboards and reports for system oversight.",
-      duration: "7:15"
-    },
-    {
-      title: "System Configuration",
-      description: "Advanced settings, notifications, and system maintenance.",
-      duration: "5:30"
-    }
-  ];
-
   const faqs = [
     {
       question: "How do I add a new approver to the system?",
@@ -1031,11 +903,6 @@ const AdminManual = () => {
         <h1 className="text-3xl font-bold text-primary mb-2">Administrator User Manual</h1>
         <p className="text-lg text-muted-foreground">Complete System Administration Guide</p>
       </div>
-
-      <Separator />
-
-      {/* Video Tutorials Section */}
-      <VideoTutorialsSection tutorials={tutorials} />
 
       <Separator />
 
