@@ -11,6 +11,7 @@ interface Profile {
   full_name: string | null;
   phone: string | null;
   company_name: string | null;
+  company_id: string | null;
   company_logo: string | null;
   auth_preference: string | null;
   account_status: 'pending' | 'approved' | 'rejected';
