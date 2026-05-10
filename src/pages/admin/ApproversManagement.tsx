@@ -116,7 +116,7 @@ export default function ApproversManagement() {
 
   const getRoleBadgeVariant = (role: string) => {
     if (role === 'admin') return 'destructive';
-    if (role === 'contractor') return 'secondary';
+    if (role === 'tenant') return 'secondary';
     return 'default';
   };
 

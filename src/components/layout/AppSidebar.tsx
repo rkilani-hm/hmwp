@@ -44,7 +44,7 @@ import { useState } from 'react';
 type UserRole = string;
 
 const roleLabels: Record<string, string> = {
-  contractor: 'Client',
+  tenant: 'Tenant',
   customer_service: 'Customer Service',
   cr_coordinator: 'CR Coordinator',
   head_cr: 'Head of CR',
@@ -84,7 +84,7 @@ interface AppSidebarProps {
 }
 
 const getNavGroups = (role: UserRole): NavGroup[] => {
-  if (role === 'contractor') {
+  if (role === 'tenant') {
     return [
       {
         label: 'Main',
@@ -275,7 +275,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
 
 const getRoleIcon = (role: UserRole) => {
   const icons: Record<string, typeof Shield> = {
-    contractor: HardHat,
+    tenant: HardHat,
     customer_service: Users,
     cr_coordinator: Users,
     head_cr: Shield,
