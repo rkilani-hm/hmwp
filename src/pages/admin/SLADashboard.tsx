@@ -110,6 +110,15 @@ export default function SLADashboard() {
         </p>
       </motion.div>
 
+      <motion.div variants={itemVariants}>
+        <DateRangePresets
+          preset={preset}
+          onPresetChange={setPreset}
+          range={range}
+          onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+        />
+      </motion.div>
+
       {/* SLA Compliance Alert */}
       {(metrics.breachedPermits > 0 || metrics.atRiskPermits > 0) && (
         <motion.div variants={itemVariants}>
