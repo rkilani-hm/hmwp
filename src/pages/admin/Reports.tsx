@@ -31,9 +31,12 @@ import {
   PieChartIcon,
   Target,
   Settings2,
+  Download,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { downloadCsv, timestampedFilename } from '@/utils/csvExport';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
@@ -214,11 +217,34 @@ export default function Reports() {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
-        <p className="text-muted-foreground">
-          Monitor permit performance, SLA compliance, and approval metrics
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-muted-foreground">
+            Monitor permit performance, SLA compliance, and approval metrics
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          disabled={!permits || permits.length === 0}
+          onClick={() => {
+            if (!permits) return;
+            downloadCsv(timestampedFilename('permits-report'), permits, [
+              { header: 'Permit No', accessor: (p: any) => p.permit_no },
+              { header: 'Status', accessor: (p: any) => p.status },
+              { header: 'Work Type', accessor: (p: any) => p.work_types?.name || '' },
+              { header: 'Requester', accessor: (p: any) => p.requester_name },
+              { header: 'Urgency', accessor: (p: any) => p.urgency },
+              { header: 'SLA Deadline', accessor: (p: any) => p.sla_deadline || '' },
+              { header: 'SLA Breached', accessor: (p: any) => p.sla_breached ? 'Yes' : 'No' },
+              { header: 'Created', accessor: (p: any) => p.created_at },
+              { header: 'Updated', accessor: (p: any) => p.updated_at || '' },
+            ]);
+          }}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export full dataset
+        </Button>
       </div>
 
       {/* KPI Cards */}

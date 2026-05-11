@@ -3,10 +3,12 @@ import { useUserActivityLogs, actionTypeLabels } from '@/hooks/useUserActivityLo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Search, Activity, LogIn, LogOut, AlertCircle, UserCog, FileText } from 'lucide-react';
+import { Loader2, Search, Activity, LogIn, LogOut, AlertCircle, UserCog, FileText, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { downloadCsv, timestampedFilename } from '@/utils/csvExport';
 
 const actionTypeIcons: Record<string, React.ReactNode> = {
   // Positive / completion outcomes — success
@@ -80,14 +82,34 @@ export default function UserActivityLogs() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Activity History
-          </CardTitle>
-          <CardDescription>
-            Recent user activities including logins, logouts, and system actions
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Activity History
+            </CardTitle>
+            <CardDescription>
+              Recent user activities including logins, logouts, and system actions
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!filteredLogs || filteredLogs.length === 0}
+            onClick={() => {
+              if (!filteredLogs) return;
+              downloadCsv(timestampedFilename('activity-logs'), filteredLogs, [
+                { header: 'Timestamp', accessor: (l: any) => l.created_at },
+                { header: 'User Email', accessor: (l: any) => l.user_email || '' },
+                { header: 'Action Type', accessor: (l: any) => actionTypeLabels[l.action_type] || l.action_type },
+                { header: 'Details', accessor: (l: any) => l.details || '' },
+                { header: 'IP', accessor: (l: any) => l.ip_address || '' },
+              ]);
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-6">

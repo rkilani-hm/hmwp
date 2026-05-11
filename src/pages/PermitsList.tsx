@@ -20,12 +20,13 @@ import {
 } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { PermitStatus, statusLabels } from '@/types/workPermit';
-import { Search, Filter, Plus, LayoutGrid, List, Loader2, Archive, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, Loader2, Archive, Trash2, RotateCcw, Download } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { downloadCsv, timestampedFilename } from '@/utils/csvExport';
 
 interface PermitsListProps {
   currentRole: string;
@@ -319,11 +320,63 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
           </p>
         </div>
         {currentRole === 'tenant' && (
-          <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/new-permit">
-              <Plus className="w-4 h-4 mr-2" />
-              New Permit
-            </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const rows = filteredActive;
+                downloadCsv(timestampedFilename('permits'), rows, [
+                  { header: 'Permit No', accessor: (p) => p.permit_no },
+                  { header: 'Status', accessor: (p) => statusLabels[p.status as PermitStatus] || p.status },
+                  { header: 'Work Type', accessor: (p) => (p as any).work_types?.name || '' },
+                  { header: 'Requester', accessor: (p) => p.requester_name },
+                  { header: 'Company', accessor: (p) => p.contractor_name || '' },
+                  { header: 'Location', accessor: (p) => (p as any).work_locations?.name || p.work_location_other || '' },
+                  { header: 'Unit/Floor', accessor: (p) => `${p.unit || ''} ${p.floor || ''}`.trim() },
+                  { header: 'From', accessor: (p) => p.work_date_from || '' },
+                  { header: 'To', accessor: (p) => p.work_date_to || '' },
+                  { header: 'Urgency', accessor: (p) => p.urgency },
+                  { header: 'Created', accessor: (p) => new Date(p.created_at).toISOString() },
+                ]);
+              }}
+              disabled={filteredActive.length === 0}
+              title="Export current view to CSV"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link to="/new-permit">
+                <Plus className="w-4 h-4 mr-2" />
+                New Permit
+              </Link>
+            </Button>
+          </div>
+        )}
+        {currentRole !== 'tenant' && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              const rows = filteredActive;
+              downloadCsv(timestampedFilename('permits'), rows, [
+                { header: 'Permit No', accessor: (p) => p.permit_no },
+                { header: 'Status', accessor: (p) => statusLabels[p.status as PermitStatus] || p.status },
+                { header: 'Work Type', accessor: (p) => (p as any).work_types?.name || '' },
+                { header: 'Requester', accessor: (p) => p.requester_name },
+                { header: 'Company', accessor: (p) => p.contractor_name || '' },
+                { header: 'Location', accessor: (p) => (p as any).work_locations?.name || p.work_location_other || '' },
+                { header: 'Unit/Floor', accessor: (p) => `${p.unit || ''} ${p.floor || ''}`.trim() },
+                { header: 'From', accessor: (p) => p.work_date_from || '' },
+                { header: 'To', accessor: (p) => p.work_date_to || '' },
+                { header: 'Urgency', accessor: (p) => p.urgency },
+                { header: 'Created', accessor: (p) => new Date(p.created_at).toISOString() },
+              ]);
+            }}
+            disabled={filteredActive.length === 0}
+            title="Export current view to CSV"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
           </Button>
         )}
       </div>
