@@ -1701,6 +1701,42 @@ export type Database = {
           },
         ]
       }
+      workflow_template_versions: {
+        Row: {
+          id: string
+          name: string
+          notes: string | null
+          published_at: string
+          published_by: string | null
+          steps_snapshot: Json
+          version: number
+          workflow_template_id: string
+          workflow_type: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          notes?: string | null
+          published_at?: string
+          published_by?: string | null
+          steps_snapshot: Json
+          version: number
+          workflow_template_id: string
+          workflow_type: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          notes?: string | null
+          published_at?: string
+          published_by?: string | null
+          steps_snapshot?: Json
+          version?: number
+          workflow_template_id?: string
+          workflow_type?: string
+        }
+        Relationships: []
+      }
       workflow_templates: {
         Row: {
           created_at: string | null
@@ -1709,7 +1745,10 @@ export type Database = {
           is_active: boolean | null
           is_default: boolean | null
           name: string
+          published_at: string | null
+          published_by: string | null
           updated_at: string | null
+          version: number
           workflow_type: string
         }
         Insert: {
@@ -1719,7 +1758,10 @@ export type Database = {
           is_active?: boolean | null
           is_default?: boolean | null
           name: string
+          published_at?: string | null
+          published_by?: string | null
           updated_at?: string | null
+          version?: number
           workflow_type: string
         }
         Update: {
@@ -1729,7 +1771,10 @@ export type Database = {
           is_active?: boolean | null
           is_default?: boolean | null
           name?: string
+          published_at?: string | null
+          published_by?: string | null
           updated_at?: string | null
+          version?: number
           workflow_type?: string
         }
         Relationships: []

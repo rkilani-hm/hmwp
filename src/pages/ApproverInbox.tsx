@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PermitListSkeleton } from '@/components/ui/PermitListSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
@@ -95,6 +96,9 @@ export default function ApproverInbox() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const toggleAuthPreference = async () => {
     if (!user?.id || isToggling) return;
@@ -157,6 +161,48 @@ export default function ApproverInbox() {
     return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = filteredPermits.length > 0 && filteredPermits.every(p => selectedIds.has(p.id));
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredPermits.map(p => p.id)));
+  };
+
+  const handleBulkApprove = async (auth: AuthPayload, signature: string | null) => {
+    const targets = filteredPermits.filter(p => selectedIds.has(p.id));
+    setBulkProgress({ done: 0, total: targets.length });
+    let success = 0;
+    let failed = 0;
+    for (const permit of targets) {
+      try {
+        await secureApprove.mutateAsync({
+          permitId: permit.id,
+          role: getApprovalRole(permit),
+          approved: true,
+          auth,
+          signature,
+          comments: '',
+        });
+        success++;
+      } catch (e) {
+        console.error('Bulk approve failed for', permit.permit_no, e);
+        failed++;
+      }
+      setBulkProgress(prev => prev ? { ...prev, done: prev.done + 1 } : prev);
+    }
+    setBulkProgress(null);
+    setBulkApproveDialogOpen(false);
+    setSelectedIds(new Set());
+    if (failed === 0) toast.success(`Approved ${success} permit${success !== 1 ? 's' : ''}`);
+    else toast.warning(`Approved ${success}, failed ${failed}`);
+  };
   const handleApproveClick = (e: React.MouseEvent, permit: WorkPermit) => {
     e.stopPropagation();
     setSelectedPermit(permit);
@@ -337,6 +383,32 @@ export default function ApproverInbox() {
         />
       ) : (
         <div className="space-y-4">
+          {/* Bulk action bar */}
+          <div className="flex items-center justify-between gap-3 px-1">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+              <span className="text-muted-foreground">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+              </span>
+            </label>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
+                  onClick={() => setBulkApproveDialogOpen(true)}
+                  disabled={secureApprove.isPending}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Approve {selectedIds.size}
+                </Button>
+              </div>
+            )}
+          </div>
+
           {filteredPermits.map((permit, index) => {
             const slaStatus = getSLAStatus(permit);
             
@@ -357,6 +429,17 @@ export default function ApproverInbox() {
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                      {/* Selection checkbox */}
+                      <div
+                        className="pt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={selectedIds.has(permit.id)}
+                          onCheckedChange={() => toggleSelected(permit.id)}
+                          aria-label={`Select ${permit.permit_no}`}
+                        />
+                      </div>
                       {/* Main Info */}
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
@@ -543,6 +626,22 @@ export default function ApproverInbox() {
           role: getApprovalRole(selectedPermit),
         } : { role: 'helpdesk' }}
       />
+
+      <SecureApprovalDialog
+        isOpen={bulkApproveDialogOpen}
+        onClose={() => !bulkProgress && setBulkApproveDialogOpen(false)}
+        onConfirm={handleBulkApprove}
+        title={`Bulk Approve ${selectedIds.size} Permit${selectedIds.size !== 1 ? 's' : ''}`}
+        description={
+          bulkProgress
+            ? `Approving ${bulkProgress.done} of ${bulkProgress.total}...`
+            : 'Authenticate once to approve all selected permits with the same signature.'
+        }
+        actionType="approve"
+        isLoading={secureApprove.isPending || !!bulkProgress}
+        authBinding={{ role: 'helpdesk' }}
+      />
+
 
       {selectedPermit && (
         <ReworkDialog
