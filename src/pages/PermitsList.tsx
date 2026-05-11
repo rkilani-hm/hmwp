@@ -20,7 +20,9 @@ import {
 } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { PermitStatus, statusLabels } from '@/types/workPermit';
-import { Search, Filter, Plus, LayoutGrid, List, Loader2, Archive, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, Loader2, Archive, Trash2, RotateCcw, Download } from 'lucide-react';
+import { exportRowsToCsv } from '@/utils/csvExport';
+import { format } from 'date-fns';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -318,14 +320,43 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
             {filteredActive.length} active permit{filteredActive.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {currentRole === 'tenant' && (
-          <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/new-permit">
-              <Plus className="w-4 h-4 mr-2" />
-              New Permit
-            </Link>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportRowsToCsv(
+                `permits-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+                filteredActive,
+                [
+                  { header: 'Permit No', accessor: 'permit_no' },
+                  { header: 'Status', accessor: 'status' },
+                  { header: 'Contractor', accessor: 'contractor_name' },
+                  { header: 'Requester', accessor: (p: any) => p.requester_name || '' },
+                  { header: 'Work Type', accessor: (p: any) => p.work_types?.name || '' },
+                  { header: 'Location', accessor: 'work_location' },
+                  { header: 'Unit', accessor: 'unit' },
+                  { header: 'Floor', accessor: 'floor' },
+                  { header: 'Date From', accessor: 'work_date_from' },
+                  { header: 'Date To', accessor: 'work_date_to' },
+                  { header: 'Description', accessor: 'work_description' },
+                  { header: 'Created', accessor: 'created_at' },
+                ],
+              )
+            }
+            disabled={filteredActive.length === 0}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
           </Button>
-        )}
+          {currentRole === 'tenant' && (
+            <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link to="/new-permit">
+                <Plus className="w-4 h-4 mr-2" />
+                New Permit
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
