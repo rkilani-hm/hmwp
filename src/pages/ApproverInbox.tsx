@@ -383,6 +383,32 @@ export default function ApproverInbox() {
         />
       ) : (
         <div className="space-y-4">
+          {/* Bulk action bar */}
+          <div className="flex items-center justify-between gap-3 px-1">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+              <span className="text-muted-foreground">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+              </span>
+            </label>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
+                  onClick={() => setBulkApproveDialogOpen(true)}
+                  disabled={secureApprove.isPending}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Approve {selectedIds.size}
+                </Button>
+              </div>
+            )}
+          </div>
+
           {filteredPermits.map((permit, index) => {
             const slaStatus = getSLAStatus(permit);
             
