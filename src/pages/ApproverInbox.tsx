@@ -96,6 +96,9 @@ export default function ApproverInbox() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const toggleAuthPreference = async () => {
     if (!user?.id || isToggling) return;
