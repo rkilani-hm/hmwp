@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -82,8 +84,46 @@ export function PermitFormWizard() {
     urgency: 'normal',
   });
 
+  // Draft autosave (localStorage, debounced 500ms, per user x form).
+  // Attachments (File objects) are stripped before save — they don't
+  // survive JSON serialization.
+  const draft = useFormDraft<Omit<PermitFormData, 'attachments'>>({
+    formKey: 'permit-wizard',
+    userId: user?.id,
+    hasContent: (v) =>
+      !!(
+        v.contractorName?.trim() ||
+        v.contactMobile?.trim() ||
+        v.unit?.trim() ||
+        v.floor?.trim() ||
+        v.workLocationId ||
+        v.workTypeId ||
+        v.workDescription?.trim() ||
+        v.workDateFrom ||
+        v.workDateTo
+      ),
+  });
+
+  // Restore once on mount, only if there's real content.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || !draft.hydrated) return;
+    restoredRef.current = true;
+    const saved = draft.restore();
+    if (saved) {
+      setFormData((prev) => ({ ...prev, ...saved, attachments: prev.attachments }));
+      toast.info('Draft restored from your last session');
+    }
+  }, [draft]);
+
   const updateField: UpdateField = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      // Save snapshot without attachments.
+      const { attachments: _att, ...persisted } = next;
+      draft.save(persisted);
+      return next;
+    });
   };
 
   const canProceed = canProceedFromStep(currentStep, formData);
@@ -127,7 +167,10 @@ export function PermitFormWizard() {
         urgency: formData.urgency,
       },
       {
-        onSuccess: () => navigate('/permits'),
+        onSuccess: () => {
+          draft.clear();
+          navigate('/permits');
+        },
       },
     );
   };

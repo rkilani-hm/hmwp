@@ -36,13 +36,24 @@ export interface DailyMetric {
   breached: number;
 }
 
-export function useSLAStats() {
+export interface UseSLAStatsOptions {
+  /** Inclusive start of created_at filter (ISO date or Date). Optional. */
+  dateFrom?: string | Date | null;
+  /** Inclusive end of created_at filter (ISO date or Date). Optional. */
+  dateTo?: string | Date | null;
+}
+
+export function useSLAStats(opts: UseSLAStatsOptions = {}) {
   const { user } = useAuth();
+  const { dateFrom, dateTo } = opts;
+
+  const fromIso = dateFrom ? new Date(dateFrom).toISOString() : null;
+  const toIso = dateTo ? new Date(dateTo).toISOString() : null;
 
   const { data: permits, isLoading } = useQuery({
-    queryKey: ['sla-permits'],
+    queryKey: ['sla-permits', fromIso, toIso],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('work_permits')
         .select(`
           id,
@@ -58,6 +69,10 @@ export function useSLAStats() {
         `)
         .order('created_at', { ascending: false });
 
+      if (fromIso) q = q.gte('created_at', fromIso);
+      if (toIso) q = q.lte('created_at', toIso);
+
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

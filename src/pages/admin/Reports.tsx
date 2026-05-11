@@ -1,4 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { exportRowsToCsv } from '@/utils/csvExport';
+import { DateRangePresets, presetToRange, type DateRange, type DateRangePreset } from '@/components/ui/DateRangePresets';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,7 +42,22 @@ import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayO
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
 export default function Reports() {
-  const { data: permits, isLoading } = useWorkPermits();
+  const { data: allPermits, isLoading } = useWorkPermits();
+  const [preset, setPreset] = useState<DateRangePreset>('all');
+  const [range, setRange] = useState<DateRange>(presetToRange('all'));
+
+  // Filter permits by created_at within selected range. When no range
+  // is set, fall through to the unfiltered list.
+  const permits = useMemo(() => {
+    if (!allPermits) return allPermits;
+    if (!range.from && !range.to) return allPermits;
+    const fromTs = range.from ? new Date(range.from).getTime() : -Infinity;
+    const toTs = range.to ? new Date(range.to).getTime() + 86_399_999 : Infinity;
+    return allPermits.filter((p: any) => {
+      const t = new Date(p.created_at).getTime();
+      return t >= fromTs && t <= toTs;
+    });
+  }, [allPermits, range]);
 
   // Fetch workflow audit data
   const { data: workflowAuditData } = useQuery({
@@ -214,12 +233,45 @@ export default function Reports() {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
-        <p className="text-muted-foreground">
-          Monitor permit performance, SLA compliance, and approval metrics
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-muted-foreground">
+            Monitor permit performance, SLA compliance, and approval metrics
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          disabled={!permits || permits.length === 0}
+          onClick={() =>
+            exportRowsToCsv(
+              `report-permits-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+              permits || [],
+              [
+                { header: 'Permit No', accessor: 'permit_no' },
+                { header: 'Status', accessor: 'status' },
+                { header: 'Urgency', accessor: 'urgency' },
+                { header: 'Contractor', accessor: 'contractor_name' },
+                { header: 'Requester', accessor: (p: any) => p.requester_name || '' },
+                { header: 'Work Type', accessor: (p: any) => p.work_types?.name || '' },
+                { header: 'SLA Breached', accessor: (p: any) => (p.sla_breached ? 'Yes' : 'No') },
+                { header: 'Created', accessor: 'created_at' },
+                { header: 'Updated', accessor: 'updated_at' },
+              ],
+            )
+          }
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
       </div>
+
+      <DateRangePresets
+        preset={preset}
+        onPresetChange={setPreset}
+        range={range}
+        onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+      />
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
