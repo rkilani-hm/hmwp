@@ -245,6 +245,34 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="signup-phone">Phone / Mobile</Label>
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      placeholder="+965 1234 5678"
+                      value={signUpPhone}
+                      onChange={(e) => setSignUpPhone(e.target.value)}
+                      className={signUpErrors.phone ? 'border-destructive' : ''}
+                    />
+                    {signUpErrors.phone && (
+                      <p className="text-sm text-destructive">{signUpErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-company">Company Name</Label>
+                    <Input
+                      id="signup-company"
+                      type="text"
+                      placeholder="Acme Trading Co."
+                      value={signUpCompany}
+                      onChange={(e) => setSignUpCompany(e.target.value)}
+                      className={signUpErrors.company ? 'border-destructive' : ''}
+                    />
+                    {signUpErrors.company && (
+                      <p className="text-sm text-destructive">{signUpErrors.company}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
