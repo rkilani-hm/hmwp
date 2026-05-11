@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useSLAStats } from '@/hooks/useSLAStats';
 import { StatsCard } from '@/components/ui/StatsCard';
+import { DateRangePresets, presetToRange, type DateRange, type DateRangePreset } from '@/components/ui/DateRangePresets';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,7 +41,12 @@ import {
 
 export default function SLADashboard() {
   const navigate = useNavigate();
-  const { metrics, breachedPermits, atRiskPermits, dailyMetrics, isLoading } = useSLAStats();
+  const [preset, setPreset] = useState<DateRangePreset>('all');
+  const [range, setRange] = useState<DateRange>(presetToRange('all'));
+  const { metrics, breachedPermits, atRiskPermits, dailyMetrics, isLoading } = useSLAStats({
+    dateFrom: range.from,
+    dateTo: range.to,
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },
