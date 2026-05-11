@@ -25,7 +25,12 @@ interface AuthContextType {
   roles: RoleName[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    extras?: { phone?: string; companyName?: string },
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: RoleName) => boolean;
   isApprover: () => boolean;
@@ -188,18 +193,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    extras?: { phone?: string; companyName?: string },
+  ) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
+      // raw_user_meta_data keys are read by the handle_new_user
+      // SQL trigger (migration 20260512090000…) which writes them
+      // into the matching profiles columns at account creation time.
+      const metadata: Record<string, string> = {
+        full_name: fullName,
+      };
+      if (extras?.phone?.trim()) metadata.phone = extras.phone.trim();
+      if (extras?.companyName?.trim()) metadata.company_name = extras.companyName.trim();
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-          },
+          data: metadata,
         },
       });
       if (error) {

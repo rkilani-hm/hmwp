@@ -34,7 +34,15 @@ export default function Auth() {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpName, setSignUpName] = useState('');
-  const [signUpErrors, setSignUpErrors] = useState<{ email?: string; password?: string; name?: string }>({});
+  const [signUpPhone, setSignUpPhone] = useState('');
+  const [signUpCompany, setSignUpCompany] = useState('');
+  const [signUpErrors, setSignUpErrors] = useState<{
+    email?: string;
+    password?: string;
+    name?: string;
+    phone?: string;
+    company?: string;
+  }>({});
 
   const validateSignIn = () => {
     const errors: { email?: string; password?: string } = {};
@@ -60,12 +68,31 @@ export default function Auth() {
   };
 
   const validateSignUp = () => {
-    const errors: { email?: string; password?: string; name?: string } = {};
-    
+    const errors: {
+      email?: string;
+      password?: string;
+      name?: string;
+      phone?: string;
+      company?: string;
+    } = {};
+
     if (!signUpName.trim()) {
       errors.name = 'Name is required';
     }
-    
+
+    if (!signUpPhone.trim()) {
+      errors.phone = 'Phone number is required';
+    } else if (signUpPhone.trim().replace(/[\s+\-()]/g, '').length < 6) {
+      // Loose check — at least 6 digits after stripping cosmetic
+      // characters. Kuwait mobiles are 8 digits, landlines 7; this
+      // catches obvious typos without locking out unusual formats.
+      errors.phone = 'Phone number looks too short';
+    }
+
+    if (!signUpCompany.trim()) {
+      errors.company = 'Company name is required';
+    }
+
     try {
       emailSchema.parse(signUpEmail);
     } catch (e) {
@@ -104,7 +131,12 @@ export default function Auth() {
     if (!validateSignUp()) return;
     
     setIsLoading(true);
-    const { error } = await signUp(signUpEmail, signUpPassword, signUpName);
+    const { error } = await signUp(
+      signUpEmail,
+      signUpPassword,
+      signUpName,
+      { phone: signUpPhone, companyName: signUpCompany },
+    );
     setIsLoading(false);
     
     if (!error) {
@@ -234,6 +266,37 @@ export default function Auth() {
                     />
                     {signUpErrors.email && (
                       <p className="text-sm text-destructive">{signUpErrors.email}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-phone">Phone / Mobile</Label>
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      placeholder="+965 ..."
+                      value={signUpPhone}
+                      onChange={(e) => setSignUpPhone(e.target.value)}
+                      className={signUpErrors.phone ? 'border-destructive' : ''}
+                    />
+                    {signUpErrors.phone && (
+                      <p className="text-sm text-destructive">{signUpErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-company">Company Name</Label>
+                    <Input
+                      id="signup-company"
+                      type="text"
+                      autoComplete="organization"
+                      placeholder="Your company"
+                      value={signUpCompany}
+                      onChange={(e) => setSignUpCompany(e.target.value)}
+                      className={signUpErrors.company ? 'border-destructive' : ''}
+                    />
+                    {signUpErrors.company && (
+                      <p className="text-sm text-destructive">{signUpErrors.company}</p>
                     )}
                   </div>
                   <div className="space-y-2">
