@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePendingPermitsForApprover, useSecureApprovePermit, WorkPermit } from '@/hooks/useWorkPermits';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PermitListSkeleton } from '@/components/ui/PermitListSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
@@ -83,6 +84,24 @@ export default function ApproverInbox() {
   const [searchTerm, setSearchTerm] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
   const [isToggling, setIsToggling] = useState(false);
+
+  // Bulk approval — multi-select state. When non-empty, a floating
+  // action bar appears at the bottom of the viewport with the option
+  // to approve all selected in one go (single biometric/password
+  // assertion shared across all of them).
+  //
+  // Bulk REJECT is intentionally not offered — rejection should
+  // remain a deliberate per-permit action with a reason; bulk reject
+  // is the kind of action that gets used carelessly.
+  // Bulk FORWARD/REWORK also not offered — both need per-permit
+  // context that doesn't translate to bulk.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkApproveOpen, setIsBulkApproveOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+    failures: string[];
+  } | null>(null);
   
   // Biometric support check
   const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
@@ -227,6 +246,88 @@ export default function ApproverInbox() {
     }
   };
 
+  // --- Bulk selection helpers ---
+  const toggleRowSelected = (permitId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(permitId)) {
+        next.delete(permitId);
+      } else {
+        next.add(permitId);
+      }
+      return next;
+    });
+  };
+
+  const allVisibleSelected = useMemo(() => {
+    const visibleIds = (filteredPermits ?? []).map((p) => p.id);
+    return visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  }, [filteredPermits, selectedIds]);
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const visibleIds = (filteredPermits ?? []).map((p) => p.id);
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Bulk approve. One auth assertion → loops through selected permits
+  // calling secureApprove for each. Progress is tracked in
+  // bulkProgress so the UI can show "Approving 3 of 12..." while the
+  // loop runs. Failures are collected (per-permit) and shown at the
+  // end; partial-success is the normal expectation.
+  const handleBulkApprove = async (auth: AuthPayload, signature: string | null) => {
+    if (selectedIds.size === 0 || !permits) return;
+
+    const selectedPermits = permits.filter((p) => selectedIds.has(p.id));
+    setBulkProgress({ done: 0, total: selectedPermits.length, failures: [] });
+
+    const failures: string[] = [];
+    for (const permit of selectedPermits) {
+      try {
+        await secureApprove.mutateAsync({
+          permitId: permit.id,
+          role: getApprovalRole(permit),
+          approved: true,
+          auth,
+          signature,
+          comments: 'Bulk-approved from approver inbox',
+        });
+      } catch (err) {
+        // One permit's failure shouldn't abort the bulk run — collect
+        // and continue. Common causes: SLA breach blocks, RLS denial
+        // if the row moved between selection and approval.
+        const msg = (err as Error)?.message ?? 'unknown error';
+        failures.push(`${permit.permit_no}: ${msg}`);
+        console.error(`Bulk approve failed for ${permit.permit_no}:`, err);
+      }
+      setBulkProgress((prev) =>
+        prev ? { ...prev, done: prev.done + 1, failures: [...prev.failures] } : null,
+      );
+    }
+
+    setBulkProgress(null);
+    setIsBulkApproveOpen(false);
+    setSelectedIds(new Set());
+
+    const succeeded = selectedPermits.length - failures.length;
+    if (failures.length === 0) {
+      toast.success(`Approved ${succeeded} permit${succeeded === 1 ? '' : 's'}`);
+    } else if (succeeded === 0) {
+      toast.error(`All ${failures.length} approvals failed. See console for details.`);
+    } else {
+      toast.warning(`Approved ${succeeded}; ${failures.length} failed. See console for details.`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -337,9 +438,38 @@ export default function ApproverInbox() {
         />
       ) : (
         <div className="space-y-4">
+          {/* Select-all-visible header. Only shown when there's
+              something to select. */}
+          {filteredPermits.length > 0 && (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground px-2">
+              <Checkbox
+                id="select-all-visible"
+                checked={allVisibleSelected}
+                onCheckedChange={toggleSelectAllVisible}
+                aria-label="Select all visible permits"
+              />
+              <label htmlFor="select-all-visible" className="cursor-pointer select-none">
+                {selectedIds.size === 0
+                  ? `Select all ${filteredPermits.length} visible`
+                  : `${selectedIds.size} selected`}
+              </label>
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  className="h-7 px-2 text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
+
           {filteredPermits.map((permit, index) => {
             const slaStatus = getSLAStatus(permit);
-            
+            const isSelected = selectedIds.has(permit.id);
+
             return (
               <motion.div
                 key={permit.id}
@@ -347,16 +477,29 @@ export default function ApproverInbox() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card 
+                <Card
                   className={cn(
                     "cursor-pointer transition-all hover:shadow-md",
                     permit.urgency === 'urgent' && "border-l-4 border-l-destructive",
-                    slaStatus?.isOverdue && "bg-destructive/5"
+                    slaStatus?.isOverdue && "bg-destructive/5",
+                    isSelected && "ring-2 ring-primary/50",
                   )}
                   onClick={() => navigate(`/permits/${permit.id}`)}
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                      {/* Selection checkbox — stopPropagation so
+                          clicking it doesn't navigate to detail */}
+                      <div
+                        className="flex items-center pt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleRowSelected(permit.id)}
+                          aria-label={`Select ${permit.permit_no}`}
+                        />
+                      </div>
                       {/* Main Info */}
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
@@ -526,6 +669,48 @@ export default function ApproverInbox() {
           role: getApprovalRole(selectedPermit),
         } : { role: 'helpdesk' }}
       />
+
+      {/* Bulk approval dialog. Reuses SecureApprovalDialog but the
+          authBinding is intentionally generic (no permitId) — the
+          WebAuthn assertion authorizes the BULK ACTION, and the
+          handler loops through selected permits. */}
+      <SecureApprovalDialog
+        isOpen={isBulkApproveOpen}
+        onClose={() => setIsBulkApproveOpen(false)}
+        onConfirm={handleBulkApprove}
+        title={`Approve ${selectedIds.size} permit${selectedIds.size === 1 ? '' : 's'}`}
+        description={
+          bulkProgress
+            ? `Processing ${bulkProgress.done}/${bulkProgress.total}…`
+            : `One assertion will approve all ${selectedIds.size} selected permits. ` +
+              `This is recorded as a bulk action on each permit's audit log.`
+        }
+        actionType="approve"
+        isLoading={secureApprove.isPending || bulkProgress !== null}
+        authBinding={{ role: 'helpdesk' }}
+      />
+
+      {/* Floating bulk-action bar. Visible only when at least one
+          permit is selected. Positioned fixed at bottom-center so it
+          doesn't push content but stays in reach on long lists. */}
+      {selectedIds.size > 0 && !isBulkApproveOpen && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full px-4 py-2 flex items-center gap-3">
+          <span className="text-sm font-medium">
+            {selectedIds.size} selected
+          </span>
+          <Button
+            size="sm"
+            onClick={() => setIsBulkApproveOpen(true)}
+            className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Approve all
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection}>
+            Cancel
+          </Button>
+        </div>
+      )}
 
       <SecureApprovalDialog
         isOpen={rejectDialogOpen}
