@@ -429,6 +429,17 @@ export default function ApproverInbox() {
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                      {/* Selection checkbox */}
+                      <div
+                        className="pt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={selectedIds.has(permit.id)}
+                          onCheckedChange={() => toggleSelected(permit.id)}
+                          aria-label={`Select ${permit.permit_no}`}
+                        />
+                      </div>
                       {/* Main Info */}
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
