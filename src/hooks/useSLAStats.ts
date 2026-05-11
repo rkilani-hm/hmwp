@@ -36,7 +36,14 @@ export interface DailyMetric {
   breached: number;
 }
 
-export function useSLAStats() {
+export interface SLAStatsOptions {
+  /** ISO date string yyyy-MM-dd; inclusive lower bound on permits.created_at */
+  dateFrom?: string;
+  /** ISO date string yyyy-MM-dd; inclusive upper bound on permits.created_at */
+  dateTo?: string;
+}
+
+export function useSLAStats(options: SLAStatsOptions = {}) {
   const { user } = useAuth();
 
   const { data: permits, isLoading } = useQuery({
@@ -64,8 +71,31 @@ export function useSLAStats() {
     enabled: !!user,
   });
 
+  // Date-range-filtered subset of permits, shared by all metric
+  // useMemos below. When no range is supplied, this is the full set.
+  const filteredPermits = useMemo(() => {
+    if (!permits) return undefined;
+    if (!options.dateFrom && !options.dateTo) return permits;
+    return permits.filter((p) => {
+      try {
+        const created = parseISO(p.created_at);
+        if (options.dateFrom && created < startOfDay(parseISO(options.dateFrom))) return false;
+        if (options.dateTo) {
+          const end = parseISO(options.dateTo);
+          end.setHours(23, 59, 59, 999);
+          if (created > end) return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  }, [permits, options.dateFrom, options.dateTo]);
+
   const metrics = useMemo<SLAMetrics>(() => {
-    if (!permits) {
+    const sourcePermits = filteredPermits;
+
+    if (!sourcePermits) {
       return {
         totalPermits: 0,
         breachedPermits: 0,
@@ -92,7 +122,7 @@ export function useSLAStats() {
     const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
     const completedStatuses = ['approved', 'closed'];
 
-    permits.forEach((permit) => {
+    sourcePermits.forEach((permit) => {
       const isActive = activeStatuses.includes(permit.status);
       const isCompleted = completedStatuses.includes(permit.status);
 
@@ -129,14 +159,14 @@ export function useSLAStats() {
       }
     });
 
-    const urgentPermits = permits.filter(p => p.urgency === 'urgent').length;
-    const normalPermits = permits.filter(p => p.urgency === 'normal' || !p.urgency).length;
+    const urgentPermits = sourcePermits.filter(p => p.urgency === 'urgent').length;
+    const normalPermits = sourcePermits.filter(p => p.urgency === 'normal' || !p.urgency).length;
     const totalCompleted = completedOnTime + completedLate;
     const slaComplianceRate = totalCompleted > 0 ? (completedOnTime / totalCompleted) * 100 : 100;
     const averageResolutionHours = completedCount > 0 ? totalResolutionHours / completedCount : 0;
 
     return {
-      totalPermits: permits.length,
+      totalPermits: sourcePermits.length,
       breachedPermits: breachedCount,
       atRiskPermits: atRiskCount,
       onTrackPermits: onTrackCount,
@@ -147,15 +177,15 @@ export function useSLAStats() {
       urgentPermits,
       normalPermits,
     };
-  }, [permits]);
+  }, [filteredPermits]);
 
   const breachedPermits = useMemo<BreachedPermit[]>(() => {
-    if (!permits) return [];
+    if (!filteredPermits) return [];
 
     const now = new Date();
     const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
-    return permits
+    return filteredPermits
       .filter((permit) => {
         if (!permit.sla_deadline) return false;
         if (!activeStatuses.includes(permit.status)) return false;
@@ -173,15 +203,15 @@ export function useSLAStats() {
         work_types: permit.work_types,
       }))
       .sort((a, b) => b.hoursOverdue - a.hoursOverdue);
-  }, [permits]);
+  }, [filteredPermits]);
 
   const atRiskPermits = useMemo<BreachedPermit[]>(() => {
-    if (!permits) return [];
+    if (!filteredPermits) return [];
 
     const now = new Date();
     const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
-    return permits
+    return filteredPermits
       .filter((permit) => {
         if (!permit.sla_deadline) return false;
         if (!activeStatuses.includes(permit.status)) return false;
@@ -206,10 +236,10 @@ export function useSLAStats() {
         };
       })
       .sort((a, b) => b.hoursOverdue - a.hoursOverdue); // Closest to breach first
-  }, [permits]);
+  }, [filteredPermits]);
 
   const dailyMetrics = useMemo<DailyMetric[]>(() => {
-    if (!permits) return [];
+    if (!filteredPermits) return [];
 
     const last7Days: DailyMetric[] = [];
     const now = new Date();
@@ -219,12 +249,12 @@ export function useSLAStats() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const displayDate = format(date, 'MMM dd');
 
-      const dayPermits = permits.filter((p) => {
+      const dayPermits = filteredPermits.filter((p) => {
         const createdDate = format(parseISO(p.created_at), 'yyyy-MM-dd');
         return createdDate === dateStr;
       });
 
-      const completed = permits.filter((p) => {
+      const completed = filteredPermits.filter((p) => {
         if (!['approved', 'closed'].includes(p.status)) return false;
         const updatedDate = format(parseISO(p.updated_at), 'yyyy-MM-dd');
         return updatedDate === dateStr;
@@ -241,7 +271,7 @@ export function useSLAStats() {
     }
 
     return last7Days;
-  }, [permits]);
+  }, [filteredPermits]);
 
   return {
     metrics,

@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useSLAStats } from '@/hooks/useSLAStats';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Progress } from '@/components/ui/progress';
+import { format, subDays, startOfMonth } from 'date-fns';
 import {
   AlertTriangle,
   Clock,
@@ -39,7 +43,26 @@ import {
 
 export default function SLADashboard() {
   const navigate = useNavigate();
-  const { metrics, breachedPermits, atRiskPermits, dailyMetrics, isLoading } = useSLAStats();
+
+  // Date-range filter passed into useSLAStats. Defaults to last 30
+  // days so the breached/at-risk lists reflect recent activity rather
+  // than the entire history.
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
+  const [dateTo, setDateTo] = useState(today);
+
+  const { metrics, breachedPermits, atRiskPermits, dailyMetrics, isLoading } =
+    useSLAStats({ dateFrom, dateTo });
+
+  const applyPreset = (preset: '7d' | '30d' | 'mtd' | 'all') => {
+    const now = new Date();
+    setDateTo(format(now, 'yyyy-MM-dd'));
+    if (preset === '7d') setDateFrom(format(subDays(now, 7), 'yyyy-MM-dd'));
+    else if (preset === '30d') setDateFrom(format(subDays(now, 30), 'yyyy-MM-dd'));
+    else if (preset === 'mtd') setDateFrom(format(startOfMonth(now), 'yyyy-MM-dd'));
+    else setDateFrom('2020-01-01');
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -101,6 +124,50 @@ export default function SLADashboard() {
         <p className="text-muted-foreground mt-1">
           Monitor service level agreements and permit processing times
         </p>
+      </motion.div>
+
+      {/* Date range controls */}
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+              <div className="flex gap-3 flex-1">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="sla-date-from" className="text-xs">From</Label>
+                  <Input
+                    id="sla-date-from"
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-44"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="sla-date-to" className="text-xs">To</Label>
+                  <Input
+                    id="sla-date-to"
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom}
+                    max={today}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-44"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => applyPreset('7d')}>Last 7 days</Button>
+                <Button variant="outline" size="sm" onClick={() => applyPreset('30d')}>Last 30 days</Button>
+                <Button variant="outline" size="sm" onClick={() => applyPreset('mtd')}>This month</Button>
+                <Button variant="outline" size="sm" onClick={() => applyPreset('all')}>All time</Button>
+              </div>
+              <div className="text-sm text-muted-foreground self-end">
+                {metrics.totalPermits} permit{metrics.totalPermits === 1 ? '' : 's'} in range
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* SLA Compliance Alert */}

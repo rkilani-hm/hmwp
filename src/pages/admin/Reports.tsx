@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,13 +32,50 @@ import {
   Target,
   Settings2,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
 export default function Reports() {
   const { data: permits, isLoading } = useWorkPermits();
+
+  // Date-range filter. Default is "last 30 days" — sensibly bounded.
+  // Reports were previously all-time which is rarely the question
+  // admins are actually asking.
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
+  const [dateTo, setDateTo] = useState(today);
+
+  // Apply date range filter to raw permits before analytics. Using
+  // created_at (when the permit entered the system); sla_deadline /
+  // updated_at would give surprising slices.
+  const filteredPermits = useMemo(() => {
+    if (!permits) return undefined;
+    const start = startOfDay(parseISO(dateFrom));
+    const end = endOfDay(parseISO(dateTo));
+    return permits.filter((p: any) => {
+      try {
+        const created = parseISO(p.created_at);
+        return isWithinInterval(created, { start, end });
+      } catch {
+        return false;
+      }
+    });
+  }, [permits, dateFrom, dateTo]);
+
+  const applyPreset = (preset: '7d' | '30d' | 'mtd' | 'all') => {
+    const now = new Date();
+    setDateTo(format(now, 'yyyy-MM-dd'));
+    if (preset === '7d') setDateFrom(format(subDays(now, 7), 'yyyy-MM-dd'));
+    else if (preset === '30d') setDateFrom(format(subDays(now, 30), 'yyyy-MM-dd'));
+    else if (preset === 'mtd') setDateFrom(format(startOfMonth(now), 'yyyy-MM-dd'));
+    else setDateFrom('2020-01-01');
+  };
 
   // Fetch workflow audit data
   const { data: workflowAuditData } = useQuery({
@@ -55,7 +92,7 @@ export default function Reports() {
   });
 
   const stats = useMemo(() => {
-    if (!permits || permits.length === 0) {
+    if (!filteredPermits || filteredPermits.length === 0) {
       return {
         total: 0,
         pending: 0,
@@ -75,16 +112,16 @@ export default function Reports() {
       };
     }
 
-    const pending = permits.filter(p => p.status.startsWith('pending') || p.status === 'submitted').length;
-    const approved = permits.filter(p => p.status === 'approved').length;
-    const rejected = permits.filter(p => p.status === 'rejected').length;
-    const closed = permits.filter(p => p.status === 'closed').length;
-    const slaBreached = permits.filter(p => p.sla_breached).length;
-    const urgent = permits.filter(p => p.urgency === 'urgent').length;
-    const workflowModified = permits.filter(p => p.workflow_customized).length;
+    const pending = filteredPermits.filter(p => p.status.startsWith('pending') || p.status === 'submitted').length;
+    const approved = filteredPermits.filter(p => p.status === 'approved').length;
+    const rejected = filteredPermits.filter(p => p.status === 'rejected').length;
+    const closed = filteredPermits.filter(p => p.status === 'closed').length;
+    const slaBreached = filteredPermits.filter(p => p.sla_breached).length;
+    const urgent = filteredPermits.filter(p => p.urgency === 'urgent').length;
+    const workflowModified = filteredPermits.filter(p => p.workflow_customized).length;
 
-    // Calculate average approval time for completed permits
-    const completedPermits = permits.filter(p => 
+    // Calculate average approval time for completed filteredPermits
+    const completedPermits = filteredPermits.filter(p => 
       p.status === 'approved' || p.status === 'closed'
     );
 
@@ -104,8 +141,8 @@ export default function Reports() {
     const avgApprovalTime = approvalCount > 0 ? Math.round(totalApprovalHours / approvalCount) : 0;
 
     // SLA compliance rate
-    const slaComplianceRate = permits.length > 0 
-      ? Math.round(((permits.length - slaBreached) / permits.length) * 100) 
+    const slaComplianceRate = filteredPermits.length > 0 
+      ? Math.round(((filteredPermits.length - slaBreached) / filteredPermits.length) * 100) 
       : 100;
 
     // Status distribution for pie chart
@@ -118,7 +155,7 @@ export default function Reports() {
 
     // Work type distribution
     const workTypeCounts: Record<string, number> = {};
-    permits.forEach(p => {
+    filteredPermits.forEach(p => {
       const typeName = p.work_types?.name || 'Unknown';
       workTypeCounts[typeName] = (workTypeCounts[typeName] || 0) + 1;
     });
@@ -128,7 +165,7 @@ export default function Reports() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Daily permits this month
+    // Daily filteredPermits this month
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
@@ -136,10 +173,10 @@ export default function Reports() {
 
     const dailyData = days.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
-      const submitted = permits.filter(p => 
+      const submitted = filteredPermits.filter(p => 
         format(parseISO(p.created_at), 'yyyy-MM-dd') === dayStr
       ).length;
-      const completed = permits.filter(p => 
+      const completed = filteredPermits.filter(p => 
         (p.status === 'approved' || p.status === 'closed') &&
         p.helpdesk_date &&
         format(parseISO(p.helpdesk_date), 'yyyy-MM-dd') === dayStr
@@ -154,10 +191,10 @@ export default function Reports() {
 
     // Approval time by role
     const approvalTimeByRole = [
-      { role: 'Helpdesk', avgHours: calculateAvgTime(permits, 'helpdesk') },
-      { role: 'PM', avgHours: calculateAvgTime(permits, 'pm') },
-      { role: 'PD', avgHours: calculateAvgTime(permits, 'pd') },
-      { role: 'IT', avgHours: calculateAvgTime(permits, 'it') },
+      { role: 'Helpdesk', avgHours: calculateAvgTime(filteredPermits, 'helpdesk') },
+      { role: 'PM', avgHours: calculateAvgTime(filteredPermits, 'pm') },
+      { role: 'PD', avgHours: calculateAvgTime(filteredPermits, 'pd') },
+      { role: 'IT', avgHours: calculateAvgTime(filteredPermits, 'it') },
     ].filter(d => d.avgHours > 0);
 
     // Workflow modification breakdown
@@ -173,7 +210,7 @@ export default function Reports() {
     }, [] as { name: string; count: number }[]) || [];
 
     return {
-      total: permits.length,
+      total: filteredPermits.length,
       pending,
       approved,
       rejected,
@@ -189,7 +226,7 @@ export default function Reports() {
       approvalTimeByRole,
       workflowModificationsByType,
     };
-  }, [permits, workflowAuditData]);
+  }, [filteredPermits, workflowAuditData]);
 
   if (isLoading) {
     return (
@@ -220,6 +257,48 @@ export default function Reports() {
           Monitor permit performance, SLA compliance, and approval metrics
         </p>
       </div>
+
+      {/* Date-range controls */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            <div className="flex gap-3 flex-1">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="report-date-from" className="text-xs">From</Label>
+                <Input
+                  id="report-date-from"
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-44"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="report-date-to" className="text-xs">To</Label>
+                <Input
+                  id="report-date-to"
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom}
+                  max={today}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-44"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => applyPreset('7d')}>Last 7 days</Button>
+              <Button variant="outline" size="sm" onClick={() => applyPreset('30d')}>Last 30 days</Button>
+              <Button variant="outline" size="sm" onClick={() => applyPreset('mtd')}>This month</Button>
+              <Button variant="outline" size="sm" onClick={() => applyPreset('all')}>All time</Button>
+            </div>
+            <div className="text-sm text-muted-foreground self-end">
+              {filteredPermits?.length ?? 0} permit{(filteredPermits?.length ?? 0) === 1 ? '' : 's'} in range
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
