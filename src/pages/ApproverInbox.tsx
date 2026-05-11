@@ -627,6 +627,22 @@ export default function ApproverInbox() {
         } : { role: 'helpdesk' }}
       />
 
+      <SecureApprovalDialog
+        isOpen={bulkApproveDialogOpen}
+        onClose={() => !bulkProgress && setBulkApproveDialogOpen(false)}
+        onConfirm={handleBulkApprove}
+        title={`Bulk Approve ${selectedIds.size} Permit${selectedIds.size !== 1 ? 's' : ''}`}
+        description={
+          bulkProgress
+            ? `Approving ${bulkProgress.done} of ${bulkProgress.total}...`
+            : 'Authenticate once to approve all selected permits with the same signature.'
+        }
+        actionType="approve"
+        isLoading={secureApprove.isPending || !!bulkProgress}
+        authBinding={{ role: 'helpdesk' }}
+      />
+
+
       {selectedPermit && (
         <ReworkDialog
           open={reworkDialogOpen}
