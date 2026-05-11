@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
-import { Shield, Loader2, Info } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
+import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 
@@ -139,9 +140,11 @@ export default function Auth() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4">
-            <Shield className="w-8 h-8 text-primary-foreground" />
-          </div>
+          <img
+            src={alHamraLogo}
+            alt="Al Hamra Logo"
+            className="h-20 mx-auto mb-4 object-contain"
+          />
           <h1 className="text-2xl font-display font-bold">WorkPermit</h1>
           <p className="text-muted-foreground">Management System</p>
         </div>
