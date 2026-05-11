@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
@@ -21,6 +24,7 @@ const STEPS_GENERIC = ['Category & Type', 'Delivery Details', 'Material Details'
 export default function GatePassFormWizard() {
   const navigate = useNavigate();
   const createGatePass = useCreateGatePass();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
 
   // Form state
@@ -47,6 +51,59 @@ export default function GatePassFormWizard() {
 
   // Fetch workflow for selected pass type
   const { data: effectiveWorkflow, isLoading: loadingWorkflow } = useGatePassEffectiveWorkflow(passType || undefined);
+
+  // ---- Draft autosave (per user x form, debounced) ----
+  type Draft = {
+    category: GatePassCategory | ''; passType: GatePassType | '';
+    clientContractorName: string; clientRepName: string; clientRepEmail: string;
+    clientRepContact: string; unitFloor: string; deliveryArea: string;
+    validFrom: string; validTo: string; timeFrom: string; timeTo: string;
+    vehicleMakeModel: string; vehicleLicensePlate: string;
+    shiftingMethod: ShiftingMethod | ''; purpose: string;
+    deliveryType: DeliveryType | ''; items: GatePassItem[];
+  };
+  const draft = useFormDraft<Draft>({
+    formKey: 'gate-pass-wizard',
+    userId: user?.id,
+    hasContent: (v) =>
+      !!(v.category || v.passType || v.clientContractorName?.trim() ||
+         v.clientRepName?.trim() || v.unitFloor?.trim() || v.purpose?.trim() ||
+         v.items.some((i) => i.item_details?.trim())),
+  });
+
+  // Restore once on mount.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || !draft.hydrated) return;
+    restoredRef.current = true;
+    const s = draft.restore();
+    if (!s) return;
+    setCategory(s.category); setPassType(s.passType);
+    setClientContractorName(s.clientContractorName); setClientRepName(s.clientRepName);
+    setClientRepEmail(s.clientRepEmail); setClientRepContact(s.clientRepContact);
+    setUnitFloor(s.unitFloor); setDeliveryArea(s.deliveryArea);
+    setValidFrom(s.validFrom); setValidTo(s.validTo);
+    setTimeFrom(s.timeFrom); setTimeTo(s.timeTo);
+    setVehicleMakeModel(s.vehicleMakeModel); setVehicleLicensePlate(s.vehicleLicensePlate);
+    setShiftingMethod(s.shiftingMethod); setPurpose(s.purpose);
+    setDeliveryType(s.deliveryType);
+    if (s.items?.length) setItems(s.items);
+    toast.info('Draft restored from your last session');
+  }, [draft]);
+
+  // Save snapshot whenever any field changes (debounced inside hook).
+  useEffect(() => {
+    if (!restoredRef.current) return; // wait until hydration check ran
+    draft.save({
+      category, passType, clientContractorName, clientRepName, clientRepEmail,
+      clientRepContact, unitFloor, deliveryArea, validFrom, validTo,
+      timeFrom, timeTo, vehicleMakeModel, vehicleLicensePlate,
+      shiftingMethod, purpose, deliveryType, items,
+    });
+  }, [draft, category, passType, clientContractorName, clientRepName, clientRepEmail,
+      clientRepContact, unitFloor, deliveryArea, validFrom, validTo,
+      timeFrom, timeTo, vehicleMakeModel, vehicleLicensePlate,
+      shiftingMethod, purpose, deliveryType, items]);
 
   const isGeneric = category === 'generic_delivery_permit';
   const steps = isGeneric ? STEPS_GENERIC : STEPS_DETAILED;
@@ -86,6 +143,7 @@ export default function GatePassFormWizard() {
         delivery_type: deliveryType || undefined,
         items: items.filter(i => i.item_details.trim()),
       });
+      draft.clear();
       navigate('/gate-passes');
     } catch {}
   };
