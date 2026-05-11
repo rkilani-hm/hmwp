@@ -1052,7 +1052,7 @@ export function useCancelPermit() {
 
       if (!permit) throw new Error('Permit not found');
       if (permit.requester_id !== user?.id) {
-        throw new Error('You can only cancel permits you created');
+        throw new Error('You can only withdraw permits you created');
       }
 
       const { data, error } = await supabase
@@ -1065,16 +1065,20 @@ export function useCancelPermit() {
 
       if (error) throw error;
 
-      // Log activity
+      // Log activity. Verb is "Withdrawn" to match the tenant-facing
+      // UI ("Withdraw permit"). The DB status itself is still
+      // 'cancelled' (legacy enum value); the activity_logs label is
+      // the human-readable verb so reports/audit show this as a
+      // withdrawal, not a cancellation.
       await supabase.from('activity_logs').insert({
         permit_id: permitId,
-        action: 'Cancelled',
+        action: 'Withdrawn',
         performed_by: profile?.full_name || user?.email || 'Unknown',
         performed_by_id: user?.id,
-        details: reason || 'Cancelled by requester',
+        details: reason || 'Withdrawn by requester',
       });
 
-      // Notify approvers that the permit was cancelled
+      // Notify approvers that the permit was withdrawn
       const { data: helpdeskRoleData } = await supabase
         .from('roles')
         .select('id')
@@ -1092,8 +1096,8 @@ export function useCancelPermit() {
             user_id: hd.user_id,
             permit_id: permitId,
             type: 'cancelled',
-            title: 'Permit Cancelled',
-            message: `Permit ${permit.permit_no} has been cancelled by the requester.`,
+            title: 'Permit Withdrawn',
+            message: `Permit ${permit.permit_no} has been withdrawn by the requester.`,
           });
         }
       }
@@ -1104,10 +1108,10 @@ export function useCancelPermit() {
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
       queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
-      toast.success('Permit cancelled successfully');
+      toast.success('Permit withdrawn successfully');
     },
     onError: (error) => {
-      toast.error('Failed to cancel permit: ' + error.message);
+      toast.error('Failed to withdraw permit: ' + error.message);
     },
   });
 }

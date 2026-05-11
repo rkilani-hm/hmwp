@@ -43,17 +43,19 @@ export function CancelPermitDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Cancel Permit {permitNo}?</AlertDialogTitle>
+          <AlertDialogTitle>Withdraw permit {permitNo}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action will cancel the work permit. All pending approvals will be
-            stopped. This action cannot be undone.
+            This will withdraw your permit request. Any approvals already
+            given will be marked withdrawn and the permit will be closed.
+            This action cannot be undone — if you want to proceed later,
+            you'll need to submit a new permit.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2 py-4">
-          <Label htmlFor="cancel-reason">Reason for cancellation (optional)</Label>
+          <Label htmlFor="cancel-reason">Reason for withdrawal (optional)</Label>
           <Textarea
             id="cancel-reason"
-            placeholder="Enter reason for cancelling this permit..."
+            placeholder="e.g. project postponed, scope changed, duplicate request..."
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
@@ -61,7 +63,7 @@ export function CancelPermitDialog({
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={cancelPermit.isPending}>
-            Keep Permit
+            Keep permit active
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCancel}
@@ -71,10 +73,10 @@ export function CancelPermitDialog({
             {cancelPermit.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Cancelling...
+                Withdrawing...
               </>
             ) : (
-              'Cancel Permit'
+              'Withdraw permit'
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

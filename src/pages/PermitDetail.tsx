@@ -255,7 +255,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               Edit & Resubmit
             </Button>
           )}
-          {/* Cancel button for creators - only show for active permits */}
+          {/* Withdraw button for creators - only show for active permits. 
+              "Withdraw" reads more naturally than "Cancel" for a tenant
+              taking back their own submission. Internally still calls
+              useCancelPermit → sets status='cancelled'; UI label only. */}
           {permit.requester_id === user?.id && 
            !['cancelled', 'rejected', 'closed', 'approved', 'rework_needed'].includes(permit.status) && (
             <Button 
@@ -265,7 +268,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               onClick={() => setCancelDialogOpen(true)}
             >
               <Ban className="w-4 h-4 mr-2" />
-              Cancel
+              Withdraw
             </Button>
           )}
           {/* Admin: Resend Notification button for pending permits */}
