@@ -203,6 +203,7 @@ export default function ApproverInbox() {
     if (failed === 0) toast.success(`Approved ${success} permit${success !== 1 ? 's' : ''}`);
     else toast.warning(`Approved ${success}, failed ${failed}`);
   };
+  const handleApproveClick = (e: React.MouseEvent, permit: WorkPermit) => {
     e.stopPropagation();
     setSelectedPermit(permit);
     setApprovalDialogOpen(true);
