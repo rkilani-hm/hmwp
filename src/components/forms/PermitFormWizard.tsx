@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useFormDraft } from '@/hooks/useFormDraft';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -82,6 +84,44 @@ export function PermitFormWizard() {
     urgency: 'normal',
   });
 
+  // Draft autosave — persists formData to localStorage so the user
+  // doesn't lose work if they navigate away mid-fill. File
+  // attachments are NOT persisted (File objects can't survive
+  // serialization); we clear them from the restored draft so the
+  // user knows to re-upload.
+  const { restored, clearDraft } = useFormDraft({
+    formKey: 'new-permit-wizard',
+    userId: user?.id,
+    value: formData,
+  });
+
+  // Restore once on mount. Skip the restore for completely empty
+  // drafts (when 'restored' is the same shape as the initial form,
+  // there's nothing to recover).
+  useEffect(() => {
+    if (!restored) return;
+    // Only restore if the draft has content beyond the auto-filled
+    // requesterName/requesterEmail. Heuristic: at least one of the
+    // user-typed fields is non-empty.
+    const hasUserContent =
+      restored.contractorName?.trim() ||
+      restored.contactMobile?.trim() ||
+      restored.workDescription?.trim() ||
+      restored.workTypeId ||
+      restored.workLocationId;
+
+    if (!hasUserContent) return;
+
+    setFormData({
+      ...restored,
+      // Strip attachments — File objects don't survive JSON.
+      attachments: [],
+    });
+    toast.info(
+      'Restored your unsaved permit draft. Re-attach any files before submitting.',
+    );
+  }, [restored]);
+
   const updateField: UpdateField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -127,7 +167,10 @@ export function PermitFormWizard() {
         urgency: formData.urgency,
       },
       {
-        onSuccess: () => navigate('/permits'),
+        onSuccess: () => {
+          clearDraft();
+          navigate('/permits');
+        },
       },
     );
   };

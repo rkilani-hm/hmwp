@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
+import { useFormDraft } from '@/hooks/useFormDraft';
+import { toast } from 'sonner';
 import type { GatePassItem, GatePassCategory, GatePassType, ShiftingMethod, DeliveryType } from '@/types/gatePass';
 import { gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import { Button } from '@/components/ui/button';
@@ -45,6 +48,72 @@ export default function GatePassFormWizard() {
     { serial_number: 1, item_details: '', quantity: '1', remarks: '', is_high_value: false },
   ]);
 
+  const { user } = useAuth();
+
+  // Draft autosave — bundle all 17 fields into one object passed to
+  // useFormDraft. On restore, fan out the setters. This is a
+  // temporary shape for the still-unrefactored gate-pass wizard;
+  // once the wizard moves to the data/updateField pattern (as the
+  // permit one did), this becomes a one-line `value: formData`.
+  const draftValue = useMemo(
+    () => ({
+      category, passType,
+      clientContractorName, clientRepName, clientRepEmail, clientRepContact,
+      unitFloor, deliveryArea,
+      validFrom, validTo, timeFrom, timeTo,
+      vehicleMakeModel, vehicleLicensePlate, shiftingMethod,
+      purpose, deliveryType, items,
+    }),
+    [
+      category, passType, clientContractorName, clientRepName, clientRepEmail,
+      clientRepContact, unitFloor, deliveryArea, validFrom, validTo, timeFrom,
+      timeTo, vehicleMakeModel, vehicleLicensePlate, shiftingMethod, purpose,
+      deliveryType, items,
+    ],
+  );
+
+  const { restored, clearDraft } = useFormDraft({
+    formKey: 'new-gate-pass-wizard',
+    userId: user?.id,
+    value: draftValue,
+  });
+
+  useEffect(() => {
+    if (!restored) return;
+    // Heuristic: only restore if the user typed something beyond the
+    // default category/passType picker state.
+    const hasUserContent =
+      restored.passType ||
+      restored.clientContractorName?.trim() ||
+      restored.purpose?.trim() ||
+      (Array.isArray(restored.items) &&
+        restored.items.some((i: GatePassItem) => i.item_details?.trim()));
+    if (!hasUserContent) return;
+
+    setCategory(restored.category ?? '');
+    setPassType(restored.passType ?? '');
+    setClientContractorName(restored.clientContractorName ?? '');
+    setClientRepName(restored.clientRepName ?? '');
+    setClientRepEmail(restored.clientRepEmail ?? '');
+    setClientRepContact(restored.clientRepContact ?? '');
+    setUnitFloor(restored.unitFloor ?? '');
+    setDeliveryArea(restored.deliveryArea ?? '');
+    setValidFrom(restored.validFrom ?? '');
+    setValidTo(restored.validTo ?? '');
+    setTimeFrom(restored.timeFrom ?? '');
+    setTimeTo(restored.timeTo ?? '');
+    setVehicleMakeModel(restored.vehicleMakeModel ?? '');
+    setVehicleLicensePlate(restored.vehicleLicensePlate ?? '');
+    setShiftingMethod(restored.shiftingMethod ?? '');
+    setPurpose(restored.purpose ?? '');
+    setDeliveryType(restored.deliveryType ?? '');
+    if (Array.isArray(restored.items) && restored.items.length > 0) {
+      setItems(restored.items);
+    }
+    toast.info('Restored your unsaved gate pass draft.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
+
   // Fetch workflow for selected pass type
   const { data: effectiveWorkflow, isLoading: loadingWorkflow } = useGatePassEffectiveWorkflow(passType || undefined);
 
@@ -86,6 +155,7 @@ export default function GatePassFormWizard() {
         delivery_type: deliveryType || undefined,
         items: items.filter(i => i.item_details.trim()),
       });
+      clearDraft();
       navigate('/gate-passes');
     } catch {}
   };
