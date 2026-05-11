@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePendingPermitsForApprover, useSecureApprovePermit, WorkPermit } from '@/hooks/useWorkPermits';
@@ -137,6 +137,36 @@ export default function ApproverInbox() {
     
     return matchesSearch && matchesUrgency;
   });
+
+  // Sort by SLA priority: overdue first (most overdue at top), then
+  // about-to-breach (less than 2 hrs left), then by deadline ascending
+  // (soonest deadline next), then permits with no deadline last.
+  // This is the order an approver should work in if they have no
+  // other prioritization signal.
+  const sortedPermits = useMemo(() => {
+    return [...filteredPermits].sort((a, b) => {
+      const ad = a.sla_deadline ? new Date(a.sla_deadline).getTime() : Number.POSITIVE_INFINITY;
+      const bd = b.sla_deadline ? new Date(b.sla_deadline).getTime() : Number.POSITIVE_INFINITY;
+      return ad - bd;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPermits]);
+
+  // Classify a permit's SLA urgency for the row badge.
+  // - 'breach' : already past sla_deadline
+  // - 'imminent' : less than 2 hours remaining
+  // - 'soon' : less than 24 hours remaining
+  // - 'normal' : more than 24 hours away (no badge)
+  // - 'none' : no SLA deadline set
+  const getSLAUrgency = (permit: WorkPermit): 'breach' | 'imminent' | 'soon' | 'normal' | 'none' => {
+    if (!permit.sla_deadline) return 'none';
+    const deadline = parseISO(permit.sla_deadline);
+    if (isPast(deadline)) return 'breach';
+    const hoursLeft = (deadline.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursLeft <= 2) return 'imminent';
+    if (hoursLeft <= 24) return 'soon';
+    return 'normal';
+  };
 
   const getSLAStatus = (permit: WorkPermit) => {
     if (!permit.sla_deadline) return null;
@@ -325,6 +355,10 @@ export default function ApproverInbox() {
               </SelectContent>
             </Select>
           </div>
+          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+            <Timer className="w-3 h-3" />
+            Sorted by SLA priority (soonest deadlines first)
+          </p>
         </CardContent>
       </Card>
 
@@ -337,9 +371,10 @@ export default function ApproverInbox() {
         />
       ) : (
         <div className="space-y-4">
-          {filteredPermits.map((permit, index) => {
+          {sortedPermits.map((permit, index) => {
             const slaStatus = getSLAStatus(permit);
-            
+            const slaUrgency = getSLAUrgency(permit);
+
             return (
               <motion.div
                 key={permit.id}
@@ -347,11 +382,13 @@ export default function ApproverInbox() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card 
+                <Card
                   className={cn(
                     "cursor-pointer transition-all hover:shadow-md",
                     permit.urgency === 'urgent' && "border-l-4 border-l-destructive",
-                    slaStatus?.isOverdue && "bg-destructive/5"
+                    slaUrgency === 'breach' && "bg-destructive/5 border-destructive/40",
+                    slaUrgency === 'imminent' && "ring-2 ring-destructive/40 animate-pulse",
+                    slaUrgency === 'soon' && "border-warning/40",
                   )}
                   onClick={() => navigate(`/permits/${permit.id}`)}
                 >
@@ -368,10 +405,28 @@ export default function ApproverInbox() {
                               {t('approverInbox.urgentBadge')}
                             </Badge>
                           )}
-                          {slaStatus?.isOverdue && (
-                            <Badge variant="outline" className="text-destructive border-destructive flex items-center gap-1">
+                          {slaUrgency === 'breach' && (
+                            <Badge variant="destructive" className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {t('approverInbox.slaBreachedBadge')}
+                              SLA BREACHED
+                            </Badge>
+                          )}
+                          {slaUrgency === 'imminent' && (
+                            <Badge
+                              variant="outline"
+                              className="text-destructive border-destructive bg-destructive/10 flex items-center gap-1 font-semibold"
+                            >
+                              <Timer className="w-3 h-3" />
+                              &lt; 2 hours left
+                            </Badge>
+                          )}
+                          {slaUrgency === 'soon' && (
+                            <Badge
+                              variant="outline"
+                              className="text-warning border-warning bg-warning/10 flex items-center gap-1"
+                            >
+                              <Timer className="w-3 h-3" />
+                              &lt; 24 hours
                             </Badge>
                           )}
                         </div>
