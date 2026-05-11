@@ -161,7 +161,48 @@ export default function ApproverInbox() {
     return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
   };
 
-  const handleApproveClick = (e: React.MouseEvent, permit: WorkPermit) => {
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = filteredPermits.length > 0 && filteredPermits.every(p => selectedIds.has(p.id));
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredPermits.map(p => p.id)));
+  };
+
+  const handleBulkApprove = async (auth: AuthPayload, signature: string | null) => {
+    const targets = filteredPermits.filter(p => selectedIds.has(p.id));
+    setBulkProgress({ done: 0, total: targets.length });
+    let success = 0;
+    let failed = 0;
+    for (const permit of targets) {
+      try {
+        await secureApprove.mutateAsync({
+          permitId: permit.id,
+          role: getApprovalRole(permit),
+          approved: true,
+          auth,
+          signature,
+          comments: '',
+        });
+        success++;
+      } catch (e) {
+        console.error('Bulk approve failed for', permit.permit_no, e);
+        failed++;
+      }
+      setBulkProgress(prev => prev ? { ...prev, done: prev.done + 1 } : prev);
+    }
+    setBulkProgress(null);
+    setBulkApproveDialogOpen(false);
+    setSelectedIds(new Set());
+    if (failed === 0) toast.success(`Approved ${success} permit${success !== 1 ? 's' : ''}`);
+    else toast.warning(`Approved ${success}, failed ${failed}`);
+  };
     e.stopPropagation();
     setSelectedPermit(permit);
     setApprovalDialogOpen(true);
