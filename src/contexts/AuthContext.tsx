@@ -208,7 +208,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.error(error.message);
         return { error };
       }
-      toast.success('Account created successfully! You can now sign in.');
+      // Note: the new account is in 'pending' status until an admin
+      // approves. The Auth page renders a dedicated confirmation
+      // card (signupSuccess) that walks the user through the next
+      // steps; we keep this toast minimal to avoid duplicating that
+      // information.
+      toast.success('Registration submitted for review');
       return { error: null };
     } catch (error) {
       const err = error as Error;
