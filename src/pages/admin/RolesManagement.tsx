@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, Role } from '@/hooks/useRoles';
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, useRoleUsage, Role } from '@/hooks/useRoles';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,8 +9,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Shield, Plus, Pencil, Trash2, Lock } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Loader2, Shield, Plus, Pencil, Trash2, Lock, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+
+// The 'admin' role is hardcoded throughout the app (hasRole('admin')
+// checks, RLS policies). Deleting it would break the application.
+// All other roles — even those seeded with is_system=true — can be
+// removed if no workflow_steps reference them.
+const PROTECTED_ROLE_NAMES = ['admin'] as const;
 
 export default function RolesManagement() {
   const { data: roles, isLoading } = useRoles();
@@ -20,8 +36,13 @@ export default function RolesManagement() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [formData, setFormData] = useState({ name: '', label: '', description: '' });
+
+  // Usage stats for the role currently in the delete dialog. Lazy-
+  // loaded — only fires when a role is selected for deletion.
+  const { data: usage, isLoading: usageLoading } = useRoleUsage(roleToDelete?.id);
 
   const handleCreate = () => {
     if (!formData.name || !formData.label) return;
@@ -51,11 +72,28 @@ export default function RolesManagement() {
     updateRole.mutate({ id: role.id, is_active: !role.is_active });
   };
 
-  const handleDelete = (role: Role) => {
-    if (role.is_system) return;
-    if (confirm(`Are you sure you want to delete the role "${role.label}"? This cannot be undone.`)) {
-      deleteRole.mutate(role.id);
-    }
+  // Open the delete confirmation dialog (which fires the usage check).
+  const openDeleteDialog = (role: Role) => {
+    if (PROTECTED_ROLE_NAMES.includes(role.name as any)) return;
+    setRoleToDelete(role);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!roleToDelete) return;
+    deleteRole.mutate(roleToDelete.id, {
+      onSuccess: () => setRoleToDelete(null),
+    });
+  };
+
+  // "Deactivate instead" — fires when admin opts out of full delete.
+  // Keeps historical references intact while hiding the role from
+  // user assignment + workflow builder dropdowns.
+  const handleDeactivateInstead = () => {
+    if (!roleToDelete) return;
+    updateRole.mutate(
+      { id: roleToDelete.id, is_active: false },
+      { onSuccess: () => setRoleToDelete(null) },
+    );
   };
 
   const openEditDialog = (role: Role) => {
@@ -209,12 +247,22 @@ export default function RolesManagement() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {!role.is_system && (
+                        {PROTECTED_ROLE_NAMES.includes(role.name as any) ? (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDelete(role)}
+                            disabled
+                            title="The admin role cannot be deleted — it's required by the application"
+                          >
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDeleteDialog(role)}
                             disabled={deleteRole.isPending}
+                            title="Delete this role"
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -288,6 +336,117 @@ export default function RolesManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete-role confirmation. Shows dependency counts so admin
+          understands what's about to break / what's safe. */}
+      <AlertDialog
+        open={roleToDelete !== null}
+        onOpenChange={(open) => !open && setRoleToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete role "{roleToDelete?.label}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <p>
+                  This action cannot be undone. Before confirming, review
+                  what currently depends on this role:
+                </p>
+
+                {usageLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking dependencies...
+                  </div>
+                ) : usage ? (
+                  <ul className="space-y-1.5 text-sm border-l-2 border-muted pl-3">
+                    <li>
+                      <strong>{usage.userCount}</strong> user
+                      {usage.userCount === 1 ? '' : 's'} currently assigned
+                      this role
+                      {usage.userCount > 0 && (
+                        <span className="text-muted-foreground">
+                          {' '}— will be unassigned automatically
+                        </span>
+                      )}
+                    </li>
+                    <li>
+                      <strong>{usage.workflowStepCount}</strong> active
+                      workflow step{usage.workflowStepCount === 1 ? '' : 's'}
+                      {' '}reference this role
+                      {usage.workflowStepCount > 0 && (
+                        <span className="text-destructive font-medium">
+                          {' '}— deletion will be blocked until you remove these
+                        </span>
+                      )}
+                    </li>
+                    <li>
+                      <strong>{usage.permitApprovalCount + usage.gatePassApprovalCount}</strong>
+                      {' '}historical approval row
+                      {usage.permitApprovalCount + usage.gatePassApprovalCount === 1 ? '' : 's'}
+                      {' '}reference this role
+                      {(usage.permitApprovalCount + usage.gatePassApprovalCount) > 0 && (
+                        <span className="text-muted-foreground">
+                          {' '}— role link will be set NULL; rows preserved
+                        </span>
+                      )}
+                    </li>
+                  </ul>
+                ) : null}
+
+                {usage && usage.workflowStepCount > 0 && (
+                  <div className="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 text-sm">
+                    <strong>Recommendation:</strong> Edit the workflow
+                    templates that use this role first, OR deactivate
+                    the role instead of deleting it.
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel disabled={deleteRole.isPending || updateRole.isPending}>
+              Keep role
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={handleDeactivateInstead}
+              disabled={
+                deleteRole.isPending ||
+                updateRole.isPending ||
+                !roleToDelete?.is_active
+              }
+              title={
+                !roleToDelete?.is_active
+                  ? 'Role is already inactive'
+                  : 'Hide the role from new assignments while preserving history'
+              }
+            >
+              {updateRole.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Deactivate instead
+            </Button>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteRole.isPending || updateRole.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRole.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete permanently'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
