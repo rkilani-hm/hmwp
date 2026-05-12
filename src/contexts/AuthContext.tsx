@@ -27,6 +27,19 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, extra?: { phone?: string; companyName?: string }) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /**
+   * Sends a password-reset email containing a magic recovery link.
+   * When the user clicks the link they land on /reset-password with a
+   * temporary "recovery" session that lets them call updatePassword().
+   * Always resolves with { error: null } even if the email is unknown,
+   * to avoid leaking which emails are registered.
+   */
+  resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  /**
+   * Updates the currently-signed-in user's password. Called from the
+   * reset-password page once the user has clicked the recovery link.
+   */
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   hasRole: (role: RoleName) => boolean;
   isApprover: () => boolean;
   refreshProfile: () => Promise<void>;
@@ -222,6 +235,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Sends a password-reset email. Privacy-preserving: always reports
+   * success to the caller, even when Supabase returns "user not
+   * found" — otherwise an attacker could probe which emails are
+   * registered tenants. Real errors (network, rate limit) are
+   * surfaced.
+   */
+  const resetPassword = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+
+      // Email-not-found errors come back as "User not found" or
+      // status 400. Swallow them so we don't reveal account presence.
+      if (error) {
+        const looksLikeUnknownEmail =
+          error.status === 400 ||
+          /user not found|not registered|invalid/i.test(error.message);
+        if (looksLikeUnknownEmail) {
+          return { error: null };
+        }
+        // Genuine errors (network, rate limit) bubble up
+        toast.error(error.message);
+        return { error };
+      }
+      return { error: null };
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message);
+      return { error: err };
+    }
+  };
+
+  /**
+   * Updates the password for the currently-authenticated user.
+   * Called from /reset-password after the magic-link drops the user
+   * into a recovery session.
+   */
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast.error(error.message);
+        return { error };
+      }
+      toast.success('Password updated successfully');
+      return { error: null };
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message);
+      return { error: err };
+    }
+  };
+
   const signOut = async () => {
     // Log logout before signing out
     if (user) {
@@ -258,6 +327,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        resetPassword,
+        updatePassword,
         hasRole,
         isApprover,
         refreshProfile,
