@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, CheckCircle, Mail, Clock } from 'lucide-react';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
@@ -25,6 +25,14 @@ export default function Auth() {
   const { signIn, signUp, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
+
+  // After a successful tenant signup we show a dedicated confirmation
+  // card explaining the approval workflow instead of just dropping
+  // them back on the signin tab with no context. submittedEmail is
+  // remembered so the card can echo it back ("we'll email you at
+  // x@y.com once your account is activated").
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
   
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
@@ -117,9 +125,27 @@ export default function Auth() {
     setIsLoading(false);
     
     if (!error) {
-      setActiveTab('signin');
+      // Show the confirmation card. Remember the email for the
+      // signin form when the user comes back later (after admin
+      // approval). Clear sensitive fields immediately.
+      setSubmittedEmail(signUpEmail);
       setSignInEmail(signUpEmail);
+      setSignUpPassword('');
+      setSignupSuccess(true);
     }
+  };
+
+  // Called from the confirmation card's 'Back to sign in' button.
+  // Resets the success state and switches the tab; the signin
+  // email is already pre-filled from handleSignUp above.
+  const handleReturnToSignIn = () => {
+    setSignupSuccess(false);
+    setActiveTab('signin');
+    // Clear the rest of the signup form for hygiene
+    setSignUpName('');
+    setSignUpPhone('');
+    setSignUpCompany('');
+    setSignUpEmail('');
   };
 
   if (authLoading) {
@@ -150,11 +176,95 @@ export default function Auth() {
         </div>
 
         <Card className="border-border/50 shadow-xl">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="font-display text-xl">Welcome</CardTitle>
-            <CardDescription>Sign in to your account, or sign up as a new tenant</CardDescription>
-          </CardHeader>
-          <CardContent>
+          {signupSuccess ? (
+            // Post-signup confirmation. Shown after a tenant submits
+            // the registration form successfully. The account is in
+            // 'pending' status server-side — admin must approve
+            // before they can sign in. This screen sets that
+            // expectation clearly so the tenant doesn't keep trying
+            // to sign in and hitting the "pending approval" error.
+            <>
+              <CardHeader className="text-center pb-2">
+                <div className="flex justify-center mb-3">
+                  <div className="rounded-full bg-success/15 p-3">
+                    <CheckCircle className="h-10 w-10 text-success" />
+                  </div>
+                </div>
+                <CardTitle className="font-display text-xl">
+                  Registration received
+                </CardTitle>
+                <CardDescription className="pt-1">
+                  Thank you for signing up. Your account has been
+                  submitted for review.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {submittedEmail && (
+                  <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-sm flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">Submitted as</span>
+                    <span className="font-medium truncate">{submittedEmail}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3 text-sm">
+                  <p className="font-medium">What happens next:</p>
+                  <ol className="space-y-2.5 pl-1">
+                    <li className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                        1
+                      </span>
+                      <span>
+                        Our team reviews new registrations — usually within
+                        one business day.
+                      </span>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                        2
+                      </span>
+                      <span>
+                        You'll receive an email at the address above as soon
+                        as your account is activated.
+                      </span>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                        3
+                      </span>
+                      <span>
+                        Once activated, sign in to start submitting work
+                        permits and gate passes.
+                      </span>
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="rounded-md bg-warning/10 border border-warning/30 px-3 py-2.5 text-sm flex gap-2">
+                  <Clock className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">
+                    Signing in before activation will show a
+                    "pending approval" message. That's expected — please
+                    wait for the confirmation email.
+                  </span>
+                </div>
+
+                <Button
+                  onClick={handleReturnToSignIn}
+                  className="w-full"
+                  variant="outline"
+                >
+                  Back to sign in
+                </Button>
+              </CardContent>
+            </>
+          ) : (
+            <>
+              <CardHeader className="text-center pb-4">
+                <CardTitle className="font-display text-xl">Welcome</CardTitle>
+                <CardDescription>Sign in to your account, or sign up as a new tenant</CardDescription>
+              </CardHeader>
+              <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -304,6 +414,8 @@ export default function Auth() {
               </TabsContent>
             </Tabs>
           </CardContent>
+            </>
+          )}
         </Card>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
