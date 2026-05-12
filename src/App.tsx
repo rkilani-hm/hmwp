@@ -16,6 +16,7 @@ import PublicPermitRequest from "./pages/PublicPermitRequest";
 import InstallApp from "./pages/InstallApp";
 import Onboarding from "./pages/Onboarding";
 import PendingApproval from "./pages/PendingApproval";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <InactivityGuard />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/status" element={<PublicPermitStatus />} />
             <Route
               path="/verify"

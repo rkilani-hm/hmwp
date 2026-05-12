@@ -22,7 +22,7 @@ const passwordSchema = z.string()
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, loading: authLoading } = useAuth();
+  const { signIn, signUp, resetPassword, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
 
@@ -33,6 +33,15 @@ export default function Auth() {
   // x@y.com once your account is activated").
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
+
+  // Forgot-password mode: when toggled, the Card swaps its tabbed
+  // form for a single email input + a "reset link sent" confirmation.
+  // Pattern matches signupSuccess so all three Card variants share the
+  // same shell.
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordEmailError, setForgotPasswordEmailError] = useState('');
+  const [resetLinkSent, setResetLinkSent] = useState(false);
   
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
@@ -148,6 +157,39 @@ export default function Auth() {
     setSignUpEmail('');
   };
 
+  const handleSendResetLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordEmailError('');
+
+    // Validate email format before hitting Supabase
+    try {
+      emailSchema.parse(forgotPasswordEmail);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setForgotPasswordEmailError(err.errors[0].message);
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await resetPassword(forgotPasswordEmail);
+    setIsLoading(false);
+
+    if (!error) {
+      // Always show the success screen — resetPassword() swallows
+      // "user not found" errors to avoid leaking which emails are
+      // registered.
+      setResetLinkSent(true);
+    }
+  };
+
+  const handleBackFromForgotPassword = () => {
+    setForgotPasswordMode(false);
+    setResetLinkSent(false);
+    setForgotPasswordEmail('');
+    setForgotPasswordEmailError('');
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -176,7 +218,98 @@ export default function Auth() {
         </div>
 
         <Card className="border-border/50 shadow-xl">
-          {signupSuccess ? (
+          {forgotPasswordMode ? (
+            // Forgot-password flow: collect email, send reset link,
+            // show 'check your email' confirmation. Two states in
+            // one branch (form vs confirmation) controlled by
+            // resetLinkSent.
+            resetLinkSent ? (
+              <>
+                <CardHeader className="text-center pb-2">
+                  <div className="flex justify-center mb-3">
+                    <div className="rounded-full bg-success/15 p-3">
+                      <CheckCircle className="h-10 w-10 text-success" />
+                    </div>
+                  </div>
+                  <CardTitle className="font-display text-xl">
+                    Check your email
+                  </CardTitle>
+                  <CardDescription className="pt-1">
+                    If an account exists for{' '}
+                    <span className="font-medium">{forgotPasswordEmail}</span>,
+                    we've sent a password reset link.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="rounded-md bg-muted/50 border border-border px-3 py-2.5 text-sm flex gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">
+                      Click the link in the email to choose a new password.
+                      The link expires in 60 minutes for security. Check
+                      your spam folder if you don't see it within a few
+                      minutes.
+                    </span>
+                  </div>
+                  <Button
+                    onClick={handleBackFromForgotPassword}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    Back to sign in
+                  </Button>
+                </CardContent>
+              </>
+            ) : (
+              <>
+                <CardHeader className="text-center pb-2">
+                  <CardTitle className="font-display text-xl">
+                    Reset your password
+                  </CardTitle>
+                  <CardDescription className="pt-1">
+                    Enter the email you signed up with. We'll send a link
+                    to reset your password.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSendResetLink} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email">Email</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        className={forgotPasswordEmailError ? 'border-destructive' : ''}
+                        autoFocus
+                      />
+                      {forgotPasswordEmailError && (
+                        <p className="text-sm text-destructive">{forgotPasswordEmailError}</p>
+                      )}
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send reset link'
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={handleBackFromForgotPassword}
+                    >
+                      Back to sign in
+                    </Button>
+                  </form>
+                </CardContent>
+              </>
+            )
+          ) : signupSuccess ? (
             // Post-signup confirmation. Shown after a tenant submits
             // the registration form successfully. The account is in
             // 'pending' status server-side — admin must approve
@@ -288,7 +421,16 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password">Password</Label>
+                      <button
+                        type="button"
+                        onClick={() => setForgotPasswordMode(true)}
+                        className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <Input
                       id="signin-password"
                       type="password"
