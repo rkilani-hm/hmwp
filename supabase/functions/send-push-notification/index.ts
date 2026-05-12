@@ -277,10 +277,33 @@ serve(async (req) => {
       });
     }
 
+    // Auth: require service-role bearer (internal callers) or any authenticated user
+    const authHeader = req.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const token = authHeader.slice(7).trim();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    if (token !== supabaseServiceKey) {
+      const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
+      if (uErr || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     const body = await req.json();
     const { userId, userIds, title, message, data } = body;
+
+    // Bound bulk targeting
+    if (userIds && Array.isArray(userIds) && userIds.length > 500) {
+      return new Response(JSON.stringify({ error: 'Too many recipients' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     if (!title || !message) {
       return new Response(JSON.stringify({ error: 'Title and message are required' }), {
