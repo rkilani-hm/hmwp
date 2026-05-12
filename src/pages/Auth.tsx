@@ -25,6 +25,7 @@ export default function Auth() {
   const { signIn, signUp, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
