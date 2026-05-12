@@ -118,9 +118,14 @@ export default function Auth() {
     setIsLoading(false);
     
     if (!error) {
-      setActiveTab('signin');
-      setSignInEmail(signUpEmail);
+      setShowConfirmation(true);
     }
+  };
+
+  const handleBackToSignIn = () => {
+    setShowConfirmation(false);
+    setActiveTab('signin');
+    setSignInEmail(signUpEmail);
   };
 
   if (authLoading) {
