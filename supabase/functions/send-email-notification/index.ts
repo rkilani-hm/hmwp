@@ -445,6 +445,26 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Auth: require service-role bearer (internal callers) or an authenticated user
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    const token = authHeader.slice(7).trim();
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    if (token !== supabaseServiceKey) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.3");
+      const supa = createClient(Deno.env.get("SUPABASE_URL")!, supabaseServiceKey);
+      const { data: { user }, error: uErr } = await supa.auth.getUser(token);
+      if (uErr || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
     const { to, subject, body, permitId, notificationType, permitNo, details } = await req.json();
 
     // Rate limit by permit ID or a global key for system emails
