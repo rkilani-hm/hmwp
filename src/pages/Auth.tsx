@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, CheckCircle2, Clock, Mail, ArrowLeft } from 'lucide-react';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
@@ -25,6 +25,7 @@ export default function Auth() {
   const { signIn, signUp, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
@@ -117,9 +118,14 @@ export default function Auth() {
     setIsLoading(false);
     
     if (!error) {
-      setActiveTab('signin');
-      setSignInEmail(signUpEmail);
+      setShowConfirmation(true);
     }
+  };
+
+  const handleBackToSignIn = () => {
+    setShowConfirmation(false);
+    setActiveTab('signin');
+    setSignInEmail(signUpEmail);
   };
 
   if (authLoading) {
