@@ -659,7 +659,7 @@ export type Database = {
           id: string
           ip_address: string | null
           modification_type: string
-          modified_by: string
+          modified_by: string | null
           modified_by_email: string
           modified_by_name: string
           new_steps: Json | null
@@ -675,7 +675,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           modification_type: string
-          modified_by: string
+          modified_by?: string | null
           modified_by_email: string
           modified_by_name: string
           new_steps?: Json | null
@@ -691,7 +691,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           modification_type?: string
-          modified_by?: string
+          modified_by?: string | null
           modified_by_email?: string
           modified_by_name?: string
           new_steps?: Json | null
