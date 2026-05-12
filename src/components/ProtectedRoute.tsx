@@ -25,20 +25,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Only check profile completeness when profile exists
   // If profile is null, it's still being created - don't redirect yet
   if (profile) {
-    const isProfileIncomplete =
-      !profile.full_name?.trim() ||
-      !profile.phone?.trim() ||
-      !profile.company_name?.trim();
-
-    // Redirect to onboarding if profile is incomplete, unless already on onboarding page
-    if (isProfileIncomplete && location.pathname !== '/onboarding') {
-      return <Navigate to="/onboarding" replace />;
-    }
-
-    // Pending or rejected accounts get a dedicated holding page until
-    // an admin acts on the queue. This runs AFTER the onboarding gate
-    // so admins always see a complete profile (full_name, phone,
-    // company_name) when they review the pending request.
+    // Pending or rejected accounts get the holding page FIRST, before
+    // any onboarding gate. Reason: when a tenant signs up via the form,
+    // the handle_new_user() DB trigger populates full_name + phone +
+    // company_name from signup metadata, so they should NOT be sent
+    // back through onboarding asking for details they already provided.
+    // If for any reason a field IS missing on a pending profile (legacy
+    // user, partial signup, admin-created shell), they can complete it
+    // after activation — when their status flips to 'approved', the
+    // profile-completeness check below will route them to /onboarding
+    // for whatever's missing.
     const needsApprovalGate =
       profile.account_status === 'pending' || profile.account_status === 'rejected';
 
@@ -52,6 +48,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       location.pathname === '/pending-approval'
     ) {
       return <Navigate to="/" replace />;
+    }
+
+    // Profile completeness gate. Only applies to APPROVED accounts —
+    // pending/rejected already redirected above. If any required field
+    // is empty, send to /onboarding to fill in just the missing pieces.
+    const isProfileIncomplete =
+      !profile.full_name?.trim() ||
+      !profile.phone?.trim() ||
+      !profile.company_name?.trim();
+
+    if (
+      profile.account_status === 'approved' &&
+      isProfileIncomplete &&
+      location.pathname !== '/onboarding'
+    ) {
+      return <Navigate to="/onboarding" replace />;
     }
   }
 

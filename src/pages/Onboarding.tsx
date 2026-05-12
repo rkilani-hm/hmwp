@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,13 +13,29 @@ import { getEmailsForRole } from '@/utils/emailNotifications';
 const Onboarding = () => {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
-  
+
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Pre-fill from existing profile if available
+  // Which fields actually need filling? A tenant who provided all
+  // three at signup (the normal path post-2026-05-11) shouldn't see
+  // any of them again here. Computed off the SERVER profile, not the
+  // local form state, so a user who clears a field can't trick us
+  // into asking for it again.
+  const missingFields = useMemo(() => {
+    if (!profile) return { fullName: true, phone: true, companyName: true };
+    return {
+      fullName: !profile.full_name?.trim(),
+      phone: !profile.phone?.trim(),
+      companyName: !profile.company_name?.trim(),
+    };
+  }, [profile]);
+
+  const nothingMissing = !missingFields.fullName && !missingFields.phone && !missingFields.companyName;
+
+  // Pre-fill from existing profile
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
@@ -28,8 +44,23 @@ const Onboarding = () => {
     }
   }, [profile]);
 
+  // If the profile is already complete (e.g. user navigated here
+  // manually with a complete profile), bounce them home. Wrapped in
+  // useEffect so the navigate happens after render, not during.
+  useEffect(() => {
+    if (profile && nothingMissing) {
+      navigate('/', { replace: true });
+    }
+  }, [profile, nothingMissing, navigate]);
+
   const isProfileComplete = () => {
-    return fullName.trim() && phone.trim() && companyName.trim();
+    // After this form submits, ALL three must be populated — using
+    // either the value the user just typed, or the value already on
+    // the server profile.
+    const finalName = (missingFields.fullName ? fullName : profile?.full_name) || '';
+    const finalPhone = (missingFields.phone ? phone : profile?.phone) || '';
+    const finalCompany = (missingFields.companyName ? companyName : profile?.company_name) || '';
+    return finalName.trim() && finalPhone.trim() && finalCompany.trim();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,18 +83,18 @@ const Onboarding = () => {
       const email = profile?.email || user.email;
       if (!email) throw new Error('Missing email for profile');
 
+      // Build the update payload from ONLY the fields that were
+      // missing. Don't overwrite existing populated fields with the
+      // local form's prefilled-then-edited value (defensive — avoids
+      // a user accidentally clearing a server-side phone number).
+      const updatePayload: Record<string, string> = { id: user.id, email };
+      if (missingFields.fullName) updatePayload.full_name = fullName.trim();
+      if (missingFields.phone) updatePayload.phone = phone.trim();
+      if (missingFields.companyName) updatePayload.company_name = companyName.trim();
+
       const { error } = await supabase
         .from('profiles')
-        .upsert(
-          {
-            id: user.id,
-            email,
-            full_name: fullName.trim(),
-            phone: phone.trim(),
-            company_name: companyName.trim(),
-          },
-          { onConflict: 'id' }
-        );
+        .upsert(updatePayload, { onConflict: 'id' });
 
       if (error) throw error;
 
@@ -85,10 +116,10 @@ const Onboarding = () => {
                 subject: 'New tenant application — review required',
                 notificationType: 'account_pending_review',
                 details: {
-                  tenantName: fullName.trim(),
+                  tenantName: fullName.trim() || profile?.full_name || '',
                   tenantEmail: email,
-                  tenantCompany: companyName.trim(),
-                  tenantPhone: phone.trim(),
+                  tenantCompany: companyName.trim() || profile?.company_name || '',
+                  tenantPhone: phone.trim() || profile?.phone || '',
                 },
               },
             });
@@ -108,59 +139,75 @@ const Onboarding = () => {
     }
   };
 
+  // While we're in the bounce-home effect, render nothing rather than
+  // flashing a partially-filled form
+  if (profile && nothingMissing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome! Complete Your Profile</CardTitle>
+          <CardTitle className="text-2xl font-bold">Complete your profile</CardTitle>
           <CardDescription>
-            Please provide your details to get started. All fields are required.
+            We need a few more details before you can start submitting permits.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Full Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
+            {missingFields.fullName && (
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Full Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Phone Number <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter your phone number"
-                required
-              />
-            </div>
+            {missingFields.phone && (
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Phone Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Enter your phone number"
+                  required
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="companyName" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Company Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="companyName"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Enter your company name"
-                required
-              />
-            </div>
+            {missingFields.companyName && (
+              <div className="space-y-2">
+                <Label htmlFor="companyName" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Company Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Enter your company name"
+                  required
+                />
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={isSaving || !isProfileComplete()}>
               {isSaving ? (
