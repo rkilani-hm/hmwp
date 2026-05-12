@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.error(error.message);
         return { error };
       }
-      toast.success('Account created successfully! You can now sign in.');
+      toast.success('Registration submitted for review. Your account will be activated after admin approval.');
       return { error: null };
     } catch (error) {
       const err = error as Error;
