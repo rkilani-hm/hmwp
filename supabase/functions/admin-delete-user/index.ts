@@ -52,12 +52,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Authenticate caller
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Missing authorization" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
+    const token = authHeader.replace("Bearer ", "").trim();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -68,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user: callerUser }, error: callerErr } = await userClient.auth.getUser();
+    const { data: { user: callerUser }, error: callerErr } = await userClient.auth.getUser(token);
     if (callerErr || !callerUser) {
       return new Response(
         JSON.stringify({ error: "Not authenticated" }),
