@@ -134,6 +134,7 @@ export type Database = {
           signature: string | null
           signature_hash: string | null
           status: string
+          template_version: number | null
           updated_at: string
           user_agent: string | null
           webauthn_credential_id: string | null
@@ -157,6 +158,7 @@ export type Database = {
           signature?: string | null
           signature_hash?: string | null
           status?: string
+          template_version?: number | null
           updated_at?: string
           user_agent?: string | null
           webauthn_credential_id?: string | null
@@ -180,6 +182,7 @@ export type Database = {
           signature?: string | null
           signature_hash?: string | null
           status?: string
+          template_version?: number | null
           updated_at?: string
           user_agent?: string | null
           webauthn_credential_id?: string | null
@@ -573,6 +576,7 @@ export type Database = {
           signature: string | null
           signature_hash: string | null
           status: string
+          template_version: number | null
           updated_at: string
           user_agent: string | null
           webauthn_credential_id: string | null
@@ -595,6 +599,7 @@ export type Database = {
           signature?: string | null
           signature_hash?: string | null
           status?: string
+          template_version?: number | null
           updated_at?: string
           user_agent?: string | null
           webauthn_credential_id?: string | null
@@ -617,6 +622,7 @@ export type Database = {
           signature?: string | null
           signature_hash?: string | null
           status?: string
+          template_version?: number | null
           updated_at?: string
           user_agent?: string | null
           webauthn_credential_id?: string | null
