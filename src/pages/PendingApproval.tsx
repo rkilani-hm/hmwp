@@ -53,12 +53,12 @@ export default function PendingApproval() {
               )}
             </div>
             <CardTitle className="font-display text-xl">
-              {isRejected ? 'Account not approved' : 'Account pending approval'}
+              {isRejected ? 'Account not approved' : 'Activation request under processing'}
             </CardTitle>
             <CardDescription>
               {isRejected
                 ? 'Your tenant account application was reviewed and not approved at this time.'
-                : "Thanks for signing up. Your tenant account is being reviewed by the Al Hamra team."}
+                : "Thanks for signing up. Your activation request is still being processed by the Al Hamra team. You'll be able to sign in once it's approved."}
             </CardDescription>
           </CardHeader>
 
@@ -74,9 +74,9 @@ export default function PendingApproval() {
 
             {!isRejected && (
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm leading-snug text-foreground/80">
-                You'll receive a confirmation once your account is activated, after
-                which you can sign back in and start submitting work permits and
-                gate-pass requests for your unit.
+                We'll follow up by email at <span className="font-medium">{profile?.email}</span> once
+                your account is activated. After that, sign back in to start
+                submitting work permits and gate-pass requests.
               </div>
             )}
 
