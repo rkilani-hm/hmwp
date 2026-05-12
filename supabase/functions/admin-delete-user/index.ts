@@ -129,9 +129,39 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: deleteErr } = await adminClient.auth.admin.deleteUser(userId);
     if (deleteErr) {
       console.error("Error deleting auth user:", deleteErr);
+
+      // Surface FK constraint violations as actionable messages rather
+      // than generic 500s. Postgres reports these in deleteErr.message
+      // with the constraint name; we map known ones to plain English.
+      const raw = (deleteErr.message || "").toLowerCase();
+      let friendly = deleteErr.message || "Failed to delete user";
+
+      if (raw.includes("foreign key") || raw.includes("violates")) {
+        if (raw.includes("permit_workflow_audit")) {
+          friendly =
+            "This user has modified workflows on existing permits. The system needs to be updated " +
+            "to allow deletion — please apply the user-delete-cascades migration and try again.";
+        } else if (raw.includes("permit_workflow_overrides")) {
+          friendly =
+            "This user has created workflow overrides on existing permits. Apply the " +
+            "user-delete-cascades migration and try again.";
+        } else if (raw.includes("workflow_modified_by")) {
+          friendly =
+            "This user has customized workflows on existing permits. Apply the " +
+            "user-delete-cascades migration and try again.";
+        } else {
+          // Generic FK message that still tells the admin what to do
+          friendly =
+            "Cannot delete this user because other records reference them. " +
+            "Database error: " + deleteErr.message;
+        }
+      }
+
+      // Return 200 so the frontend's `data.error` is populated (avoids
+      // the supabase-js non-2xx swallowing where data is null).
       return new Response(
-        JSON.stringify({ error: deleteErr.message || "Failed to delete user" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: false, error: friendly }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
