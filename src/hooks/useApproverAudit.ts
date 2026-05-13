@@ -38,7 +38,7 @@ export function useApproverAudit() {
         .from('approver_setup_audit' as any)
         .select('*');
       if (error) throw error;
-      return (data ?? []) as ApproverAuditRow[];
+      return ((data ?? []) as unknown) as ApproverAuditRow[];
     },
   });
 }
