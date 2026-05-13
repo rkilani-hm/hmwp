@@ -158,8 +158,6 @@ async function notifyRoleUsers(
     // roles, but the runtime query works for ANY role (including custom
     // roles like al_hamra_customer_service created via Roles Management).
     try {
-      const emails = await getEmailsForRole(roleName);
-      if (emails.length > 0) {
       const emails = await getEmailsForRole(roleName as any);
       if (emails.length === 0) {
         console.warn(
@@ -784,7 +782,7 @@ export function useCreatePermit() {
       } else {
         const uniqueRoles = Array.from(
           new Set(
-            ((activeApprovers || []) as Array<{ role_name: string }>)
+            (((activeApprovers || []) as unknown) as Array<{ role_name: string }>)
               .map((r) => r.role_name)
               .filter(Boolean),
           ),
@@ -1760,7 +1758,7 @@ export function useUpdateAndResubmitPermit() {
       } else {
         const uniqueRoles = Array.from(
           new Set(
-            ((activeApprovers || []) as Array<{ role_name: string }>)
+            (((activeApprovers || []) as unknown) as Array<{ role_name: string }>)
               .map((r) => r.role_name)
               .filter(Boolean),
           ),
