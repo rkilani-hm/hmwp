@@ -46,7 +46,7 @@ import {
   Bell,
   Settings2,
 } from 'lucide-react';
-import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
@@ -467,35 +467,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </TabsContent>
 
             <TabsContent value="attachments" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-display">Attachments</CardTitle>
-                  <CardDescription>
-                    {(permit.attachments || []).length} file(s) attached
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(permit.attachments || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No attachments</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {(permit.attachments || []).map((filePath, index) => {
-                        // Extract filename from path
-                        const filename = filePath.includes('/') 
-                          ? decodeURIComponent(filePath.split('/').pop() || `attachment-${index + 1}`)
-                          : filePath;
-                        return (
-                          <AttachmentPreview
-                            key={index}
-                            filePath={filePath}
-                            filename={filename}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <PermitAttachmentsTab
+                permitId={permit.id}
+                legacyAttachments={permit.attachments || []}
+              />
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
