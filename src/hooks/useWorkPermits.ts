@@ -187,6 +187,10 @@ async function notifyRoleUsers(
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
     }
+  } catch (error) {
+    console.error('Error notifying role users:', error);
+  }
+}
 
 /**
  * Notify every role currently active on a permit, based on the
