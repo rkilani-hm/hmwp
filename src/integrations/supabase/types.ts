@@ -847,10 +847,12 @@ export type Database = {
           company_name: string | null
           created_at: string
           email: string
+          floor: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
           phone: string | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
@@ -865,10 +867,12 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email: string
+          floor?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
           phone?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
@@ -883,10 +887,12 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email?: string
+          floor?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
           phone?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2146,6 +2152,7 @@ export type Database = {
         | "pending_head_of_health_safety_&_security"
         | "pending_head_of_mep_engineering"
         | "pending_ecovert_approver"
+        | "pending_tenant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2330,6 +2337,7 @@ export const Constants = {
         "pending_head_of_health_safety_&_security",
         "pending_head_of_mep_engineering",
         "pending_ecovert_approver",
+        "pending_tenant",
       ],
     },
   },
