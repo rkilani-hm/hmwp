@@ -41,8 +41,30 @@ interface Props {
  *     original flat list of AttachmentPreview cards. Used for any
  *     permit created before the feature.
  */
-export function PermitAttachmentsTab({ permitId, legacyAttachments = [] }: Props) {
+export function PermitAttachmentsTab({ permitId, permitNo, requesterId, legacyAttachments = [] }: Props) {
   const { data: attachments, isLoading } = usePermitAttachments(permitId);
+  const { user, isApprover, hasRole } = useAuth();
+  const [addOpen, setAddOpen] = useState(false);
+
+  const canAdd =
+    !!user &&
+    (user.id === requesterId || isApprover() || hasRole('admin'));
+
+  const AddButton = canAdd ? (
+    <Button size="sm" onClick={() => setAddOpen(true)}>
+      <Plus className="w-4 h-4 mr-1" />
+      Add documents
+    </Button>
+  ) : null;
+
+  const AddDialog = canAdd ? (
+    <AddDocumentsDialog
+      permitId={permitId}
+      permitNo={permitNo || ''}
+      open={addOpen}
+      onOpenChange={setAddOpen}
+    />
+  ) : null;
 
   const { idDocs, otherDocs } = useMemo(() => {
     if (!attachments) return { idDocs: [], otherDocs: [] };
