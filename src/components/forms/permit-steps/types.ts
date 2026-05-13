@@ -7,6 +7,25 @@
  * Union type stays tractable.
  */
 
+/**
+ * Wraps a File with categorization + AI-extracted ID fields.
+ * Used for attachments in the Documents step. Civil IDs and driving
+ * licenses go through OCR via the extract-id-document edge function.
+ */
+export interface AttachmentWithMetadata {
+  file: File;
+  documentType: 'civil_id' | 'driving_license' | 'other';
+  // Populated for civil_id / driving_license after extraction:
+  extractedName?: string | null;
+  extractedIdNumber?: string | null;
+  extractedExpiryDate?: string | null;  // YYYY-MM-DD
+  extractedIssueDate?: string | null;
+  extractedNationality?: string | null;
+  isValid?: boolean;  // expiry_date >= today
+  extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+  extractionError?: string;
+}
+
 export interface PermitFormData {
   requesterName: string;
   requesterEmail: string;
@@ -22,7 +41,7 @@ export interface PermitFormData {
   workDateTo: string;
   workTimeFrom: string;
   workTimeTo: string;
-  attachments: File[];
+  attachments: AttachmentWithMetadata[];
   urgency: 'normal' | 'urgent';
 }
 
