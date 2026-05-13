@@ -2126,6 +2126,14 @@ export type Database = {
         Args: { p_permit_id: string }
         Returns: number
       }
+      forward_permit_to_role: {
+        Args: {
+          p_permit_id: string
+          p_reason?: string
+          p_target_role_name: string
+        }
+        Returns: Json
+      }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
@@ -2153,6 +2161,14 @@ export type Database = {
       next_permit_number: { Args: { target_date: string }; Returns: string }
       next_permit_number_today: { Args: never; Returns: string }
       notify_pending_approvers_backfill: { Args: never; Returns: number }
+      notify_permit_active_approvers: {
+        Args: { p_notification_type?: string; p_permit_id: string }
+        Returns: Json
+      }
+      permit_notification_diagnostic: {
+        Args: { p_permit_id: string }
+        Returns: Json
+      }
       reconcile_gate_pass_approvals: {
         Args: { _gate_pass_id: string }
         Returns: undefined
