@@ -87,7 +87,7 @@ const Onboarding = () => {
       // missing. Don't overwrite existing populated fields with the
       // local form's prefilled-then-edited value (defensive — avoids
       // a user accidentally clearing a server-side phone number).
-      const updatePayload: Record<string, string> = { id: user.id, email };
+      const updatePayload: { id: string; email: string; full_name?: string; phone?: string; company_name?: string } = { id: user.id, email };
       if (missingFields.fullName) updatePayload.full_name = fullName.trim();
       if (missingFields.phone) updatePayload.phone = phone.trim();
       if (missingFields.companyName) updatePayload.company_name = companyName.trim();

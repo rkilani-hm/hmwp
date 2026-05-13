@@ -54,6 +54,28 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
+import { usePermitAttachments } from '@/hooks/usePermitAttachments';
+
+function ExpiredIdsBanner({ permitId }: { permitId: string }) {
+  const { data: attachments } = usePermitAttachments(permitId);
+  const expiredCount = attachments?.filter(
+    (a) => a.extraction_status === 'success' && a.is_valid === false,
+  ).length ?? 0;
+
+  if (expiredCount === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 flex items-center gap-3 text-sm text-destructive">
+      <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+      <span>
+        <strong>Expired ID detected:</strong>{' '}
+        {expiredCount} attached ID document{expiredCount === 1 ? ' has' : 's have'} expired.
+        Please request updated documents before approving.
+      </span>
+    </div>
+  );
+}
+
 
 interface PermitDetailProps {
   currentRole: string;
@@ -375,6 +397,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Details */}
         <div className="lg:col-span-2 space-y-6">
+          <ExpiredIdsBanner permitId={permit.id} />
           <Tabs defaultValue="details">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="details">Details</TabsTrigger>
