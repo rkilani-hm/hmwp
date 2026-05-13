@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   IdCard,
   FileText,
@@ -6,15 +6,21 @@ import {
   XCircle,
   AlertTriangle,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { usePermitAttachments, type PermitAttachment } from '@/hooks/usePermitAttachments';
+import { AddDocumentsDialog } from './AddDocumentsDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   permitId: string;
+  permitNo?: string;
+  requesterId?: string;
   /**
    * Legacy attachments array from work_permits.attachments text[].
    * Used as fallback when no permit_attachments rows exist (e.g.
@@ -35,8 +41,30 @@ interface Props {
  *     original flat list of AttachmentPreview cards. Used for any
  *     permit created before the feature.
  */
-export function PermitAttachmentsTab({ permitId, legacyAttachments = [] }: Props) {
+export function PermitAttachmentsTab({ permitId, permitNo, requesterId, legacyAttachments = [] }: Props) {
   const { data: attachments, isLoading } = usePermitAttachments(permitId);
+  const { user, isApprover, hasRole } = useAuth();
+  const [addOpen, setAddOpen] = useState(false);
+
+  const canAdd =
+    !!user &&
+    (user.id === requesterId || isApprover() || hasRole('admin'));
+
+  const AddButton = canAdd ? (
+    <Button size="sm" onClick={() => setAddOpen(true)}>
+      <Plus className="w-4 h-4 mr-1" />
+      Add documents
+    </Button>
+  ) : null;
+
+  const AddDialog = canAdd ? (
+    <AddDocumentsDialog
+      permitId={permitId}
+      permitNo={permitNo || ''}
+      open={addOpen}
+      onOpenChange={setAddOpen}
+    />
+  ) : null;
 
   const { idDocs, otherDocs } = useMemo(() => {
     if (!attachments) return { idDocs: [], otherDocs: [] };
@@ -68,12 +96,18 @@ export function PermitAttachmentsTab({ permitId, legacyAttachments = [] }: Props
   // Empty state
   if (!hasNew && !hasLegacy) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>No files attached</CardDescription>
-        </CardHeader>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-display">Attachments</CardTitle>
+              <CardDescription>No files attached</CardDescription>
+            </div>
+            {AddButton}
+          </CardHeader>
+        </Card>
+        {AddDialog}
+      </>
     );
   }
 
@@ -81,26 +115,32 @@ export function PermitAttachmentsTab({ permitId, legacyAttachments = [] }: Props
   // had categorization or extraction; show them in plain form.
   if (!hasNew && hasLegacy) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>
-            {legacyAttachments.length} file{legacyAttachments.length === 1 ? '' : 's'} attached
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {legacyAttachments.map((filePath, idx) => {
-              const filename = filePath.includes('/')
-                ? decodeURIComponent(filePath.split('/').pop() || `attachment-${idx + 1}`)
-                : filePath;
-              return (
-                <AttachmentPreview key={idx} filePath={filePath} filename={filename} />
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-display">Attachments</CardTitle>
+              <CardDescription>
+                {legacyAttachments.length} file{legacyAttachments.length === 1 ? '' : 's'} attached
+              </CardDescription>
+            </div>
+            {AddButton}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {legacyAttachments.map((filePath, idx) => {
+                const filename = filePath.includes('/')
+                  ? decodeURIComponent(filePath.split('/').pop() || `attachment-${idx + 1}`)
+                  : filePath;
+                return (
+                  <AttachmentPreview key={idx} filePath={filePath} filename={filename} />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+        {AddDialog}
+      </>
     );
   }
 
@@ -108,13 +148,17 @@ export function PermitAttachmentsTab({ permitId, legacyAttachments = [] }: Props
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>
-            {(attachments?.length ?? 0)} file{(attachments?.length ?? 0) === 1 ? '' : 's'} attached
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-lg font-display">Attachments</CardTitle>
+            <CardDescription>
+              {(attachments?.length ?? 0)} file{(attachments?.length ?? 0) === 1 ? '' : 's'} attached
+            </CardDescription>
+          </div>
+          {AddButton}
         </CardHeader>
       </Card>
+      {AddDialog}
 
       {idDocs.length > 0 && (
         <Card>
