@@ -415,19 +415,13 @@ export function DocumentsStep({ data, updateField }: Props) {
       if (!result?.success) {
         const code = result?.error || 'unknown';
         const detailMsg = result?.message || '';
-        const message =
-          code === 'ai_not_configured'
-            ? 'AI auto-read is not yet configured. Your document is still attached and will be submitted.'
-            : code === 'ai_quota_exhausted'
-              ? 'AI quota exhausted — please add credits in Lovable settings. Document still attached.'
-              : code === 'ai_rate_limited'
-                ? 'AI service is busy. Document still attached; you can retry below.'
-                : `Couldn't auto-read this document${detailMsg ? `: ${detailMsg}` : ''}. The file is still attached.`;
+        const { title, hint } = describeExtractionError(code, detailMsg);
+        const message = `${title}. ${hint}`;
         patchAttachment(target, {
           extractionStatus: 'failed',
           extractionError: message,
         });
-        if (code !== 'ai_not_configured') toast.warning(message);
+        if (code !== 'ai_not_configured') toast.warning(title, { description: hint });
         return;
       }
 
@@ -450,12 +444,10 @@ export function DocumentsStep({ data, updateField }: Props) {
       });
     } catch (err) {
       console.error('Extraction error:', err);
+      const { title, hint } = describeExtractionError(undefined, (err as Error).message);
       patchAttachment(target, {
         extractionStatus: 'failed',
-        extractionError:
-          'Couldn\'t auto-read this document: ' +
-          ((err as Error).message || 'unknown error') +
-          '. The file is still attached and will be submitted.',
+        extractionError: `${title}. ${hint}`,
       });
     } finally {
       setExtractingIds((prev) => {
