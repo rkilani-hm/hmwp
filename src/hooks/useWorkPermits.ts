@@ -1107,12 +1107,21 @@ export function useProcessedPermitsForApprover() {
 }
 
 // Hook to forward permit to a different approver
+// Hook to forward permit to a different approver.
+//
+// All the work — status update, approval-row rewrite, activity log,
+// authorization — is done by the forward_permit_to_role RPC server-
+// side. The RPC is SECURITY DEFINER so it bypasses RLS on user_roles
+// + profiles that previously blocked the client-side fan-out
+// (approver sessions can only SELECT their own user_roles row, so the
+// old code never found the target role's holders).
+//
+// After the forward succeeds, we call notifyActiveApprovers — which
+// goes through notify_permit_active_approvers (also SECURITY DEFINER)
+// — to ping the new target with in-app + push + email.
 export function useForwardPermit() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
-
-  type PermitStatus = string;
-  type AppRole = string;
 
   return useMutation({
     mutationFn: async ({
@@ -1121,97 +1130,89 @@ export function useForwardPermit() {
       reason,
     }: {
       permitId: string;
-      targetRole: AppRole;
+      targetRole: string;
       reason: string;
     }) => {
-      const statusMap: Record<string, PermitStatus> = {
-        helpdesk: 'submitted',
-        pm: 'pending_pm',
-        pd: 'pending_pd',
-        bdcr: 'pending_bdcr',
-        mpr: 'pending_mpr',
-        it: 'pending_it',
-        fitout: 'pending_fitout',
-        ecovert_supervisor: 'pending_ecovert_supervisor',
-        pmd_coordinator: 'pending_pmd_coordinator',
-      };
+      // Server-side RPC handles everything authoritative.
+      const { data, error } = await supabase.rpc(
+        'forward_permit_to_role' as any,
+        {
+          p_permit_id: permitId,
+          p_target_role_name: targetRole,
+          p_reason: reason || null,
+        },
+      );
 
-      const newStatus = statusMap[targetRole];
-      if (!newStatus) throw new Error('Invalid target role');
-
-      const { data, error } = await supabase
-        .from('work_permits')
-        .update({ status: newStatus as any })
-        .eq('id', permitId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Log activity
-      await supabase.from('activity_logs').insert({
-        permit_id: permitId,
-        action: 'Forwarded',
-        performed_by: profile?.full_name || user?.email || 'Unknown',
-        performed_by_id: user?.id,
-        details: `Forwarded to ${targetRole.toUpperCase()} - ${reason}`,
-      });
-
-      // Create notification for target approvers
-      const { data: targetRoleData } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', targetRole)
-        .single();
-
-      const { data: targetUsers } = targetRoleData ? await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role_id', targetRoleData.id) : { data: null };
-
-      if (targetUsers) {
-        for (const tu of targetUsers) {
-          await supabase.from('notifications').insert({
-            user_id: tu.user_id,
-            permit_id: permitId,
-            type: 'forwarded',
-            title: 'Permit Forwarded to You',
-            message: `Permit ${data.permit_no} has been forwarded for your review. Reason: ${reason}`,
-          });
-        }
-      }
-
-      // Send email notification to target approvers
-      try {
-        const targetEmails = await getEmailsForRole(targetRole as any);
-        if (targetEmails.length > 0) {
-          await sendEmailNotification(
-            targetEmails,
-            'forwarded',
-            `Work Permit Forwarded: ${data.permit_no}`,
-            {
-              permitId,
-              permitNo: data.permit_no,
-              comments: reason,
-            }
+      if (error) {
+        const msg = (error as { message?: string }).message ?? String(error);
+        if (/function.*does not exist|forward_permit_to_role/i.test(msg)) {
+          throw new Error(
+            'Cannot forward — the database is missing the forward_permit_to_role function. Ask your admin to apply pending migrations.',
           );
         }
-      } catch (emailError) {
-        console.error('Failed to send forwarded email notification:', emailError);
+        throw new Error(msg);
       }
 
-      return data;
+      const payload = (data || {}) as {
+        permit_no?: string;
+        target_role?: string;
+        target_role_label?: string | null;
+        new_status?: string;
+      };
+
+      // After the RPC, the permit's permit_approvals row for the
+      // target role is now pending. Fire the standard notification
+      // RPC to ping the new target with in-app + push + email.
+      // notifyActiveApprovers reads permit_active_approvers, which
+      // now reflects the new target.
+      await notifyActiveApprovers(
+        permitId,
+        payload.permit_no || permitId,
+        // Forward doesn't carry urgency through the RPC; pull from
+        // a quick lookup so the notification renders 4hr vs 48hr SLA
+        // correctly.
+        await fetchPermitUrgency(permitId),
+        'new_permit',
+        profile,
+        user?.email,
+      );
+
+      return payload;
     },
     onSuccess: (_, variables) => {
+      // Cache invalidations — forwarding changes work_permits.status
+      // + permit_approvals rows + which step is "active". Same set
+      // as useApprovePermit so inbox + sidebar + Currently-With badge
+      // all refresh.
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
       queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      queryClient.invalidateQueries({ queryKey: ['permit-approvals', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['permit-active-approvers', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
       toast.success('Permit forwarded successfully');
     },
     onError: (error) => {
       toast.error('Failed to forward permit: ' + error.message);
     },
   });
+}
+
+// Lightweight helper used by useForwardPermit. Reads the permit's
+// urgency for the notification template. Tenant/approver session
+// both have RLS access to work_permits.urgency (their own or
+// approver-visible permits).
+async function fetchPermitUrgency(permitId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('work_permits')
+      .select('urgency')
+      .eq('id', permitId)
+      .single();
+    return (data?.urgency as string) || 'normal';
+  } catch {
+    return 'normal';
+  }
 }
 
 // Hook to send permit back for rework
