@@ -592,7 +592,8 @@ export function useCreatePermit() {
           extracted_expiry_date: a.extractedExpiryDate,
           extracted_issue_date: a.extractedIssueDate,
           extracted_nationality: a.extractedNationality,
-          extraction_status: a.extractionStatus,
+          // 'converting' is a client-only transient state; coerce to 'pending' for DB
+          extraction_status: a.extractionStatus === 'converting' ? 'pending' : a.extractionStatus,
           extraction_error: a.extractionError,
           extracted_at:
             a.extractionStatus === 'success' || a.extractionStatus === 'failed'
