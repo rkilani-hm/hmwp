@@ -386,7 +386,7 @@ export function useCreatePermit() {
         extractedIssueDate?: string | null;
         extractedNationality?: string | null;
         isValid?: boolean;
-        extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+        extractionStatus: 'pending' | 'converting' | 'processing' | 'success' | 'failed' | 'skipped';
         extractionError?: string;
       }>;
       urgency?: 'normal' | 'urgent';
@@ -430,7 +430,7 @@ export function useCreatePermit() {
         extractedIssueDate?: string | null;
         extractedNationality?: string | null;
         isValid?: boolean;
-        extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+        extractionStatus: 'pending' | 'converting' | 'processing' | 'success' | 'failed' | 'skipped';
         extractionError?: string;
       };
       const uploadedAttachments: UploadedAttachment[] = [];
