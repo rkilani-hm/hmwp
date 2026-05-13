@@ -492,6 +492,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             <TabsContent value="attachments" className="mt-6">
               <PermitAttachmentsTab
                 permitId={permit.id}
+                permitNo={permit.permit_no}
+                requesterId={permit.requester_id}
                 legacyAttachments={permit.attachments || []}
               />
             </TabsContent>
