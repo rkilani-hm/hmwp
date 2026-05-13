@@ -276,16 +276,14 @@ export function DocumentsStep({ data, updateField }: Props) {
         /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i.test(file.name);
       const previewUrl = !heic && isImage ? URL.createObjectURL(file) : undefined;
 
+      // AI OCR disabled — accept the file as-is. Civil IDs / driving
+      // licenses are uploaded without any auto-read; reviewer will read
+      // them manually. Status is 'skipped' for valid files.
       let initialStatus: AttachmentWithMetadata['extractionStatus'];
       if (!v.valid) {
         initialStatus = 'failed';
-      } else if (documentType === 'other') {
-        initialStatus = 'skipped';
-      } else if (heic) {
-        // HEIC needs conversion before anything else can happen
-        initialStatus = 'converting';
       } else {
-        initialStatus = 'pending';
+        initialStatus = 'skipped';
       }
 
       return {
