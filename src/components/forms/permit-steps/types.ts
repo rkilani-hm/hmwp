@@ -15,6 +15,22 @@
 export interface AttachmentWithMetadata {
   file: File;
   documentType: 'civil_id' | 'driving_license' | 'other';
+
+  /**
+   * Client-side validation result, computed when the file is added.
+   * Files that fail validation stay in the list with validationError
+   * set so the user can see WHY — easier than a fleeting toast.
+   * Submit blocks until all attachments are valid.
+   */
+  validationError?: string;
+
+  /**
+   * Object URL for image previews (jpeg/png/webp/heic/etc). Created
+   * via URL.createObjectURL on add; revoked when the attachment is
+   * removed or the wizard unmounts.
+   */
+  previewUrl?: string;
+
   // Populated for civil_id / driving_license after extraction:
   extractedName?: string | null;
   extractedIdNumber?: string | null;
@@ -85,7 +101,12 @@ export function canProceedFromStep(step: number, data: PermitFormData): boolean 
         data.workTimeTo
       );
     case 4:
-      return true; // attachments optional
+      // Attachments are optional, but if any have been added and fail
+      // validation (wrong type, too large, etc.), block progress until
+      // the user removes them. This catches the failure UP FRONT instead
+      // of letting them complete the wizard and silently lose files at
+      // submit time.
+      return data.attachments.every((a) => !a.validationError);
     default:
       return true;
   }

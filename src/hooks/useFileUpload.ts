@@ -4,12 +4,23 @@ import { toast } from 'sonner';
 
 // Allowed file types and their MIME types
 const ALLOWED_FILE_TYPES: Record<string, string[]> = {
-  // Images
+  // Images — common phone/camera formats
   'jpg': ['image/jpeg'],
   'jpeg': ['image/jpeg'],
   'png': ['image/png'],
   'gif': ['image/gif'],
   'webp': ['image/webp'],
+  // HEIC / HEIF — iPhone default since iOS 11; very common in Kuwait
+  // for users photographing civil IDs. Empty MIME often comes back for
+  // these on some Safari versions, so the validator falls through to
+  // the extension check. The AI extraction edge function and the
+  // storage layer both accept arbitrary bytes — no decoding done here.
+  'heic': ['image/heic', 'image/heif', ''],
+  'heif': ['image/heif', 'image/heic', ''],
+  // Scanner formats
+  'bmp': ['image/bmp', 'image/x-ms-bmp'],
+  'tiff': ['image/tiff'],
+  'tif': ['image/tiff'],
   // Documents
   'pdf': ['application/pdf'],
   'doc': ['application/msword'],

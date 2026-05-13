@@ -439,12 +439,22 @@ export function useCreatePermit() {
         // Import file validation
         const { validateFile } = await import('./useFileUpload');
 
+        // Track failures so we can abort the whole submit if anything
+        // didn't upload. Previously a failed upload was silently
+        // skipped — the permit was created with missing attachments
+        // and the tenant only saw a toast that scrolled away. Now
+        // any failure aborts the submission and surfaces the cause.
+        const uploadFailures: { name: string; reason: string }[] = [];
+
         for (const att of permitData.files) {
           const file = att.file;
           // Validate file before upload
           const validation = validateFile(file);
           if (!validation.valid) {
-            toast.error(validation.error);
+            uploadFailures.push({
+              name: file.name,
+              reason: validation.error || 'failed validation',
+            });
             continue;
           }
 
@@ -456,11 +466,18 @@ export function useCreatePermit() {
             .upload(fileName, file, {
               cacheControl: '3600',
               upsert: false,
+              // Pass the actual content type to storage. Falling back to
+              // octet-stream for HEIC etc. where the browser may not
+              // populate file.type.
+              contentType: file.type || 'application/octet-stream',
             });
 
           if (uploadError) {
-            console.error('Upload error:', uploadError);
-            toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
+            console.error(`Upload failed for ${file.name}:`, uploadError);
+            uploadFailures.push({
+              name: file.name,
+              reason: uploadError.message || 'unknown storage error',
+            });
             continue;
           }
 
@@ -482,6 +499,33 @@ export function useCreatePermit() {
               extractionError: att.extractionError,
             });
           }
+        }
+
+        // If ANY file failed to upload, abort the whole submission.
+        // Previously the permit was created anyway with whatever files
+        // succeeded — tenants ended up with permits missing critical
+        // documents and only saw a fleeting toast about it.
+        if (uploadFailures.length > 0) {
+          // Best-effort cleanup of files we DID upload — orphans are
+          // fine but wasteful. Don't await; if delete fails, leave them
+          // for the storage lifecycle policy to clean up later.
+          if (attachmentPaths.length > 0) {
+            supabase.storage
+              .from('permit-attachments')
+              .remove(attachmentPaths)
+              .catch((cleanupErr) => {
+                console.warn('Failed to clean up orphan uploads:', cleanupErr);
+              });
+          }
+
+          const failureList = uploadFailures
+            .map((f) => `  • ${f.name}: ${f.reason}`)
+            .join('\n');
+          throw new Error(
+            `${uploadFailures.length} file${uploadFailures.length === 1 ? '' : 's'} ` +
+            `failed to upload. The permit was NOT submitted. ` +
+            `Please remove or replace these files and try again:\n${failureList}`
+          );
         }
       }
 
