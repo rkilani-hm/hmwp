@@ -2043,6 +2043,10 @@ export type Database = {
     Functions: {
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       current_user_account_status: { Args: never; Returns: string }
+      ensure_pending_status_for_role: {
+        Args: { role_name: string }
+        Returns: undefined
+      }
       ensure_permit_pending_approvals: {
         Args: { _permit_id: string }
         Returns: number
@@ -2134,6 +2138,14 @@ export type Database = {
         | "pending_pmd_coordinator"
         | "pending_ecovert_supervisor"
         | "superseded"
+        | "pending_admin"
+        | "pending_al_hamra_customer_service"
+        | "pending_coordinator‑_client_relations"
+        | "pending_head_of_client_relations_&_leasing_support"
+        | "pending_coordinator‑_property_management_department"
+        | "pending_head_of_health_safety_&_security"
+        | "pending_head_of_mep_engineering"
+        | "pending_ecovert_approver"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2310,6 +2322,14 @@ export const Constants = {
         "pending_pmd_coordinator",
         "pending_ecovert_supervisor",
         "superseded",
+        "pending_admin",
+        "pending_al_hamra_customer_service",
+        "pending_coordinator‑_client_relations",
+        "pending_head_of_client_relations_&_leasing_support",
+        "pending_coordinator‑_property_management_department",
+        "pending_head_of_health_safety_&_security",
+        "pending_head_of_mep_engineering",
+        "pending_ecovert_approver",
       ],
     },
   },
