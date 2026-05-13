@@ -64,32 +64,30 @@ async function getFirstWorkflowStep(workTypeId: string): Promise<{ roleName: str
   }
 }
 
-// Notify every role currently active on a permit by calling the
-// server-side notify_permit_active_approvers RPC.
+// Helper: fan-out approver notifications via the server-side RPC.
 //
-// ## Why an RPC and not just direct table queries
-//
-// Previous implementations did the user-lookup + email-lookup from
-// the CALLER's authenticated session. When the caller is a TENANT,
-// this gets blocked by three RLS policies:
+// Why server-side instead of client-side queries?
+// -----------------------------------------------------------------
+// The original notifyRoleUsers ran in the CALLER's authenticated
+// session. When that caller was a TENANT, three RLS policies blocked
+// the lookups it needed:
 //
 //   - user_roles SELECT  : tenant can only see their own row
-//   - profiles  SELECT   : tenant can only see their own profile
-//   - notifications INSERT: WITH CHECK (true) — that part was fine
+//   - profiles  SELECT  : tenant can only see their own profile
+//   - notifications INSERT: WITH CHECK (true) — this part was fine
 //
 // So tenant-submitted permits silently fanned out to ZERO recipients.
-// Admin-submitted permits worked because admin's session has broader
-// SELECT access. That's the exact 'admin-created permits show but
-// tenant-created permits don't' bug reported.
+// Admin-submitted permits worked because admin has broader SELECT
+// access via the 'Admins can view all user_roles' / 'Admins can view
+// all profiles' policies. This was the actual root cause of the
+// long-running 'approvers don't see tenant-submitted permits' bug.
 //
 // The notify_permit_active_approvers RPC runs SECURITY DEFINER, so
-// user_roles + profiles reads bypass RLS. It returns the email +
-// user_id lists so the frontend can hand them to the
-// send-email-notification + send-push-notification edge functions
-// (which run under service_role and have no RLS issues).
-//
-// Returns nothing. Failures are logged + surfaced as toasts so the
-// user can tell when the notification chain broke.
+// the user_roles + profiles reads bypass RLS. It also inserts the
+// in-app notifications (idempotent) and returns the email + user_id
+// lists so the frontend can hand them to the email + push edge
+// functions, which are auth'd at the function level and don't have
+// the same problem.
 async function notifyActiveApprovers(
   permitId: string,
   permitNo: string,
@@ -137,11 +135,12 @@ async function notifyActiveApprovers(
       return;
     }
 
+    // RPC returns a jsonb payload — shape documented in the migration.
     const payload = (data || {}) as {
       inserted_count?: number;
-      user_ids?: string[] | null;
-      emails?: string[] | null;
-      active_roles?: string[] | null;
+      user_ids?: string[];
+      emails?: string[];
+      active_roles?: string[];
       permit_no?: string;
       urgency?: string;
       requester_name?: string;
@@ -161,7 +160,8 @@ async function notifyActiveApprovers(
       console.warn(
         `[notify] permit ${permitNo} has NO recipients. ` +
         `Either no active approver roles (workflow complete or ` +
-        `misconfigured), or no users hold the role(s). Check /approver-audit.`,
+        `misconfigured) or no users hold the role(s). Check ` +
+        `/approver-audit to diagnose.`,
       );
       return;
     }
@@ -212,7 +212,6 @@ async function notifyActiveApprovers(
     console.error('[notify] unexpected error:', err);
   }
 }
-
 
 export interface WorkPermit {
   id: string;
@@ -605,7 +604,9 @@ export function useCreatePermit() {
       }
 
       const initialStatus = firstStep.status;
-      const firstApproverRole = firstStep.roleName;
+      // firstStep.roleName is no longer used for fan-out (server-side
+      // RPC reads permit_active_approvers directly). Kept only for
+      // the initial status enum value above.
 
       const { data, error } = await supabase
         .from('work_permits')
@@ -687,18 +688,17 @@ export function useCreatePermit() {
         details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
 
-      // Notify everyone currently active on this permit via the
-      // server-side RPC. The DB trigger (ensure_permit_pending_approvals)
-      // is AFTER INSERT on work_permits, so by the time control returns
-      // here, the approval rows already exist and the RPC will find
-      // them in permit_active_approvers — the SAME view the inbox
-      // uses, so notified-list and visible-in-inbox match exactly.
+      // Notify all currently-active approvers for this permit.
       //
-      // This was previously two parallel code paths (one client-side
-      // that lookups user_roles in the tenant's session and got
-      // blocked by RLS, plus the RPC). The client-side path was the
-      // long-running silent failure for tenant submissions and is now
-      // deleted entirely.
+      // Runs server-side via the notify_permit_active_approvers RPC
+      // because doing this lookup from the tenant's authenticated
+      // session is blocked by RLS on user_roles + profiles. See the
+      // long comment on the notifyActiveApprovers helper for the full
+      // rationale.
+      //
+      // The DB trigger (ensure_permit_pending_approvals) runs AFTER
+      // INSERT on work_permits, so by the time control returns here
+      // the approval rows already exist and the RPC will find them.
       await notifyActiveApprovers(
         data.id,
         permitNo,
@@ -1106,7 +1106,6 @@ export function useProcessedPermitsForApprover() {
   });
 }
 
-// Hook to forward permit to a different approver
 // Hook to forward permit to a different approver.
 //
 // All the work — status update, approval-row rewrite, activity log,
@@ -1544,7 +1543,8 @@ export function useUpdateAndResubmitPermit() {
       }
 
       const initialStatus = firstStep.status;
-      const firstApproverRole = firstStep.roleName;
+      // firstStep.roleName retained for the initial status only;
+      // fan-out is now server-side via RPC.
 
       // Create a NEW permit record (clone) with updated data
       const { data: newPermitData, error: insertError } = await supabase
@@ -1638,9 +1638,8 @@ export function useUpdateAndResubmitPermit() {
         details: `New version created from ${currentPermit.permit_no} after rework`,
       });
 
-      // Notify approvers via the RPC. See useCreatePermit for full
-      // rationale on why this is server-side rather than a client-side
-      // fan-out (RLS would otherwise block tenant sessions).
+      // Notify approvers — server-side RPC. See useCreatePermit for
+      // the full rationale.
       await notifyActiveApprovers(
         newPermitData.id,
         newPermitNo,
