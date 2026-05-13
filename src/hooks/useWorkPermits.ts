@@ -110,6 +110,28 @@ async function notifyActiveApprovers(
         `[notify] RPC notify_permit_active_approvers failed for permit ${permitNo}:`,
         error,
       );
+      // Surface a visible warning instead of silently no-op'ing.
+      // Most common cause: the RPC migration not yet applied to the
+      // database the frontend is talking to. If we hide this, the
+      // user thinks 'permit submitted' was fully successful when in
+      // fact no approver got pinged.
+      const msg = (error as { message?: string }).message ?? String(error);
+      if (/function.*does not exist|notify_permit_active_approvers/i.test(msg)) {
+        toast.warning(
+          'Permit submitted, but notifications could not be sent — the database is missing the notify_permit_active_approvers function. Ask your admin to apply pending migrations.',
+          { duration: 10000 },
+        );
+      } else if (/permission denied/i.test(msg)) {
+        console.warn(
+          `[notify] RPC permission denied — caller is not requester/admin/approver of permit ${permitNo}. ` +
+          `This is expected for some forward flows; ignore unless the requester is reporting missing notifications.`,
+        );
+      } else {
+        toast.warning(
+          `Permit submitted, but approver notification failed: ${msg}. Approvers will still see it in their inbox when they log in.`,
+          { duration: 8000 },
+        );
+      }
       return;
     }
 
