@@ -516,7 +516,20 @@ export function useCreatePermit() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Specific catch for the legacy permit_status enum mismatch.
+        // If migration 20260513210000_dynamic_permit_status_enum hasn't
+        // been applied yet for any reason, surface a clearer message
+        // instead of the raw Postgres error.
+        if (/permit_status/.test(error.message)) {
+          throw new Error(
+            'The selected work type uses a role that is not yet registered in the system. ' +
+            'Please ask an admin to apply the dynamic-permit-status-enum migration, or ' +
+            'temporarily route this work type through a different workflow template.'
+          );
+        }
+        throw error;
+      }
 
       // Persist per-file attachment metadata to the new
       // permit_attachments table (the legacy work_permits.attachments
