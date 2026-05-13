@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   IdCard,
   FileText,
@@ -6,15 +6,21 @@ import {
   XCircle,
   AlertTriangle,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { usePermitAttachments, type PermitAttachment } from '@/hooks/usePermitAttachments';
+import { AddDocumentsDialog } from './AddDocumentsDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   permitId: string;
+  permitNo?: string;
+  requesterId?: string;
   /**
    * Legacy attachments array from work_permits.attachments text[].
    * Used as fallback when no permit_attachments rows exist (e.g.
