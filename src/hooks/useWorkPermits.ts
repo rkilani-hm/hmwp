@@ -1236,15 +1236,33 @@ export function useCancelPermit() {
         throw new Error('You can only withdraw permits you created');
       }
 
-      const { data, error } = await supabase
+      // Withdrawal-specific UPDATE: doesn't chain .select().single()
+      // because that's what produced the misleading 'Cannot coerce the
+      // result to a single JSON object' error when RLS blocked the
+      // post-update SELECT. Instead we ask for a minimal { count }
+      // response which tells us straight away whether the UPDATE took
+      // effect. If 0 rows matched, RLS is blocking us — surface a
+      // friendly message instead of a Postgrest internal.
+      const { error, count } = await supabase
         .from('work_permits')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled' }, { count: 'exact' })
         .eq('id', permitId)
-        .eq('requester_id', user?.id) // Extra safety check
-        .select()
-        .single();
+        .eq('requester_id', user?.id); // Extra safety check
 
       if (error) throw error;
+
+      if (count === 0) {
+        // Most likely RLS — the 'Users can withdraw own non-terminal
+        // permits' policy added in migration 20260513240000 should
+        // allow this. If we hit this branch:
+        //   - migration hasn't been applied yet → admin needs to run it
+        //   - permit is in a terminal state (approved / rejected /
+        //     cancelled / closed) → withdraw isn't allowed there
+        throw new Error(
+          'You cannot withdraw this permit. It may already be in a final state (approved, rejected, or closed), ' +
+          'or your admin needs to apply the latest migration. Refresh the page and try again.'
+        );
+      }
 
       // Log activity. Verb is "Withdrawn" to match the tenant-facing
       // UI ("Withdraw permit"). The DB status itself is still
@@ -1283,7 +1301,8 @@ export function useCancelPermit() {
         }
       }
 
-      return data;
+      // No payload to return — onSuccess just invalidates caches.
+      return;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
