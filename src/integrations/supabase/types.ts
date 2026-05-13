@@ -200,6 +200,13 @@ export type Database = {
             foreignKeyName: "gate_pass_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -640,6 +647,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -966,6 +980,13 @@ export type Database = {
             foreignKeyName: "role_permissions_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -1133,6 +1154,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
           {
             foreignKeyName: "user_roles_role_id_fkey"
             columns: ["role_id"]
@@ -1775,6 +1803,13 @@ export type Database = {
             foreignKeyName: "workflow_steps_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -1867,6 +1902,19 @@ export type Database = {
       }
     }
     Views: {
+      approver_setup_audit: {
+        Row: {
+          pending_permit_count: number | null
+          role_active: boolean | null
+          role_id: string | null
+          role_label: string | null
+          role_name: string | null
+          status: string | null
+          user_count: number | null
+          workflow_step_count: number | null
+        }
+        Relationships: []
+      }
       gate_pass_pending_approvals: {
         Row: {
           approved_at: string | null
@@ -1903,6 +1951,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gate_passes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
           },
           {
             foreignKeyName: "gate_pass_approvals_role_id_fkey"
@@ -1967,6 +2022,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -2026,6 +2088,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -2054,7 +2123,7 @@ export type Database = {
         Returns: undefined
       }
       ensure_permit_pending_approvals: {
-        Args: { _permit_id: string }
+        Args: { p_permit_id: string }
         Returns: number
       }
       get_pending_status_for_role: {
@@ -2083,6 +2152,7 @@ export type Database = {
       next_gate_pass_number_today: { Args: never; Returns: string }
       next_permit_number: { Args: { target_date: string }; Returns: string }
       next_permit_number_today: { Args: never; Returns: string }
+      notify_pending_approvers_backfill: { Args: never; Returns: number }
       reconcile_gate_pass_approvals: {
         Args: { _gate_pass_id: string }
         Returns: undefined
