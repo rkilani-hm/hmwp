@@ -30,7 +30,7 @@
 // Configuration:
 //   - LOVABLE_API_KEY: required. Set via Supabase project secrets.
 //     Get one from https://docs.lovable.dev/features/ai-gateway
-//   - Model: google/gemini-2.5-flash-lite (currently free tier; fast)
+//   - Model: google/gemini-2.5-flash (better at locating subjects
 //
 // If LOVABLE_API_KEY is missing, the function returns 200 with
 // { success: false, error: 'ai_not_configured' } so the frontend can
