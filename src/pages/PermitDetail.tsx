@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
+import { usePermitActiveApprovers } from '@/hooks/usePermitActiveApprovers';
 import { useArchiveWorkPermit, useRestoreWorkPermit, useHardDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
@@ -45,6 +46,8 @@ import {
   Edit,
   Bell,
   Settings2,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
@@ -81,6 +84,17 @@ interface PermitDetailProps {
   currentRole: string;
 }
 
+// Snake_case role name (e.g. 'al_hamra_customer_service') -> Title Case
+// ("Al Hamra Customer Service") for human display. Used by the
+// "Currently with" badge and other inline approver indicators.
+function humanRoleName(name: string): string {
+  if (!name) return '';
+  return name
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -99,6 +113,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
+  // Drives both the "Currently with" inline display AND canApprove().
+  // Single source of truth across the page, matching what the inbox
+  // sees — eliminates the old hardcoded statusToRole map that didn't
+  // include custom roles like al_hamra_customer_service.
+  const { data: activeApprovers = [] } = usePermitActiveApprovers(id);
   const { generatePdf, isGenerating } = useGeneratePdf();
   const resendNotification = useResendNotification();
   const archivePermit = useArchiveWorkPermit();
@@ -163,45 +182,30 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
 
   const workType = permit.work_types;
 
-  // Dynamic status-to-role mapping for all workflow types
-  const statusToRole: Record<string, string> = {
-    // Legacy internal workflow
-    'submitted': 'helpdesk',
-    'under_review': 'helpdesk',
-    'pending_pm': 'pm',
-    'pending_pd': 'pd',
-    'pending_bdcr': 'bdcr',
-    'pending_mpr': 'mpr',
-    'pending_it': 'it',
-    'pending_fitout': 'fitout',
-    'pending_ecovert_supervisor': 'ecovert_supervisor',
-    'pending_pmd_coordinator': 'pmd_coordinator',
-    // Client workflow roles
-    'pending_customer_service': 'customer_service',
-    'pending_cr_coordinator': 'cr_coordinator',
-    'pending_head_cr': 'head_cr',
-    'pending_fmsp_approval': 'fmsp_approval',
-    // Soft/Hard Facilities and PM Service
-    'pending_soft_facilities': 'soft_facilities',
-    'pending_hard_facilities': 'hard_facilities',
-    'pending_pm_service': 'pm_service',
-  };
-
+  // canApprove: is the current user expected to act on this permit
+  // RIGHT NOW? Reads from permit_active_approvers — same source as the
+  // inbox, so the two stay in sync. A user holding any role found in
+  // the active-approvers list can act. (Previous impl used a hardcoded
+  // map of legacy status -> role names; broke for custom roles.)
   const canApprove = () => {
     if (currentRole === 'tenant') return false;
-    const requiredRole = statusToRole[permit.status];
-    if (!requiredRole) return false;
-    return roles.includes(requiredRole as any);
+    if (activeApprovers.length === 0) return false;
+    const activeRoleNames = new Set(activeApprovers.map((a) => a.role_name));
+    return roles.some((r) => activeRoleNames.has(r as string));
   };
 
+  // getApprovalRole: which OF the active roles is the current user
+  // acting as? If user holds multiple matching roles, prefer the
+  // earliest step_order (the most active one in the workflow). The
+  // approve edge function then double-checks role assignment via RLS.
   const getApprovalRole = (): string => {
-    const role = statusToRole[permit.status];
-    if (role && roles.includes(role as any)) {
-      return role;
-    }
-    // Fallback: return the first matching approver role the user has
-    const allApproverRoles = Object.values(statusToRole);
-    return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
+    const matchingActive = activeApprovers
+      .filter((a) => roles.includes(a.role_name as any))
+      .sort((a, b) => (a.step_order ?? 999) - (b.step_order ?? 999));
+    if (matchingActive.length > 0) return matchingActive[0].role_name;
+    // Fallback: any role the user has from the active list (defensive)
+    const activeRoleNames = activeApprovers.map((a) => a.role_name);
+    return roles.find((r) => activeRoleNames.includes(r as string)) || 'helpdesk';
   };
 
   const handleApprove = () => {
@@ -263,6 +267,21 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               )}
             </div>
             <p className="text-muted-foreground mt-1 text-sm">{permit.work_types?.name || 'General Work'}</p>
+            {/* Inline "currently with" indicator — visible to BOTH tenant
+                (so they know who's holding their permit right now) and
+                approvers (so they see who else acts in parallel). Reads
+                permit_active_approvers; empty for terminal statuses. */}
+            {activeApprovers.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap text-sm text-muted-foreground">
+                <UserCheck className="h-3.5 w-3.5 text-primary" />
+                <span>Currently with:</span>
+                {activeApprovers.map((a, idx) => (
+                  <Badge key={a.role_id || idx} variant="outline" className="font-normal">
+                    {humanRoleName(a.role_name)}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">

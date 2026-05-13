@@ -978,8 +978,22 @@ export function useApprovePermit() {
       return data;
     },
     onSuccess: (_, variables) => {
+      // Comprehensive cache invalidation: the action changed permit
+      // status + permit_approvals rows + which step is "active".
+      // Anything reading these caches needs to refetch.
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      // Inbox query — without this the just-actioned permit lingers
+      // in the approver's inbox until manual refresh.
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      // Approval progress sidebar reads permit_approvals — refresh so
+      // it shows the new approved/rejected mark immediately.
+      queryClient.invalidateQueries({ queryKey: ['permit-approvals', variables.permitId] });
+      // "Currently with" inline badge depends on permit_active_approvers
+      // for this permit; the next-stage role just became active.
+      queryClient.invalidateQueries({ queryKey: ['permit-active-approvers', variables.permitId] });
+      // Activity log will have a new row.
+      queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
       toast.success(variables.approved ? 'Permit approved!' : 'Permit rejected');
     },
     onError: (error) => {
@@ -1047,8 +1061,15 @@ export function useSecureApprovePermit() {
       return data;
     },
     onSuccess: (_data, variables) => {
+      // See sibling useApprovePermit for the full list rationale —
+      // both code paths must keep cache state consistent or stale
+      // rows linger in the inbox + progress sidebar after action.
       queryClient.invalidateQueries({ queryKey: ['work-permits'] });
       queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      queryClient.invalidateQueries({ queryKey: ['permit-approvals', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['permit-active-approvers', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
       toast.success(
         variables.approved
           ? 'Permit approved with verified signature!'
