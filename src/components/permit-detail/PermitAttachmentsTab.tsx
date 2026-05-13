@@ -96,12 +96,18 @@ export function PermitAttachmentsTab({ permitId, permitNo, requesterId, legacyAt
   // Empty state
   if (!hasNew && !hasLegacy) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>No files attached</CardDescription>
-        </CardHeader>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-display">Attachments</CardTitle>
+              <CardDescription>No files attached</CardDescription>
+            </div>
+            {AddButton}
+          </CardHeader>
+        </Card>
+        {AddDialog}
+      </>
     );
   }
 
@@ -109,26 +115,32 @@ export function PermitAttachmentsTab({ permitId, permitNo, requesterId, legacyAt
   // had categorization or extraction; show them in plain form.
   if (!hasNew && hasLegacy) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>
-            {legacyAttachments.length} file{legacyAttachments.length === 1 ? '' : 's'} attached
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {legacyAttachments.map((filePath, idx) => {
-              const filename = filePath.includes('/')
-                ? decodeURIComponent(filePath.split('/').pop() || `attachment-${idx + 1}`)
-                : filePath;
-              return (
-                <AttachmentPreview key={idx} filePath={filePath} filename={filename} />
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-display">Attachments</CardTitle>
+              <CardDescription>
+                {legacyAttachments.length} file{legacyAttachments.length === 1 ? '' : 's'} attached
+              </CardDescription>
+            </div>
+            {AddButton}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {legacyAttachments.map((filePath, idx) => {
+                const filename = filePath.includes('/')
+                  ? decodeURIComponent(filePath.split('/').pop() || `attachment-${idx + 1}`)
+                  : filePath;
+                return (
+                  <AttachmentPreview key={idx} filePath={filePath} filename={filename} />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+        {AddDialog}
+      </>
     );
   }
 
@@ -136,13 +148,17 @@ export function PermitAttachmentsTab({ permitId, permitNo, requesterId, legacyAt
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-display">Attachments</CardTitle>
-          <CardDescription>
-            {(attachments?.length ?? 0)} file{(attachments?.length ?? 0) === 1 ? '' : 's'} attached
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-lg font-display">Attachments</CardTitle>
+            <CardDescription>
+              {(attachments?.length ?? 0)} file{(attachments?.length ?? 0) === 1 ? '' : 's'} attached
+            </CardDescription>
+          </div>
+          {AddButton}
         </CardHeader>
       </Card>
+      {AddDialog}
 
       {idDocs.length > 0 && (
         <Card>
