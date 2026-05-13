@@ -194,6 +194,32 @@ const serve_handler = async (req: Request): Promise<Response> => {
       return { page, yPos: pageHeight - margin };
     };
 
+    /**
+     * Truncate a string so it fits inside `maxWidth` when rendered at
+     * the given font + size, adding an ellipsis if anything was cut.
+     * Used by the attachment grid for filename labels — file names
+     * are often longer than a cell width, especially with mobile
+     * camera generated names like 'IMG_20260513_104755_civil_id.jpg'.
+     */
+    const truncateForWidth = (text: string, maxWidth: number, font: PDFFont, size: number): string => {
+      const safe = String(text || '').replace(/[^\x00-\x7F]/g, '');
+      if (!safe) return '';
+      if (font.widthOfTextAtSize(safe, size) <= maxWidth) return safe;
+      const ellipsis = '...';
+      let lo = 0;
+      let hi = safe.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi + 1) / 2);
+        const candidate = safe.slice(0, mid) + ellipsis;
+        if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      return safe.slice(0, lo) + ellipsis;
+    };
+
     const drawText = (page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont = helvetica, color = rgb(0, 0, 0)) => {
       const safeText = String(text || '').replace(/[^\x00-\x7F]/g, '');
       if (safeText && y > 30) {
@@ -661,111 +687,292 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawText(page, 'Generated on ' + new Date().toLocaleString(), margin, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
     drawText(page, 'This is an official work permit document.', pageWidth - margin - 180, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
 
-    // ===== PAGE 2+: Attachments =====
-    const attachments = permit.attachments || [];
-    if (attachments.length > 0) {
-      console.log("Processing", attachments.length, "attachments");
-      
-      const attachmentPageResult = createPage();
-      page = attachmentPageResult.page;
-      yPos = attachmentPageResult.yPos;
-      
-      await drawSectionHeader(page, 'ATTACHMENTS', yPos, 16);
-      yPos -= 30;
-      
-      for (let i = 0; i < attachments.length; i++) {
-        const attachment = attachments[i];
-        const fileName = attachment.split('/').pop() || attachment;
-        const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
-        
-        console.log("Processing attachment:", fileName, "type:", fileExt);
-        
-        // Draw attachment name
-        drawText(page, `${i + 1}. ${fileName}`, margin, yPos, 10, helveticaBold);
-        yPos -= 18;
-        
-        // Try to embed image attachments
-        const imageExts = ['jpg', 'jpeg', 'png'];
-        if (imageExts.includes(fileExt)) {
-          try {
-            // Download attachment from storage
-            const { data: attachmentData, error: downloadError } = await supabaseAdmin.storage
-              .from("permit-attachments")
-              .download(attachment);
-            
-            if (!downloadError && attachmentData) {
-              const arrayBuffer = await attachmentData.arrayBuffer();
-              const imageBytes = new Uint8Array(arrayBuffer);
-              
-              let embeddedImage;
-              if (fileExt === 'png') {
-                embeddedImage = await pdfDoc.embedPng(imageBytes);
-              } else {
-                embeddedImage = await pdfDoc.embedJpg(imageBytes);
-              }
-              
-              // Scale image to fit page width (max 500px wide, proportional height)
-              const maxWidth = 500;
-              const maxHeight = 400;
-              const scale = Math.min(maxWidth / embeddedImage.width, maxHeight / embeddedImage.height, 1);
-              const scaledWidth = embeddedImage.width * scale;
-              const scaledHeight = embeddedImage.height * scale;
-              
-              // Check if image fits on current page
-              if (yPos - scaledHeight < 80) {
-                const newPageResult = createPage();
-                page = newPageResult.page;
-                yPos = newPageResult.yPos;
-                drawText(page, 'ATTACHMENTS (continued)', margin, yPos, 12, helveticaBold);
-                yPos -= 25;
-              }
-              
-              // Draw border around image
-              page.drawRectangle({
-                x: margin - 2,
-                y: yPos - scaledHeight - 2,
-                width: scaledWidth + 4,
-                height: scaledHeight + 4,
-                borderColor: rgb(0.7, 0.7, 0.7),
-                borderWidth: 1,
-              });
-              
-              page.drawImage(embeddedImage, {
-                x: margin,
-                y: yPos - scaledHeight,
-                width: scaledWidth,
-                height: scaledHeight,
-              });
-              
-              yPos -= (scaledHeight + 25);
-              console.log("Embedded image:", fileName);
-            } else {
-              console.error("Error downloading attachment:", downloadError);
-              drawText(page, '  [Image could not be loaded]', margin, yPos, 9, helvetica, rgb(0.6, 0.6, 0.6));
-              yPos -= 15;
-            }
-          } catch (imgError) {
-            console.error("Error processing image:", imgError);
-            drawText(page, '  [Error loading image]', margin, yPos, 9, helvetica, rgb(0.6, 0.6, 0.6));
-            yPos -= 15;
-          }
+    // ===== PAGE 2+: Attachment grids =====
+    //
+    // Two sections, each paginated as a grid:
+    //
+    //   1. Employee Civil ID or Driving License — 3 columns × 3 rows
+    //      = 9 IDs per page. Card aspect 1.585:1 (Kuwait civil ID is
+    //      85.6×53.98mm) is preserved by fitting each image to a 165×
+    //      105 box inside the cell, with filename below.
+    //
+    //   2. Other Documents — 2 columns × 2 rows = 4 per page. Larger
+    //      cells (250×340) to accommodate variable-shape documents.
+    //
+    // Source: permit_attachments table (modern), falls back to the
+    // legacy work_permits.attachments text[] for old permits without
+    // categorized rows.
+    const { data: permitAttachmentRows } = await supabaseAdmin
+      .from("permit_attachments")
+      .select("file_path, file_name, mime_type, document_type, extracted_name, extracted_expiry_date")
+      .eq("permit_id", permit.id)
+      .order("created_at", { ascending: true });
+
+    let idDocs: Array<{ path: string; name: string; mime: string | null; meta?: string }> = [];
+    let otherDocs: Array<{ path: string; name: string; mime: string | null; meta?: string }> = [];
+
+    if (permitAttachmentRows && permitAttachmentRows.length > 0) {
+      for (const r of permitAttachmentRows) {
+        const entry = {
+          path: r.file_path as string,
+          name: (r.file_name as string) || (r.file_path as string).split('/').pop() || 'attachment',
+          mime: r.mime_type as string | null,
+          // Surface extracted holder + expiry as a small caption under
+          // the image when we have it. After OCR was removed these
+          // columns are usually null; harmless when so.
+          meta: [r.extracted_name, r.extracted_expiry_date].filter(Boolean).join(' · ') || undefined,
+        };
+        if (r.document_type === 'civil_id' || r.document_type === 'driving_license') {
+          idDocs.push(entry);
         } else {
-          // Non-image attachment - just list it
-          drawText(page, '  [File attached - see original]', margin, yPos, 9, helvetica, rgb(0.5, 0.5, 0.5));
-          yPos -= 20;
-        }
-        
-        // Check if we need a new page
-        if (yPos < 100 && i < attachments.length - 1) {
-          const newPageResult = createPage();
-          page = newPageResult.page;
-          yPos = newPageResult.yPos;
-          drawText(page, 'ATTACHMENTS (continued)', margin, yPos, 12, helveticaBold);
-          yPos -= 25;
+          otherDocs.push(entry);
         }
       }
+    } else {
+      // Legacy fallback — permit pre-dates permit_attachments table.
+      // No categorization available; treat them all as "other" so they
+      // still appear in the document.
+      const legacy = (permit.attachments || []) as string[];
+      otherDocs = legacy.map((p) => ({
+        path: p,
+        name: p.split('/').pop() || p,
+        mime: null,
+      }));
     }
 
+    /**
+     * Download a single attachment from storage and try to embed it
+     * as an image in the PDF. Returns the PDFImage on success, or
+     * null if the file is missing, unreachable, or in a format
+     * pdf-lib can't embed (only JPEG / PNG).
+     *
+     * Non-image attachments (PDFs, BMP, TIFF, etc.) are intentionally
+     * returned as null so the caller falls back to a filename-only
+     * placeholder cell — embedding a PDF inside a PDF would require
+     * pdf-lib's copyPages() and a separate document-merge pipeline.
+     */
+    const tryEmbedImage = async (filePath: string, mime: string | null) => {
+      try {
+        const { data, error } = await supabaseAdmin.storage
+          .from("permit-attachments")
+          .download(filePath);
+        if (error || !data) {
+          console.warn(`Could not download ${filePath}:`, error?.message);
+          return null;
+        }
+        const bytes = new Uint8Array(await data.arrayBuffer());
+
+        // Sniff the magic bytes if MIME is missing — happens for files
+        // uploaded from Safari with empty file.type
+        const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+        const declaredJpeg = mime === 'image/jpeg' || mime === 'image/jpg';
+        const declaredPng = mime === 'image/png';
+
+        if (isJpeg || declaredJpeg) {
+          return await pdfDoc.embedJpg(bytes);
+        }
+        if (isPng || declaredPng) {
+          return await pdfDoc.embedPng(bytes);
+        }
+        // Unsupported format for embedding
+        return null;
+      } catch (err) {
+        console.warn(`embed failed for ${filePath}:`, (err as Error).message);
+        return null;
+      }
+    };
+
+    /**
+     * Render one page of an attachment grid.
+     *   cols × rows cells, each at the given fixed size.
+     *   Each cell shows: thumbnail (or filename-only fallback) +
+     *   filename below + optional caption (e.g. extracted holder).
+     */
+    interface GridConfig {
+      cols: number;
+      rows: number;
+      cellW: number;
+      cellH: number;
+      gap: number;
+      sectionTitle: string;
+      sectionTitleArabic?: string;
+    }
+
+    const drawAttachmentGrid = async (
+      items: Array<{ path: string; name: string; mime: string | null; meta?: string }>,
+      cfg: GridConfig,
+    ) => {
+      if (items.length === 0) return;
+
+      const perPage = cfg.cols * cfg.rows;
+      const totalGridPages = Math.ceil(items.length / perPage);
+
+      for (let pg = 0; pg < totalGridPages; pg++) {
+        const { page: gridPage } = createPage();
+        let headerY = pageHeight - margin;
+
+        // Section header — bilingual title + page indicator
+        const title = totalGridPages > 1
+          ? `${cfg.sectionTitle} (${pg + 1} of ${totalGridPages})`
+          : cfg.sectionTitle;
+        drawText(gridPage, title, margin, headerY, 16, helveticaBold, BRAND_RED);
+        if (arabicFonts && cfg.sectionTitleArabic) {
+          try {
+            await drawArabic(
+              gridPage,
+              cfg.sectionTitleArabic,
+              pageWidth - margin,
+              headerY,
+              { font: arabicFonts.bold, size: 16, color: BRAND_RED },
+            );
+          } catch {
+            // Arabic font issue is non-fatal
+          }
+        }
+        headerY -= 8;
+        gridPage.drawLine({
+          start: { x: margin, y: headerY },
+          end: { x: pageWidth - margin, y: headerY },
+          thickness: 1,
+          color: BRAND_RED,
+        });
+        headerY -= 20;
+
+        // The grid starts below the header. We center horizontally.
+        const gridWidth = cfg.cols * cfg.cellW + (cfg.cols - 1) * cfg.gap;
+        const gridLeft = (pageWidth - gridWidth) / 2;
+
+        const startIdx = pg * perPage;
+        const endIdx = Math.min(startIdx + perPage, items.length);
+
+        for (let i = startIdx; i < endIdx; i++) {
+          const item = items[i];
+          const cellIdx = i - startIdx;
+          const col = cellIdx % cfg.cols;
+          const row = Math.floor(cellIdx / cfg.cols);
+
+          const cellX = gridLeft + col * (cfg.cellW + cfg.gap);
+          const cellY = headerY - (row + 1) * cfg.cellH - row * cfg.gap;
+
+          // Reserve bottom strip for filename label
+          const labelStripH = 32;
+          const imgAreaH = cfg.cellH - labelStripH;
+          const imgAreaW = cfg.cellW;
+
+          // Cell border
+          gridPage.drawRectangle({
+            x: cellX,
+            y: cellY,
+            width: cfg.cellW,
+            height: cfg.cellH,
+            borderColor: rgb(0.75, 0.75, 0.75),
+            borderWidth: 0.7,
+          });
+
+          // Try to embed the image
+          const embedded = await tryEmbedImage(item.path, item.mime);
+
+          if (embedded) {
+            // Fit-inside scaling — preserve aspect ratio
+            const imgRatio = embedded.width / embedded.height;
+            const areaRatio = imgAreaW / imgAreaH;
+            let drawW: number;
+            let drawH: number;
+            if (imgRatio > areaRatio) {
+              drawW = imgAreaW - 8;
+              drawH = drawW / imgRatio;
+            } else {
+              drawH = imgAreaH - 8;
+              drawW = drawH * imgRatio;
+            }
+            const imgX = cellX + (cfg.cellW - drawW) / 2;
+            const imgY = cellY + labelStripH + (imgAreaH - drawH) / 2;
+            gridPage.drawImage(embedded, {
+              x: imgX,
+              y: imgY,
+              width: drawW,
+              height: drawH,
+            });
+          } else {
+            // Filename-only fallback for non-image files (PDFs, etc.)
+            const placeholderText = (item.mime || '').includes('pdf')
+              ? '[PDF attachment]'
+              : '[File attached]';
+            const phWidth = helvetica.widthOfTextAtSize(placeholderText, 9);
+            drawText(
+              gridPage,
+              placeholderText,
+              cellX + (cfg.cellW - phWidth) / 2,
+              cellY + labelStripH + imgAreaH / 2,
+              9,
+              helvetica,
+              rgb(0.55, 0.55, 0.55),
+            );
+          }
+
+          // Filename label — truncate if too long for the cell
+          const truncatedName = truncateForWidth(
+            item.name,
+            cfg.cellW - 8,
+            helvetica,
+            8,
+          );
+          const nameWidth = helvetica.widthOfTextAtSize(truncatedName, 8);
+          drawText(
+            gridPage,
+            truncatedName,
+            cellX + (cfg.cellW - nameWidth) / 2,
+            cellY + labelStripH - 12,
+            8,
+            helveticaBold,
+            rgb(0.2, 0.2, 0.2),
+          );
+
+          // Optional caption (extracted holder name + expiry, if present)
+          if (item.meta) {
+            const truncatedMeta = truncateForWidth(
+              item.meta,
+              cfg.cellW - 8,
+              helvetica,
+              7,
+            );
+            const metaWidth = helvetica.widthOfTextAtSize(truncatedMeta, 7);
+            drawText(
+              gridPage,
+              truncatedMeta,
+              cellX + (cfg.cellW - metaWidth) / 2,
+              cellY + labelStripH - 22,
+              7,
+              helvetica,
+              rgb(0.45, 0.45, 0.45),
+            );
+          }
+        }
+      }
+    };
+
+    // 3×3 IDs grid
+    await drawAttachmentGrid(idDocs, {
+      cols: 3,
+      rows: 3,
+      cellW: 165,
+      cellH: 220,
+      gap: 8,
+      sectionTitle: 'EMPLOYEE CIVIL ID / DRIVING LICENSE',
+      sectionTitleArabic: 'البطاقة المدنية ورخصة القيادة',
+    });
+
+    // 2×2 other documents grid
+    await drawAttachmentGrid(otherDocs, {
+      cols: 2,
+      rows: 2,
+      cellW: 250,
+      cellH: 340,
+      gap: 12,
+      sectionTitle: 'OTHER DOCUMENTS',
+      sectionTitleArabic: 'مستندات أخرى',
+    });
     // Add page numbers, company logo, watermark, and QR code to all pages
     const pages = pdfDoc.getPages();
     const totalPages = pages.length;
