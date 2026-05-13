@@ -847,10 +847,12 @@ export type Database = {
           company_name: string | null
           created_at: string
           email: string
+          floor: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
           phone: string | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
@@ -865,10 +867,12 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email: string
+          floor?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
           phone?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
@@ -883,10 +887,12 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email?: string
+          floor?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
           phone?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
