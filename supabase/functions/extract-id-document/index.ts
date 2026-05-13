@@ -30,7 +30,7 @@
 // Configuration:
 //   - LOVABLE_API_KEY: required. Set via Supabase project secrets.
 //     Get one from https://docs.lovable.dev/features/ai-gateway
-//   - Model: google/gemini-2.5-flash-lite (currently free tier; fast)
+//   - Model: google/gemini-2.5-flash (better at locating subjects
 //
 // If LOVABLE_API_KEY is missing, the function returns 200 with
 // { success: false, error: 'ai_not_configured' } so the frontend can
@@ -176,7 +176,7 @@ serve(async (req) => {
 
     // Construct the OpenAI-compatible vision request expected by the
     // Lovable AI Gateway. Image is passed as a data URL inside
-    // image_url. Gemini Flash Lite accepts the same format.
+    // image_url. Gemini Flash accepts the same format.
     const requestBody = {
       model: MODEL,
       messages: [
