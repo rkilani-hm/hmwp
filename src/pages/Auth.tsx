@@ -54,6 +54,11 @@ export default function Auth() {
   const [signUpName, setSignUpName] = useState('');
   const [signUpPhone, setSignUpPhone] = useState('');
   const [signUpCompany, setSignUpCompany] = useState('');
+  // Tenant master data — captured at signup, stored on profile,
+  // re-used as defaults in the work-permit + gate-pass wizards.
+  // Optional; tenants can leave them blank and fill in later.
+  const [signUpUnit, setSignUpUnit] = useState('');
+  const [signUpFloor, setSignUpFloor] = useState('');
   const [signUpErrors, setSignUpErrors] = useState<{ email?: string; password?: string; name?: string; phone?: string; company?: string }>({});
 
   const validateSignIn = () => {
@@ -130,7 +135,12 @@ export default function Auth() {
     if (!validateSignUp()) return;
     
     setIsLoading(true);
-    const { error } = await signUp(signUpEmail, signUpPassword, signUpName, { phone: signUpPhone, companyName: signUpCompany });
+    const { error } = await signUp(signUpEmail, signUpPassword, signUpName, {
+      phone: signUpPhone,
+      companyName: signUpCompany,
+      unit: signUpUnit,
+      floor: signUpFloor,
+    });
     setIsLoading(false);
     
     if (!error) {
@@ -154,6 +164,8 @@ export default function Auth() {
     setSignUpName('');
     setSignUpPhone('');
     setSignUpCompany('');
+    setSignUpUnit('');
+    setSignUpFloor('');
     setSignUpEmail('');
   };
 
@@ -526,6 +538,32 @@ export default function Auth() {
                     {signUpErrors.company && (
                       <p className="text-sm text-destructive">{signUpErrors.company}</p>
                     )}
+                  </div>
+                  {/* Unit + Floor: optional tenant master data. Stored on
+                      the profile and used as defaults in the permit and
+                      gate-pass wizards. Side-by-side on a single row to
+                      keep the form compact. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-unit">Unit</Label>
+                      <Input
+                        id="signup-unit"
+                        type="text"
+                        placeholder="e.g. 1205"
+                        value={signUpUnit}
+                        onChange={(e) => setSignUpUnit(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-floor">Floor</Label>
+                      <Input
+                        id="signup-floor"
+                        type="text"
+                        placeholder="e.g. 12"
+                        value={signUpFloor}
+                        onChange={(e) => setSignUpFloor(e.target.value)}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>

@@ -16,6 +16,15 @@ interface Profile {
   auth_preference: string | null;
   account_status: 'pending' | 'approved' | 'rejected';
   account_rejection_reason: string | null;
+  /**
+   * Tenant master data captured at signup, used to pre-fill every
+   * subsequent form (work-permit wizard, gate-pass wizard, etc.).
+   * Nullable: tenants registered before the unit/floor migration
+   * have NULL until they next edit their profile or an admin fills
+   * the values in via the Pending Approvals page.
+   */
+  unit: string | null;
+  floor: string | null;
 }
 
 interface AuthContextType {
@@ -25,7 +34,12 @@ interface AuthContextType {
   roles: RoleName[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, extra?: { phone?: string; companyName?: string }) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    extra?: { phone?: string; companyName?: string; unit?: string; floor?: string },
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   /**
    * Sends a password-reset email containing a magic recovery link.
@@ -238,7 +252,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, extra?: { phone?: string; companyName?: string }) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    extra?: { phone?: string; companyName?: string; unit?: string; floor?: string },
+  ) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
@@ -251,6 +270,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             full_name: fullName,
             phone: extra?.phone ?? '',
             company_name: extra?.companyName ?? '',
+            // Unit + Floor: tenant master data. handle_new_user trigger
+            // reads these from raw_user_meta_data and stores them on
+            // public.profiles. Trimmed to empty string then nulled-out
+            // by the trigger; safe to pass whatever the form has.
+            unit: extra?.unit ?? '',
+            floor: extra?.floor ?? '',
           },
         },
       });

@@ -12,7 +12,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound } from 'lucide-react';
+import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -31,6 +31,11 @@ export default function Settings() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
+  // Tenant master data — captured at signup, used as defaults in every
+  // permit/gate-pass wizard. Editable here so tenants can update when
+  // they move units without needing an admin.
+  const [unit, setUnit] = useState('');
+  const [floor, setFloor] = useState('');
   const [authPreference, setAuthPreference] = useState<'password' | 'biometric'>('password');
 
   // Load company logo URL
@@ -42,6 +47,8 @@ export default function Settings() {
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
       setCompanyName(profile.company_name || '');
+      setUnit(profile.unit || '');
+      setFloor(profile.floor || '');
       setAuthPreference((profile.auth_preference as 'password' | 'biometric') || 'password');
     }
   }, [profile, isEditing]);
@@ -86,6 +93,8 @@ export default function Settings() {
     setFullName(profile?.full_name || '');
     setPhone(profile?.phone || '');
     setCompanyName(profile?.company_name || '');
+    setUnit(profile?.unit || '');
+    setFloor(profile?.floor || '');
     setIsEditing(true);
   };
 
@@ -94,6 +103,8 @@ export default function Settings() {
     setFullName(profile?.full_name || '');
     setPhone(profile?.phone || '');
     setCompanyName(profile?.company_name || '');
+    setUnit(profile?.unit || '');
+    setFloor(profile?.floor || '');
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,6 +197,11 @@ export default function Settings() {
             full_name: fullName.trim(),
             phone: phone.trim() || null,
             company_name: companyName.trim() || null,
+            // Tenant master data — trimmed, blank → null so the
+            // wizards' pre-fill logic doesn't have to distinguish
+            // '' from missing.
+            unit: unit.trim() || null,
+            floor: floor.trim() || null,
             auth_preference: isApprover() ? authPreference : undefined,
           },
           { onConflict: 'id' }
@@ -406,6 +422,32 @@ export default function Settings() {
                     placeholder="Enter your company name"
                   />
                 </div>
+
+                {/* Unit + Floor — tenant master data. Side-by-side row
+                    so they take the same vertical space as a single
+                    field. Used as pre-fill defaults in the work-permit
+                    + gate-pass wizards. Optional; leave blank if not
+                    applicable. */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Unit</Label>
+                    <Input
+                      id="unit"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder="e.g. 1205"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="floor">Floor</Label>
+                    <Input
+                      id="floor"
+                      value={floor}
+                      onChange={(e) => setFloor(e.target.value)}
+                      placeholder="e.g. 12"
+                    />
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-3 pt-4 border-t">
@@ -424,6 +466,16 @@ export default function Settings() {
                 <div className="flex items-center gap-3 text-sm">
                   <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span>{profile?.company_name || 'Not set'}</span>
+                </div>
+                {/* Unit + Floor — shown alongside company so admins
+                    and approvers reviewing the profile see all the
+                    master data in one block. MapPin icon reused for
+                    consistency with the Pending Approvals card. */}
+                <div className="flex items-center gap-3 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>
+                    Unit {profile?.unit || '—'} · Floor {profile?.floor || '—'}
+                  </span>
                 </div>
               </div>
             )}

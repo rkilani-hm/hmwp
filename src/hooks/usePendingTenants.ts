@@ -8,6 +8,8 @@ export interface PendingTenant {
   full_name: string | null;
   phone: string | null;
   company_name: string | null;
+  unit: string | null;
+  floor: string | null;
   created_at: string;
   account_status: 'pending' | 'approved' | 'rejected';
 }
@@ -26,7 +28,7 @@ export function usePendingTenants() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, email, full_name, phone, company_name, created_at, account_status'
+          'id, email, full_name, phone, company_name, unit, floor, created_at, account_status'
         )
         .eq('account_status', 'pending')
         .order('created_at', { ascending: true });
@@ -169,6 +171,55 @@ export function useRejectTenant() {
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Failed to reject tenant');
+    },
+  });
+}
+
+export interface TenantDetailsPatch {
+  full_name?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+  unit?: string | null;
+  floor?: string | null;
+}
+
+/**
+ * Admin-only: fix tenant data before approval. Used from the
+ * Pending Approvals page when the admin notices something missing
+ * or wrong (a tenant who left unit blank, mistyped their phone,
+ * etc.) and wants to correct it without forcing the tenant to
+ * re-register.
+ *
+ * Empty strings are normalized to null so the profile column
+ * doesn't carry meaningless ''. RLS gates on the existing
+ * "Admins can update all profiles" policy.
+ */
+export function useUpdateTenantProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ tenantId, patch }: { tenantId: string; patch: TenantDetailsPatch }) => {
+      // Normalize: trim strings, convert blanks to nulls so the
+      // profile row stays tidy.
+      const cleaned: Record<string, string | null> = {};
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === undefined) continue;
+        const t = (v ?? '').trim();
+        cleaned[k] = t === '' ? null : t;
+      }
+      // updated_at is auto-touched by the profiles trigger; we just
+      // need to pass the patch.
+      const { error } = await supabase
+        .from('profiles')
+        .update(cleaned)
+        .eq('id', tenantId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PENDING_TENANTS_KEY });
+      toast.success('Tenant details updated');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to update tenant details');
     },
   });
 }
