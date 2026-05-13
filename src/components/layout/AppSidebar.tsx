@@ -34,6 +34,7 @@ import {
   PieChart,
   ShieldCheck,
   FolderCog,
+  Stethoscope,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -208,6 +209,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: Users, label: 'User Management', path: '/approvers' },
           { icon: Shield, label: 'Roles', path: '/roles' },
           { icon: Key, label: 'Permissions', path: '/permissions' },
+          { icon: Stethoscope, label: 'Approver Audit', path: '/approver-audit' },
           { icon: Activity, label: 'Deletion Audit Log', path: '/deletion-audit-log' },
         ],
       },

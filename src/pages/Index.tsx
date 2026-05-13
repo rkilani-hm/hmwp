@@ -13,6 +13,7 @@ import PendingApprovals from './admin/PendingApprovals';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import WorkLocationsManagement from './admin/WorkLocationsManagement';
 import RolesManagement from './admin/RolesManagement';
+import ApproverAudit from './admin/ApproverAudit';
 import PermissionsManagement from './admin/PermissionsManagement';
 import WorkflowBuilder from './admin/WorkflowBuilder';
 import Reports from './admin/Reports';
@@ -126,6 +127,10 @@ const Index = () => {
         <Route
           path="pending-tenants"
           element={isAdmin ? <PendingApprovals /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="approver-audit"
+          element={isAdmin ? <ApproverAudit /> : <Navigate to="/" replace />}
         />
       </Routes>
     </AppLayout>
