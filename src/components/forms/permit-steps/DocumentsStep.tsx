@@ -299,16 +299,9 @@ export function DocumentsStep({ data, updateField }: Props) {
     const updated = [...data.attachments, ...newAttachments];
     updateField('attachments', updated);
 
-    // Phase 2: for ID documents, convert HEIC first (if needed), then
-    // run extraction. We chain via prepareAndExtract so the UI status
-    // smoothly transitions converting → processing → success/failed.
-    if (documentType !== 'other') {
-      for (const att of newAttachments) {
-        if (att.validationError) continue;
-        prepareAndExtract(att, updated);
-      }
-    }
-  };
+    // AI OCR disabled per user request — no extraction or HEIC
+    // conversion is triggered. Files are uploaded as-is.
+
 
   /**
    * Two-phase pipeline for an ID Document attachment:
