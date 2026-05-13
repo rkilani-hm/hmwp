@@ -58,6 +58,94 @@ async function fileToBase64(file: File): Promise<string> {
 const MAX_ID_DIMENSION = 1600;
 
 /**
+ * Build a user-friendly error explanation from a backend error code
+ * or raw message. Returns a title (what happened) and a hint (how to
+ * fix it). Surfaces the actual cause instead of a generic "couldn't
+ * read" message so the user knows whether to retry, re-take the
+ * photo, or contact support.
+ */
+function describeExtractionError(
+  code: string | undefined,
+  detail: string | undefined,
+): { title: string; hint: string } {
+  const raw = (detail || '').toLowerCase();
+
+  switch (code) {
+    case 'ai_not_configured':
+      return {
+        title: 'Auto-read is not configured on this server',
+        hint: 'Your document is still attached and will be submitted. An administrator needs to enable the AI service.',
+      };
+    case 'ai_quota_exhausted':
+      return {
+        title: 'AI auto-read quota has been used up for this month',
+        hint: 'Your document is still attached. Ask an administrator to add credits, or proceed and the reviewer will read it manually.',
+      };
+    case 'ai_rate_limited':
+      return {
+        title: 'AI service is temporarily busy',
+        hint: 'Wait 30 seconds and tap "Try again". Your file is already attached.',
+      };
+    case 'missing_image':
+      return {
+        title: 'The image could not be sent to the server',
+        hint: 'The file may be empty or corrupted. Remove it and re-attach the photo.',
+      };
+    case 'ai_empty_response':
+    case 'ai_parse_failed':
+      return {
+        title: 'AI couldn\'t understand the photo',
+        hint: 'Re-take the photo with better lighting, no glare, and the whole card visible inside the frame.',
+      };
+    case 'ai_request_failed':
+      return {
+        title: 'The AI service returned an error',
+        hint: 'Tap "Try again" in a moment. If it keeps failing, your document is still attached and will be reviewed manually.',
+      };
+    case 'internal_error':
+      return {
+        title: 'An unexpected error occurred while reading the document',
+        hint: detail
+          ? `Details: ${detail}. Tap "Try again", or remove and re-upload the file.`
+          : 'Tap "Try again", or remove and re-upload the file.',
+      };
+  }
+
+  // Fall back to pattern-matching the raw message
+  if (raw.includes('network') || raw.includes('fetch') || raw.includes('failed to fetch')) {
+    return {
+      title: 'Couldn\'t reach the AI service',
+      hint: 'Check your internet connection and tap "Try again".',
+    };
+  }
+  if (raw.includes('timeout') || raw.includes('timed out')) {
+    return {
+      title: 'The AI service took too long to respond',
+      hint: 'Tap "Try again". If the photo is very large, try a smaller one.',
+    };
+  }
+  if (raw.includes('too large') || raw.includes('413')) {
+    return {
+      title: 'The image is too large to process',
+      hint: 'Re-take the photo at a lower resolution, or use a different photo.',
+    };
+  }
+  if (raw.includes('heic') || raw.includes('convert')) {
+    return {
+      title: 'Couldn\'t convert the iPhone photo (HEIC) to JPEG',
+      hint: 'Open the photo on your phone, save it as JPEG, then upload it again. Or use a non-iPhone photo.',
+    };
+  }
+
+  return {
+    title: 'Couldn\'t auto-read this document',
+    hint: detail
+      ? `Reason: ${detail}. The file is still attached — tap "Try again" or proceed and it will be reviewed manually.`
+      : 'The file is still attached — tap "Try again" or proceed and it will be reviewed manually.',
+  };
+}
+
+/**
  * iPhones save photos as HEIC by default. Browsers other than Safari
  * can't render HEIC in <img> tags, and Gemini Vision can't decode
  * HEIC at all. So before doing ANYTHING with the file (preview,
