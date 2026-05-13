@@ -101,9 +101,23 @@ BEGIN
     RAISE EXCEPTION 'permit not found: %', p_permit_id;
   END IF;
 
-  -- Authorization: caller must be requester, admin, or active approver.
-  -- (Approvers can self-trigger to retry notifications on a permit
-  -- they're working on.)
+  -- Authorization: caller must be one of:
+  --   1. The permit requester (initial submission)
+  --   2. An admin (manual resend / catch-up flow)
+  --   3. Currently an active approver of this permit
+  --   4. A past approver of this permit (i.e. has an approved row in
+  --      permit_approvals for this permit) — this is the key case the
+  --      original auth check missed. After alhamracs approves their
+  --      stage, the frontend calls this RPC to notify the NEXT stage's
+  --      approver. By that point alhamracs is no longer "currently
+  --      active" (the next role is), so condition (3) fails. They ARE
+  --      a past approver though, which is the legitimate authority
+  --      to trigger downstream notifications on this permit.
+  --
+  -- Without case (4), tenant-submitted permits get the initial
+  -- notification (case 1) but the next-stage hand-off after each
+  -- approval silently fails authorization and the next approver
+  -- never gets pinged.
   SELECT EXISTS (
     SELECT 1
       FROM public.user_roles ur
@@ -116,11 +130,20 @@ BEGIN
      OR (v_permit.requester_id <> v_caller_id
          AND NOT v_caller_admin
          AND NOT EXISTS (
+           -- (3) current active approver
            SELECT 1
              FROM public.permit_active_approvers paa
              JOIN public.user_roles ur ON ur.role_id = paa.role_id
             WHERE paa.permit_id = p_permit_id
               AND ur.user_id = v_caller_id
+         )
+         AND NOT EXISTS (
+           -- (4) past approver of this permit
+           SELECT 1
+             FROM public.permit_approvals pa
+            WHERE pa.permit_id = p_permit_id
+              AND pa.approver_user_id = v_caller_id
+              AND pa.status IN ('approved', 'rejected')
          ))
   THEN
     RAISE EXCEPTION 'permission denied';
