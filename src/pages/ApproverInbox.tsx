@@ -73,7 +73,7 @@ async function resolveApprovalRole(
       .eq('permit_id', permitId)
       .order('step_order', { ascending: true, nullsFirst: false });
 
-    const activeRoleNames = ((data ?? []) as Array<{ role_name: string }>)
+    const activeRoleNames = ((data ?? []) as unknown as Array<{ role_name: string }>)
       .map((r) => r.role_name)
       .filter(Boolean);
 
