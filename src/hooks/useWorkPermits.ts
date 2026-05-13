@@ -82,7 +82,18 @@ async function notifyRoleUsers(
       .eq('name', roleName)
       .single();
 
-    if (!role) return;
+    if (!role) {
+      // LOUD failure — previously this was a silent return, which is
+      // exactly the kind of bug that produces 'approvers don't get
+      // notified' reports with no obvious cause. Console-warn so it
+      // shows up in Sentry/server-logs and is greppable.
+      console.warn(
+        `[notify] role "${roleName}" not found in public.roles — ` +
+        `no in-app/push/email notifications sent for permit ${permitNo}. ` +
+        `Likely the role was deleted or renamed.`,
+      );
+      return;
+    }
 
     // Get users with this role
     const { data: roleUsers } = await supabase
@@ -90,7 +101,20 @@ async function notifyRoleUsers(
       .select('user_id')
       .eq('role_id', role.id);
 
-    if (!roleUsers?.length) return;
+    if (!roleUsers?.length) {
+      console.warn(
+        `[notify] role "${roleName}" has zero users assigned in user_roles — ` +
+        `no notifications sent for permit ${permitNo}. ` +
+        `An admin needs to assign at least one user this role via ` +
+        `Approvers Management.`,
+      );
+      return;
+    }
+
+    console.log(
+      `[notify] role="${roleName}" users=${roleUsers.length} ` +
+      `permit=${permitNo} type=${notificationType}`,
+    );
 
     const userIds: string[] = [];
 
@@ -126,10 +150,22 @@ async function notifyRoleUsers(
       }
     }
 
-    // Send email notifications
+    // Send email notifications.
+    //
+    // Uses getEmailsForRole which queries public.profiles for emails of
+    // users with this role. Cast to `any` is intentional: the helper's
+    // type signature uses a closed string union of the original built-in
+    // roles, but the runtime query works for ANY role (including custom
+    // roles like al_hamra_customer_service created via Roles Management).
     try {
       const emails = await getEmailsForRole(roleName as any);
-      if (emails.length > 0) {
+      if (emails.length === 0) {
+        console.warn(
+          `[notify] role "${roleName}" — getEmailsForRole returned 0 ` +
+          `addresses despite ${roleUsers.length} users assigned. ` +
+          `Likely those users' profile.email is empty. Permit ${permitNo} email skipped.`,
+        );
+      } else {
         await sendEmailNotification(
           emails,
           notificationType,
@@ -143,12 +179,97 @@ async function notifyRoleUsers(
             urgency,
           }
         );
+        console.log(
+          `[notify] email sent role="${roleName}" recipients=${emails.length} ` +
+          `permit=${permitNo}`,
+        );
       }
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
     }
   } catch (error) {
     console.error('Error notifying role users:', error);
+  }
+}
+
+/**
+ * Notify every role currently active on a permit, based on the
+ * permit_active_approvers view. This is the SAME source of truth the
+ * inbox uses, which means: anyone who would see the permit in their
+ * inbox right now gets notified. No more divergence between
+ * "computed firstApproverRole" and "DB-determined active approver".
+ *
+ * Called from two places:
+ *   1. After a permit is created/resubmitted — notifies the first
+ *      stage's approvers. Use case: tenant submits a permit, the
+ *      first-stage role gets in-app + push + email.
+ *   2. After an approval advances the workflow to the next stage —
+ *      notifies the NEXT stage's approvers. Previously this never
+ *      happened, so approvers past stage 1 never got an email.
+ *
+ * If the view returns nothing, no one is notified — but also nothing
+ * appears in any inbox, which is the consistent expected behavior:
+ * either the workflow is fully approved, or it's misconfigured (no
+ * workflow_steps row for any required role).
+ */
+async function notifyActiveApprovers(
+  permitId: string,
+  permitNo: string,
+  urgency: string,
+  notificationType: 'new_permit' | 'resubmitted',
+  profile?: { full_name: string | null } | null,
+  userEmail?: string,
+) {
+  // Read active approver roles from the same view the inbox uses.
+  // De-duplicate to avoid notifying the same role twice for a permit
+  // with parallel steps (rare, but defensive).
+  const { data: activeRows, error } = await supabase
+    .from('permit_active_approvers' as any)
+    .select('role_name')
+    .eq('permit_id', permitId);
+
+  if (error) {
+    console.error(
+      `[notify] permit_active_approvers query failed for permit ${permitNo}:`,
+      error,
+    );
+    return;
+  }
+
+  const activeRoles = Array.from(
+    new Set(
+      (activeRows ?? [])
+        .map((r: any) => r.role_name as string)
+        .filter(Boolean),
+    ),
+  );
+
+  if (activeRoles.length === 0) {
+    console.warn(
+      `[notify] permit ${permitNo} has NO active approvers in the view. ` +
+      `Either the workflow is complete (terminal state) or no workflow_steps ` +
+      `row exists for any required role. Check the work_type's workflow_template.`,
+    );
+    return;
+  }
+
+  console.log(
+    `[notify] active approver roles for permit ${permitNo}: [${activeRoles.join(', ')}]`,
+  );
+
+  // Notify each role. Sequential rather than parallel to keep the
+  // log output legible and to avoid hammering the email function's
+  // rate limit (20/min, see supabase/functions/send-email-notification).
+  for (const roleName of activeRoles) {
+    await notifyRoleUsers(
+      roleName,
+      permitId,
+      permitNo,
+      urgency,
+      notificationType,
+      profile,
+      userEmail,
+    );
   }
 }
 export interface WorkPermit {
@@ -624,15 +745,20 @@ export function useCreatePermit() {
         details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
 
-      // Notify the first approver role dynamically
-      await notifyRoleUsers(
-        firstApproverRole,
+      // Notify everyone currently active on this permit. Reads from
+      // permit_active_approvers — the SAME source the inbox uses, so
+      // notified-list and visible-in-inbox are guaranteed to match.
+      //
+      // NOTE: the populate trigger (ensure_permit_pending_approvals)
+      // is AFTER INSERT on work_permits, so by the time control
+      // returns here, the approval rows already exist. Race-free.
+      await notifyActiveApprovers(
         data.id,
         permitNo,
         urgency,
         'new_permit',
         profile,
-        user?.email
+        user?.email,
       );
 
       return data;
@@ -729,6 +855,48 @@ export function useApprovePermit() {
         performed_by_id: user?.id,
         details: comments || undefined,
       });
+
+      // Notify the NEXT stage's approvers (only on approve — rejection
+      // ends the workflow, no one else needs to act).
+      //
+      // This was missing before — useApprovePermit advanced the permit
+      // through the workflow but never told the next role anyone was
+      // waiting on them. Result: approvers past stage 1 didn't get
+      // emailed/pushed and only saw the permit if they happened to
+      // open their inbox.
+      //
+      // Reads from permit_active_approvers, which now reflects the
+      // post-approval state (the approver-advancement trigger on
+      // permit_approvals updates the view between our UPDATE and this
+      // query). Same source as the inbox, so consistent.
+      if (approved) {
+        try {
+          // Need permit_no for the notification body
+          const { data: permitInfo } = await supabase
+            .from('work_permits')
+            .select('permit_no, urgency')
+            .eq('id', permitId)
+            .single();
+
+          if (permitInfo) {
+            await notifyActiveApprovers(
+              permitId,
+              permitInfo.permit_no,
+              permitInfo.urgency || 'normal',
+              'new_permit',
+              profile,
+              user?.email,
+            );
+          }
+        } catch (notifyErr) {
+          // Non-fatal — the approval already succeeded. Log so it
+          // surfaces in monitoring; don't roll back.
+          console.error(
+            `[notify] Failed to notify next-stage approvers after ${role} approved permit ${permitId}:`,
+            notifyErr,
+          );
+        }
+      }
 
       return data;
     },
@@ -1501,15 +1669,16 @@ export function useUpdateAndResubmitPermit() {
         details: `New version created from ${currentPermit.permit_no} after rework`,
       });
 
-      // Notify the first approver role dynamically
-      await notifyRoleUsers(
-        firstApproverRole,
+      // Notify everyone currently active on the NEW permit. Same
+      // approach as initial create — read from the view that's the
+      // source of truth for inbox visibility.
+      await notifyActiveApprovers(
         newPermitData.id,
         newPermitNo,
         updates.urgency,
         'resubmitted',
         profile,
-        user?.email
+        user?.email,
       );
 
       // Return the NEW permit with the new ID
