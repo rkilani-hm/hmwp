@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,46 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 const MAX_ID_DIMENSION = 1600;
+
+/**
+ * iPhones save photos as HEIC by default. Browsers other than Safari
+ * can't render HEIC in <img> tags, and Gemini Vision can't decode
+ * HEIC at all. So before doing ANYTHING with the file (preview,
+ * downscaling, extraction), we convert HEIC → JPEG.
+ *
+ * heic2any is lazy-loaded only when needed (it's ~700KB; not worth
+ * shipping to users who pick JPEGs). Falls back to the original file
+ * if conversion fails — the user will still see the "Couldn't read"
+ * message but at least the file is attached.
+ */
+function isHeicFile(file: File): boolean {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  return ext === 'heic' || ext === 'heif' ||
+    file.type === 'image/heic' || file.type === 'image/heif';
+}
+
+async function convertHeicToJpeg(file: File): Promise<File> {
+  try {
+    const heic2any = (await import('heic2any')).default;
+    const result = await heic2any({
+      blob: file,
+      toType: 'image/jpeg',
+      quality: 0.9,
+    });
+    // heic2any returns Blob | Blob[]; for single-image HEICs it's just Blob
+    const blob = Array.isArray(result) ? result[0] : result;
+    const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+    return new File([blob], newName, { type: 'image/jpeg' });
+  } catch (err) {
+    console.error('HEIC conversion failed:', err);
+    // Re-throw so the caller can surface the actual error rather than
+    // silently passing the unconvertible file to the AI
+    throw new Error(
+      'Could not convert HEIC image to JPEG. Try taking the photo again ' +
+      'or use your phone\'s "Most Compatible" camera setting to save as JPEG.'
+    );
+  }
+}
 
 async function downscaleImage(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) return file;
@@ -135,25 +176,32 @@ export function DocumentsStep({ data, updateField }: Props) {
 
     const newAttachments: AttachmentWithMetadata[] = files.map((file) => {
       const v = validateFile(file);
+      const heic = isHeicFile(file);
 
-      // Image preview URL — works for jpeg/png/webp/heic/etc. PDFs and
-      // documents get a generic icon below in the render layer.
+      // For HEIC we'll create the preview URL AFTER conversion, when
+      // we have a JPEG the browser can actually render.
       const isImage = file.type.startsWith('image/') ||
         /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i.test(file.name);
-      const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+      const previewUrl = !heic && isImage ? URL.createObjectURL(file) : undefined;
+
+      let initialStatus: AttachmentWithMetadata['extractionStatus'];
+      if (!v.valid) {
+        initialStatus = 'failed';
+      } else if (documentType === 'other') {
+        initialStatus = 'skipped';
+      } else if (heic) {
+        // HEIC needs conversion before anything else can happen
+        initialStatus = 'converting';
+      } else {
+        initialStatus = 'pending';
+      }
 
       return {
         file,
         documentType,
         validationError: v.valid ? undefined : v.error,
         previewUrl,
-        // Don't run extraction on files that already failed validation
-        extractionStatus:
-          !v.valid
-            ? 'failed'
-            : documentType === 'other'
-              ? 'skipped'
-              : 'pending',
+        extractionStatus: initialStatus,
         extractionError: !v.valid ? v.error : undefined,
       };
     });
@@ -161,27 +209,92 @@ export function DocumentsStep({ data, updateField }: Props) {
     const updated = [...data.attachments, ...newAttachments];
     updateField('attachments', updated);
 
+    // Phase 2: for ID documents, convert HEIC first (if needed), then
+    // run extraction. We chain via prepareAndExtract so the UI status
+    // smoothly transitions converting → processing → success/failed.
     if (documentType !== 'other') {
       for (const att of newAttachments) {
-        // Only run AI extraction for VALID files
         if (att.validationError) continue;
-        runExtraction(att, updated);
+        prepareAndExtract(att, updated);
       }
     }
+  };
+
+  /**
+   * Two-phase pipeline for an ID Document attachment:
+   *
+   *   1. If the file is HEIC, convert to JPEG (heic2any, ~3-5s for
+   *      typical 4MB phone photo). On failure, mark as 'failed' with
+   *      a clear message — file is STILL ATTACHED, just can't be
+   *      auto-read.
+   *   2. Run AI extraction on the (possibly converted) JPEG.
+   *
+   * Status transitions visible to user:
+   *   converting → processing → success / failed
+   *   pending → processing → success / failed   (non-HEIC)
+   */
+  const prepareAndExtract = async (
+    target: AttachmentWithMetadata,
+    snapshot: AttachmentWithMetadata[],
+  ) => {
+    let workingFile = target.file;
+    let workingPreviewUrl = target.previewUrl;
+
+    if (isHeicFile(target.file)) {
+      try {
+        workingFile = await convertHeicToJpeg(target.file);
+        // Now we can build a preview URL from the JPEG
+        if (workingPreviewUrl) URL.revokeObjectURL(workingPreviewUrl);
+        workingPreviewUrl = URL.createObjectURL(workingFile);
+
+        // Patch in the converted file + new preview, then move to
+        // 'pending' state so the extraction effect can kick in.
+        patchAttachment(target, {
+          file: workingFile,
+          previewUrl: workingPreviewUrl,
+          extractionStatus: 'pending',
+        });
+        // The mutated attachment is what subsequent operations target,
+        // so we need a fresh reference. patchAttachment created a new
+        // object; we re-read it from the current state by name match.
+      } catch (err) {
+        patchAttachment(target, {
+          extractionStatus: 'failed',
+          extractionError: (err as Error).message,
+        });
+        toast.error((err as Error).message);
+        return;
+      }
+    }
+
+    // Extraction. Important: pass the LATEST snapshot, not the stale
+    // one — handleFilesAdded built `snapshot` before HEIC conversion
+    // mutated the entry.
+    runExtraction(target, snapshot, workingFile);
   };
 
   const runExtraction = async (
     target: AttachmentWithMetadata,
     snapshot: AttachmentWithMetadata[],
+    /**
+     * If the caller already converted the file (e.g. from HEIC to
+     * JPEG in prepareAndExtract), pass it here so we don't re-read
+     * the stale `target.file`. Defaults to target.file for callers
+     * that don't need conversion.
+     */
+    overrideFile?: File,
   ) => {
-    const withProcessing = snapshot.map((a) =>
-      a === target ? { ...a, extractionStatus: 'processing' as const } : a,
-    );
-    updateField('attachments', withProcessing);
+    const sourceFile = overrideFile || target.file;
+
+    // For HEIC paths we already mutated state to extractionStatus
+    // 'pending' via patchAttachment, then immediately come here.
+    // Just patch to 'processing' directly rather than rebuilding
+    // a snapshot that might be stale.
+    patchAttachment(target, { extractionStatus: 'processing' });
     setExtractingIds((prev) => new Set(prev).add(target.file.name));
 
     try {
-      const downscaled = await downscaleImage(target.file);
+      const downscaled = await downscaleImage(sourceFile);
       const base64 = await fileToBase64(downscaled);
 
       const { data: result, error } = await supabase.functions.invoke(
@@ -195,17 +308,33 @@ export function DocumentsStep({ data, updateField }: Props) {
         },
       );
 
-      if (error) throw new Error(error.message);
+      // supabase-js wraps non-2xx HTTP responses as { error }; the
+      // body is in error.context. Read it so we surface the actual
+      // server-side reason instead of a generic transport error.
+      if (error) {
+        let detail = error.message || 'Unknown error';
+        try {
+          const ctx = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error || body?.message) detail = body.error || body.message;
+          }
+        } catch {
+          // best-effort
+        }
+        throw new Error(detail);
+      }
       if (!result?.success) {
         const code = result?.error || 'unknown';
+        const detailMsg = result?.message || '';
         const message =
           code === 'ai_not_configured'
-            ? 'AI extraction is not yet configured. Document attached; please verify validity manually.'
+            ? 'AI auto-read is not yet configured. Your document is still attached and will be submitted.'
             : code === 'ai_quota_exhausted'
-              ? 'AI quota exhausted — please add credits in Lovable settings.'
+              ? 'AI quota exhausted — please add credits in Lovable settings. Document still attached.'
               : code === 'ai_rate_limited'
-                ? 'AI service is busy. Try again in a moment.'
-                : `Extraction failed: ${code}`;
+                ? 'AI service is busy. Document still attached; you can retry below.'
+                : `Couldn't auto-read this document${detailMsg ? `: ${detailMsg}` : ''}. The file is still attached.`;
         patchAttachment(target, {
           extractionStatus: 'failed',
           extractionError: message,
@@ -235,7 +364,10 @@ export function DocumentsStep({ data, updateField }: Props) {
       console.error('Extraction error:', err);
       patchAttachment(target, {
         extractionStatus: 'failed',
-        extractionError: (err as Error).message,
+        extractionError:
+          'Couldn\'t auto-read this document: ' +
+          ((err as Error).message || 'unknown error') +
+          '. The file is still attached and will be submitted.',
       });
     } finally {
       setExtractingIds((prev) => {
@@ -281,10 +413,7 @@ export function DocumentsStep({ data, updateField }: Props) {
       <section>
         <div className="flex items-center gap-2 mb-3">
           <IdCard className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-base">ID Documents</h3>
-          <span className="text-sm text-muted-foreground">
-            (Civil IDs, Driving Licenses)
-          </span>
+          <h3 className="font-semibold text-base">Employee Civil ID or Driving License</h3>
         </div>
 
         <UploadZone
@@ -301,6 +430,7 @@ export function DocumentsStep({ data, updateField }: Props) {
                 key={`id-${idx}-${att.file.name}`}
                 attachment={att}
                 onRemove={() => removeAttachment(att)}
+                onRetry={() => prepareAndExtract(att, data.attachments)}
               />
             ))}
           </div>
@@ -380,9 +510,10 @@ function UploadZone({ inputId, accept, onFilesAdded, helperText }: UploadZonePro
 interface IdAttachmentCardProps {
   attachment: AttachmentWithMetadata;
   onRemove: () => void;
+  onRetry: () => void;
 }
 
-function IdAttachmentCard({ attachment, onRemove }: IdAttachmentCardProps) {
+function IdAttachmentCard({ attachment, onRemove, onRetry }: IdAttachmentCardProps) {
   const { extractionStatus, extractedName, extractedExpiryDate, isValid, validationError, previewUrl } = attachment;
   const fileSizeMb = (attachment.file.size / (1024 * 1024)).toFixed(2);
 
@@ -393,7 +524,10 @@ function IdAttachmentCard({ attachment, onRemove }: IdAttachmentCardProps) {
         validationError && 'border-destructive/40 bg-destructive/5',
         !validationError && extractionStatus === 'success' && isValid === true && 'border-success/40 bg-success/5',
         !validationError && extractionStatus === 'success' && isValid === false && 'border-destructive/40 bg-destructive/5',
-        !validationError && extractionStatus === 'failed' && 'border-warning/40 bg-warning/5',
+        // 'failed' is informational, not error — file is attached, just
+        // not auto-read. Keep card neutral; the amber badge inside
+        // signals what happened without making the whole card look
+        // broken.
       )}
     >
       <div className="flex items-start gap-3">
@@ -429,6 +563,20 @@ function IdAttachmentCard({ attachment, onRemove }: IdAttachmentCardProps) {
 
           {!validationError && (
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {extractionStatus === 'converting' && (
+                <Badge variant="outline" className="gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Converting iPhone photo...
+                </Badge>
+              )}
+
+              {extractionStatus === 'pending' && (
+                <Badge variant="outline" className="gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Preparing...
+                </Badge>
+              )}
+
               {extractionStatus === 'processing' && (
                 <Badge variant="outline" className="gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -458,10 +606,22 @@ function IdAttachmentCard({ attachment, onRemove }: IdAttachmentCardProps) {
               )}
 
               {extractionStatus === 'failed' && (
-                <Badge variant="outline" className="gap-1.5 border-warning text-warning bg-warning/10">
-                  <AlertTriangle className="w-3 h-3" />
-                  Couldn't read
-                </Badge>
+                <>
+                  <Badge variant="outline" className="gap-1.5 border-warning text-warning bg-warning/10">
+                    <AlertTriangle className="w-3 h-3" />
+                    Attached, couldn't auto-read
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs gap-1"
+                    onClick={onRetry}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Try again
+                  </Button>
+                </>
               )}
 
               {attachment.documentType === 'driving_license' && (

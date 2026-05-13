@@ -38,7 +38,7 @@ export interface AttachmentWithMetadata {
   extractedIssueDate?: string | null;
   extractedNationality?: string | null;
   isValid?: boolean;  // expiry_date >= today
-  extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+  extractionStatus: 'pending' | 'converting' | 'processing' | 'success' | 'failed' | 'skipped';
   extractionError?: string;
 }
 

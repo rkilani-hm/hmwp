@@ -49,6 +49,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.26",
+    "heic2any": "^0.0.4",
     "html5-qrcode": "^2.3.8",
     "i18next": "^23.15.1",
     "i18next-browser-languagedetector": "^8.0.0",
