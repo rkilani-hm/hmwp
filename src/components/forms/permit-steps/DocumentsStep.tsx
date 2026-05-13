@@ -301,7 +301,7 @@ export function DocumentsStep({ data, updateField }: Props) {
 
     // AI OCR disabled per user request — no extraction or HEIC
     // conversion is triggered. Files are uploaded as-is.
-
+  };
 
   /**
    * Two-phase pipeline for an ID Document attachment:
