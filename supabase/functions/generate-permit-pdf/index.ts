@@ -740,6 +740,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }));
     }
 
+    console.log(
+      `[attachments] permit=${permit.id} ` +
+      `permit_attachments_rows=${permitAttachmentRows?.length ?? 0} ` +
+      `idDocs=${idDocs.length} otherDocs=${otherDocs.length}`,
+    );
+
     /**
      * Download a single attachment from storage and try to embed it
      * as an image in the PDF. Returns the PDFImage on success, or
@@ -807,6 +813,16 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
       const perPage = cfg.cols * cfg.rows;
       const totalGridPages = Math.ceil(items.length / perPage);
+
+      // Observability — if a tenant complains 'PDF shows IDs one per
+      // page', these logs make the cause obvious: are the items being
+      // grouped correctly? Is the grid loop iterating per-page or
+      // per-item? Supabase function logs surface these immediately.
+      console.log(
+        `[grid] section="${cfg.sectionTitle}" items=${items.length} ` +
+        `cols=${cfg.cols} rows=${cfg.rows} perPage=${perPage} ` +
+        `pages=${totalGridPages} cellW=${cfg.cellW} cellH=${cfg.cellH}`,
+      );
 
       for (let pg = 0; pg < totalGridPages; pg++) {
         const { page: gridPage } = createPage();
@@ -953,22 +969,34 @@ const serve_handler = async (req: Request): Promise<Response> => {
     };
 
     // 3×3 IDs grid
+    // 3×3 IDs grid
+    //
+    // Layout math: page (792pt) - top margin (50) - section header
+    // (~28) - bottom QR/footer area (~70) = ~644pt usable. Three rows
+    // of cellH=200 + 2 gaps of 8 = 616pt total grid height. Comfortably
+    // fits with safe margin above the footer. (Previous cellH=220
+    // pushed the third row's bottom to y=38, overlapping the QR/footer
+    // — visually broken for tenants viewing the PDF.)
     await drawAttachmentGrid(idDocs, {
       cols: 3,
       rows: 3,
       cellW: 165,
-      cellH: 220,
+      cellH: 200,
       gap: 8,
       sectionTitle: 'EMPLOYEE CIVIL ID / DRIVING LICENSE',
       sectionTitleArabic: 'البطاقة المدنية ورخصة القيادة',
     });
 
     // 2×2 other documents grid
+    //
+    // Two rows of cellH=300 + 1 gap of 12 = 612pt total grid height.
+    // Same fix as above; previous cellH=340 pushed the second row's
+    // bottom to y=22, completely below the footer.
     await drawAttachmentGrid(otherDocs, {
       cols: 2,
       rows: 2,
       cellW: 250,
-      cellH: 340,
+      cellH: 300,
       gap: 12,
       sectionTitle: 'OTHER DOCUMENTS',
       sectionTitleArabic: 'مستندات أخرى',
@@ -1077,6 +1105,13 @@ const serve_handler = async (req: Request): Promise<Response> => {
       .upload(fileName, pdfBytes, {
         contentType: "application/pdf",
         upsert: true,
+        // No caching — without this, Supabase storage's default
+        // cache-control of 3600s meant tenants who triggered a
+        // regenerate (e.g. after a workflow update or new attachment)
+        // could be served the OLD PDF for up to an hour. Especially
+        // visible during the grid-layout rollout: tenants saw the
+        // pre-grid PDF cached from their previous request.
+        cacheControl: "0",
       });
 
     if (uploadError) {

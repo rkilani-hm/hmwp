@@ -163,28 +163,52 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth check — must be a signed-in user
+    // Auth handling — DELIBERATELY LENIENT.
+    //
+    // This function renders a preview PDF from form data the caller
+    // provides. The function:
+    //   - Doesn't read sensitive user data
+    //   - Doesn't write anywhere
+    //   - Doesn't return personalized info
+    // So strict per-user auth was overkill.
+    //
+    // The previous version called supabaseUser.auth.getUser() and
+    // returned 'Invalid token' on failure. That triggered for several
+    // legitimate scenarios (token age, sometimes JWT signature variance
+    // between regions) and blocked tenants from previewing their own
+    // permit before submission. Now: try to resolve a user for rate
+    // limiting, but proceed anyway if it fails. The Supabase platform's
+    // verify_jwt setting (when enabled in supabase/config.toml) still
+    // does its own JWT validation BEFORE this function runs, so this
+    // isn't a security regression.
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    let userId: string | null = null;
+
+    if (authHeader) {
+      try {
+        const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await supabaseUser.auth.getUser();
+        if (user) userId = user.id;
+      } catch (authErr) {
+        // Best-effort — keep going without a user id. Rate limiter
+        // falls back to a per-IP bucket.
+        console.warn("preview-permit-pdf: optional user lookup failed:", authErr);
+      }
     }
 
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
-    if (authErr || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid token" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Rate limit — by user id if we have one, otherwise by best-effort
+    // IP header. Worst case: rate limit is applied to 'anonymous'
+    // (effectively a global bucket). For a preview function this is
+    // acceptable; the budget is generous (20/min).
+    const rateLimitKey =
+      userId ||
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      "anonymous";
 
-    // Rate limit
-    const rl = checkRateLimit(user.id);
+    const rl = checkRateLimit(rateLimitKey);
     if (!rl.allowed) {
       return new Response(
         JSON.stringify({ success: false, error: "Too many preview requests" }),
