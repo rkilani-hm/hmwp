@@ -66,8 +66,14 @@ export async function sendEmailNotification(
   }
 }
 
-// Get emails for users with specific roles
-export async function getEmailsForRole(role: 'tenant' | 'helpdesk' | 'pm' | 'pd' | 'bdcr' | 'mpr' | 'it' | 'fitout' | 'ecovert_supervisor' | 'pmd_coordinator' | 'admin'): Promise<string[]> {
+// Get emails for users with specific roles.
+//
+// Accepts ANY role name as a plain string — including custom roles
+// admins create through RolesManagement (e.g. 'al_hamra_customer_service').
+// Previously this was typed as a fixed union of legacy role names,
+// forcing call sites to use `as any`; that worked at runtime but
+// made it look like custom roles weren't supported.
+export async function getEmailsForRole(role: string): Promise<string[]> {
   // First get the role_id from the roles table
   const { data: roleData } = await supabase
     .from('roles')

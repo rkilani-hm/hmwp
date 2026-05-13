@@ -158,6 +158,8 @@ async function notifyRoleUsers(
     // roles, but the runtime query works for ANY role (including custom
     // roles like al_hamra_customer_service created via Roles Management).
     try {
+      const emails = await getEmailsForRole(roleName);
+      if (emails.length > 0) {
       const emails = await getEmailsForRole(roleName as any);
       if (emails.length === 0) {
         console.warn(
@@ -745,6 +747,83 @@ export function useCreatePermit() {
         details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
 
+      // Notify approvers — fan out to EVERY role that the DB trigger
+      // placed in permit_active_approvers for this permit. We read
+      // from the view rather than re-deriving "the first step" in the
+      // frontend because:
+      //
+      //   1. The view is the same source-of-truth used by the inbox
+      //      query. If a role appears in the view, the inbox WILL
+      //      show the permit to that user; if not, it won't.
+      //      Notifications now follow the same logic exactly — no
+      //      drift possible.
+      //
+      //   2. The view correctly handles parallel approvers (multiple
+      //      roles at the same step), custom roles, and any new
+      //      role admin adds in future. The previous code used
+      //      getFirstWorkflowStep() which had its own walk-the-steps
+      //      logic and could silently miss roles the DB trigger
+      //      successfully added.
+      //
+      //   3. Admin-created permits, tenant-created permits, future
+      //      bulk-import scripts — they all go through the trigger.
+      //      Reading the view downstream means every path benefits.
+      //
+      // Note: the trigger has already run (we awaited the insert),
+      // so permit_active_approvers is populated by the time we query.
+      const { data: activeApprovers, error: activeErr } = await supabase
+        .from('permit_active_approvers' as any)
+        .select('role_name')
+        .eq('permit_id', data.id);
+
+      if (activeErr) {
+        // Log but don't fail — the permit row was created successfully,
+        // and worst case the approver still sees the permit in their
+        // inbox (the view is queried fresh on every inbox load).
+        console.error('Failed to fetch active approvers for fan-out:', activeErr);
+      } else {
+        const uniqueRoles = Array.from(
+          new Set(
+            ((activeApprovers || []) as Array<{ role_name: string }>)
+              .map((r) => r.role_name)
+              .filter(Boolean),
+          ),
+        );
+
+        if (uniqueRoles.length === 0) {
+          // Belt-and-braces: if the trigger didn't populate anything
+          // (e.g. the work type has no workflow_template — flagged
+          // by the WARNING in the DB function), fall back to the old
+          // derived first-step so SOMEONE gets notified. Worst case
+          // beats no case.
+          console.warn(
+            'No active approvers in view for permit',
+            data.id,
+            '— falling back to derived first step',
+          );
+          await notifyRoleUsers(
+            firstApproverRole,
+            data.id,
+            permitNo,
+            urgency,
+            'new_permit',
+            profile,
+            user?.email,
+          );
+        } else {
+          for (const roleName of uniqueRoles) {
+            await notifyRoleUsers(
+              roleName,
+              data.id,
+              permitNo,
+              urgency,
+              'new_permit',
+              profile,
+              user?.email,
+            );
+          }
+        }
+      }
       // Notify everyone currently active on this permit. Reads from
       // permit_active_approvers — the SAME source the inbox uses, so
       // notified-list and visible-in-inbox are guaranteed to match.
@@ -1669,6 +1748,54 @@ export function useUpdateAndResubmitPermit() {
         details: `New version created from ${currentPermit.permit_no} after rework`,
       });
 
+      // Notify approvers — fan out from permit_active_approvers, same
+      // logic as useCreatePermit. See the long comment there for why.
+      const { data: activeApprovers, error: activeErr } = await supabase
+        .from('permit_active_approvers' as any)
+        .select('role_name')
+        .eq('permit_id', newPermitData.id);
+
+      if (activeErr) {
+        console.error('Failed to fetch active approvers for resubmit fan-out:', activeErr);
+      } else {
+        const uniqueRoles = Array.from(
+          new Set(
+            ((activeApprovers || []) as Array<{ role_name: string }>)
+              .map((r) => r.role_name)
+              .filter(Boolean),
+          ),
+        );
+
+        if (uniqueRoles.length === 0) {
+          // Same fallback as create path — see comment there.
+          console.warn(
+            'No active approvers in view for resubmitted permit',
+            newPermitData.id,
+            '— falling back to derived first step',
+          );
+          await notifyRoleUsers(
+            firstApproverRole,
+            newPermitData.id,
+            newPermitNo,
+            updates.urgency,
+            'resubmitted',
+            profile,
+            user?.email,
+          );
+        } else {
+          for (const roleName of uniqueRoles) {
+            await notifyRoleUsers(
+              roleName,
+              newPermitData.id,
+              newPermitNo,
+              updates.urgency,
+              'resubmitted',
+              profile,
+              user?.email,
+            );
+          }
+        }
+      }
       // Notify everyone currently active on the NEW permit. Same
       // approach as initial create — read from the view that's the
       // source of truth for inbox visibility.
