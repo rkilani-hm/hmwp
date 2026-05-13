@@ -659,6 +659,80 @@ export type Database = {
           },
         ]
       }
+      permit_attachments: {
+        Row: {
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_category"]
+          extracted_at: string | null
+          extracted_expiry_date: string | null
+          extracted_id_number: string | null
+          extracted_issue_date: string | null
+          extracted_name: string | null
+          extracted_nationality: string | null
+          extraction_error: string | null
+          extraction_status: Database["public"]["Enums"]["extraction_status"]
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          is_valid: boolean | null
+          mime_type: string | null
+          permit_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_category"]
+          extracted_at?: string | null
+          extracted_expiry_date?: string | null
+          extracted_id_number?: string | null
+          extracted_issue_date?: string | null
+          extracted_name?: string | null
+          extracted_nationality?: string | null
+          extraction_error?: string | null
+          extraction_status?: Database["public"]["Enums"]["extraction_status"]
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_valid?: boolean | null
+          mime_type?: string | null
+          permit_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_category"]
+          extracted_at?: string | null
+          extracted_expiry_date?: string | null
+          extracted_id_number?: string | null
+          extracted_issue_date?: string | null
+          extracted_name?: string | null
+          extracted_nationality?: string | null
+          extraction_error?: string | null
+          extraction_status?: Database["public"]["Enums"]["extraction_status"]
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_valid?: boolean | null
+          mime_type?: string | null
+          permit_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_attachments_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_workflow_audit: {
         Row: {
           created_at: string | null
@@ -2028,6 +2102,13 @@ export type Database = {
         | "admin"
         | "ecovert_supervisor"
         | "pmd_coordinator"
+      document_category: "civil_id" | "driving_license" | "other"
+      extraction_status:
+        | "pending"
+        | "processing"
+        | "success"
+        | "failed"
+        | "skipped"
       permit_status:
         | "draft"
         | "submitted"
@@ -2195,6 +2276,14 @@ export const Constants = {
         "admin",
         "ecovert_supervisor",
         "pmd_coordinator",
+      ],
+      document_category: ["civil_id", "driving_license", "other"],
+      extraction_status: [
+        "pending",
+        "processing",
+        "success",
+        "failed",
+        "skipped",
       ],
       permit_status: [
         "draft",
