@@ -49,30 +49,44 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-// Map permit status to the role that should approve it (dynamically generated)
-const statusToRole: Record<string, string> = {
-  // Legacy internal workflow
-  'pending_helpdesk': 'helpdesk',
-  'under_review': 'helpdesk',
-  'submitted': 'helpdesk',
-  'pending_pm': 'pm',
-  'pending_pd': 'pd',
-  'pending_bdcr': 'bdcr',
-  'pending_mpr': 'mpr',
-  'pending_it': 'it',
-  'pending_fitout': 'fitout',
-  'pending_ecovert_supervisor': 'ecovert_supervisor',
-  'pending_pmd_coordinator': 'pmd_coordinator',
-  // Client workflow roles
-  'pending_customer_service': 'customer_service',
-  'pending_cr_coordinator': 'cr_coordinator',
-  'pending_head_cr': 'head_cr',
-  'pending_fmsp_approval': 'fmsp_approval',
-  // Soft/Hard Facilities and PM Service
-  'pending_soft_facilities': 'soft_facilities',
-  'pending_hard_facilities': 'hard_facilities',
-  'pending_pm_service': 'pm_service',
-};
+// Role resolution for permit approval in this inbox:
+//
+// usePendingPermitsForApprover already filters permit_active_approvers
+// to roles the user holds. So any permit appearing in the inbox has
+// AT LEAST ONE active approver role matching the user's roles. For
+// approve/reject, we just need to identify WHICH role the user is
+// acting as (used as audit metadata + edge function's permit_approvals
+// upsert key).
+//
+// Strategy: when the user clicks approve on a permit, look up the
+// permit's active approver row(s) and intersect with user's roles.
+// First match wins. Falls back to first user role if (impossibly) no
+// match — the edge function validates anyway and will reject.
+async function resolveApprovalRole(
+  permitId: string,
+  userRoles: string[],
+): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('permit_active_approvers' as any)
+      .select('role_name, step_order')
+      .eq('permit_id', permitId)
+      .order('step_order', { ascending: true, nullsFirst: false });
+
+    const activeRoleNames = ((data ?? []) as Array<{ role_name: string }>)
+      .map((r) => r.role_name)
+      .filter(Boolean);
+
+    const match = userRoles.find((r) => activeRoleNames.includes(r));
+    if (match) return match;
+  } catch (e) {
+    console.error('resolveApprovalRole failed; falling back', e);
+  }
+
+  // Defensive fallback. Picks the first non-tenant role the user has.
+  // The edge function (verify-signature-approval) validates anyway.
+  return userRoles.find((r) => r !== 'tenant') || 'helpdesk';
+}
 
 export default function ApproverInbox() {
   const { t } = useTranslation();
@@ -150,16 +164,11 @@ export default function ApproverInbox() {
     return { isOverdue, timeLeft, deadline };
   };
 
-  // Get the current approver role based on permit status
-  const getApprovalRole = (permit: WorkPermit): string => {
-    const roleFromStatus = statusToRole[permit.status];
-    if (roleFromStatus && roles.includes(roleFromStatus as any)) {
-      return roleFromStatus;
-    }
-    // Fallback: return the first matching approver role the user has
-    const allApproverRoles = Object.values(statusToRole);
-    return roles.find(r => allApproverRoles.includes(r)) || 'helpdesk';
-  };
+  // Resolve the approval role for a permit by querying the view —
+  // works for custom roles too (replaces the hardcoded statusToRole
+  // map that didn't include al_hamra_customer_service and similar).
+  const getApprovalRole = (permit: WorkPermit): Promise<string> =>
+    resolveApprovalRole(permit.id, roles as string[]);
 
   const toggleSelected = (id: string) => {
     setSelectedIds(prev => {
@@ -182,9 +191,13 @@ export default function ApproverInbox() {
     let failed = 0;
     for (const permit of targets) {
       try {
+        // Resolve the role per-permit. Different permits can have
+        // different active roles (a user may hold multiple approver
+        // roles spread across different workflows).
+        const role = await getApprovalRole(permit);
         await secureApprove.mutateAsync({
           permitId: permit.id,
-          role: getApprovalRole(permit),
+          role,
           approved: true,
           auth,
           signature,
@@ -229,9 +242,9 @@ export default function ApproverInbox() {
 
   const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
     if (!selectedPermit) return;
-    
-    const role = getApprovalRole(selectedPermit);
-    
+
+    const role = await getApprovalRole(selectedPermit);
+
     try {
       await secureApprove.mutateAsync({
         permitId: selectedPermit.id,
@@ -252,9 +265,9 @@ export default function ApproverInbox() {
 
   const handleSecureReject = async (auth: AuthPayload, signature: string | null) => {
     if (!selectedPermit) return;
-    
-    const role = getApprovalRole(selectedPermit);
-    
+
+    const role = await getApprovalRole(selectedPermit);
+
     try {
       await secureApprove.mutateAsync({
         permitId: selectedPermit.id,
@@ -606,7 +619,11 @@ export default function ApproverInbox() {
         isLoading={secureApprove.isPending}
         authBinding={selectedPermit ? {
           permitId: selectedPermit.id,
-          role: getApprovalRole(selectedPermit),
+          // Display-only role for the dialog header / WebAuthn challenge.
+          // Actual approval uses the awaited resolveApprovalRole in
+          // handleSecureApproval which picks the correct role from
+          // permit_active_approvers.
+          role: (roles.find((r) => r !== 'tenant') as string) || 'helpdesk',
         } : { role: 'helpdesk' }}
       />
 
@@ -623,7 +640,8 @@ export default function ApproverInbox() {
         isLoading={secureApprove.isPending}
         authBinding={selectedPermit ? {
           permitId: selectedPermit.id,
-          role: getApprovalRole(selectedPermit),
+          // See note on the approve dialog binding above.
+          role: (roles.find((r) => r !== 'tenant') as string) || 'helpdesk',
         } : { role: 'helpdesk' }}
       />
 
