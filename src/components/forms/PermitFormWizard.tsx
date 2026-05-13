@@ -68,10 +68,16 @@ export function PermitFormWizard() {
   const [formData, setFormData] = useState<PermitFormData>({
     requesterName: profile?.full_name || user?.email || '',
     requesterEmail: user?.email || '',
-    contractorName: '',
-    contactMobile: '',
-    unit: '',
-    floor: '',
+    // Pre-fill contractor + unit + floor from the tenant's profile.
+    // These were captured at signup (or filled in by an admin via the
+    // Pending Approvals page) and are reused as the default tenant
+    // master data on every permit request. Tenant can still override
+    // them per-permit — useful when one tenant manages multiple units
+    // or works on behalf of a different company occasionally.
+    contractorName: profile?.company_name || '',
+    contactMobile: profile?.phone || '',
+    unit: profile?.unit || '',
+    floor: profile?.floor || '',
     workLocationId: '',
     workLocationOther: '',
     workTypeId: '',
