@@ -94,6 +94,46 @@ export default function MyDelegations() {
         </Dialog>
       </div>
 
+      {/* How it works — explains the two-step nature (delegation record
+          + temporary role grant by admin). Visible to everyone on this
+          page; collapsed by default so it doesn't dominate the screen
+          for returning users. */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-primary" />
+            How delegation works
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-foreground/80 space-y-1.5">
+          <p>
+            <strong>Step 1.</strong> Create the delegation here. This records
+            who is acting on whose behalf, for what time window, and shows
+            them the relevant permits in their inbox.
+          </p>
+          <p>
+            <strong>Step 2.</strong> Ask an admin to temporarily grant the
+            delegate the relevant role in{' '}
+            <span className="font-mono text-[10px] bg-background px-1 rounded border">
+              Admin → Approvers Management
+            </span>
+            . This is what allows approvals to go through — the delegation
+            alone doesn't bypass permission checks.
+          </p>
+          <p>
+            <strong>Step 3.</strong> When the delegate approves, the audit
+            log will record both their name AND yours
+            ("acting on behalf of …"), so reviewers can always see who
+            actually clicked approve.
+          </p>
+          <p className="text-muted-foreground italic pt-1">
+            When the delegation window ends, both pieces should be undone:
+            the delegation auto-expires; the admin should also remove the
+            temporary role.
+          </p>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="created">
         <TabsList>
           <TabsTrigger value="created">
@@ -369,6 +409,29 @@ function CreateDelegationDialog({ onDone }: { onDone: () => void }) {
           window you specify.
         </DialogDescription>
       </DialogHeader>
+
+      {/* Admin-action notice — important caveat the delegator needs
+          to act on. The delegation table records intent + audit
+          attribution, but RLS still gates the actual approve action
+          on user_roles, so the delegate must ALSO be temporarily
+          granted the role by an admin for approvals to go through.
+          Without this step the delegate will see the permit in their
+          inbox but the approve button will fail. */}
+      <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2.5 text-xs space-y-1">
+        <p className="font-medium text-warning flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Admin action required</span>
+        </p>
+        <p className="text-foreground/80 pl-5">
+          After creating this delegation, ask an admin to also grant your
+          delegate the role temporarily (under{' '}
+          <span className="font-mono text-[10px] bg-muted px-1 rounded">
+            Approvers Management
+          </span>
+          ). This delegation logs intent and audit attribution; the role
+          assignment is what lets approvals actually go through.
+        </p>
+      </div>
 
       <div className="space-y-4 py-2">
         <div className="space-y-1.5">
