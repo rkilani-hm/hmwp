@@ -692,11 +692,40 @@ export function useApprovePermit() {
 
       if (error) throw error;
 
+      // Detect if this approval is being made via delegation. If so,
+      // annotate the audit log so reviewers can later see that the
+      // approval came from a deputy, not the role's named approver.
+      // get_delegation_origin returns the delegator's user_id when
+      // the current user is acting via an active delegation for
+      // this role, or NULL when acting in their own right.
+      let delegationNote = '';
+      try {
+        const { data: originId } = await supabase.rpc(
+          'get_delegation_origin' as any,
+          { acting_user_id: user?.id, acting_role_name: roleField },
+        );
+        if (originId) {
+          const { data: origin } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', originId)
+            .single();
+          const originName = origin?.full_name || origin?.email || 'unknown';
+          delegationNote = ` (acting on behalf of ${originName} via delegation)`;
+        }
+      } catch (delegationErr) {
+        // get_delegation_origin may not exist on older deployments;
+        // skip the annotation rather than fail the approval.
+        console.warn('Delegation lookup failed (non-fatal):', delegationErr);
+      }
+
       // Log activity
       await supabase.from('activity_logs').insert({
         permit_id: permitId,
-        action: approved ? `${role} Approved` : `${role} Rejected`,
-        performed_by: profile?.full_name || user?.email || 'Unknown',
+        action:
+          (approved ? `${role} Approved` : `${role} Rejected`) +
+          delegationNote,
+        performed_by: (profile?.full_name || user?.email || 'Unknown') + delegationNote,
         performed_by_id: user?.id,
         details: comments || undefined,
       });

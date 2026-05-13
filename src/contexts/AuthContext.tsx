@@ -138,16 +138,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Fetch roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('role_id, roles:role_id(name)')
-        .eq('user_id', userId);
+      // Fetch effective roles from the effective_approvers view —
+      // this transparently includes both direct user_roles
+      // assignments AND any currently-active approval_delegations
+      // pointing to this user. The rest of the app reads
+      // AuthContext.roles and gets the union for free.
+      //
+      // Falls back to user_roles directly if the view query fails
+      // (e.g. on an older deployment that hasn't run the migration
+      // yet) — degraded but functional.
+      try {
+        const { data: effectiveData, error: effectiveError } = await supabase
+          .from('effective_approvers' as any)
+          .select('role_name')
+          .eq('effective_user_id', userId);
 
-      if (rolesError) {
-        console.error('Error fetching roles:', rolesError);
-      } else {
-        setRoles(rolesData?.map(r => (r.roles as any)?.name as RoleName).filter(Boolean) || []);
+        if (effectiveError) throw effectiveError;
+
+        // De-dupe (a user can hold the same role both directly and
+        // via delegation — view returns both rows; we only need
+        // the role name once).
+        const uniqueRoles = Array.from(
+          new Set(
+            (effectiveData || [])
+              .map((r: any) => r.role_name as RoleName)
+              .filter(Boolean),
+          ),
+        );
+        setRoles(uniqueRoles);
+      } catch (effectiveErr) {
+        console.warn(
+          'effective_approvers view unavailable, falling back to user_roles direct read:',
+          effectiveErr,
+        );
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('role_id, roles:role_id(name)')
+          .eq('user_id', userId);
+
+        if (rolesError) {
+          console.error('Error fetching roles:', rolesError);
+        } else {
+          setRoles(
+            rolesData
+              ?.map((r) => (r.roles as any)?.name as RoleName)
+              .filter(Boolean) || [],
+          );
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);

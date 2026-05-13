@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase } from 'lucide-react';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
+import { PendingDelegationsBanner } from '@/components/PendingDelegationsBanner';
 
 // Tab values for the All/Tenants/Staff filter above the table.
 type UserTab = 'all' | 'tenants' | 'staff';
@@ -172,6 +173,12 @@ export default function ApproversManagement() {
           Manage users, assign roles, and control access to the system
         </p>
       </div>
+
+      {/* Pending delegations — admin needs to grant temporary roles
+          to delegates for their approvals to actually go through. RLS
+          gates on user_roles directly; the delegation table records
+          intent + audit attribution but doesn't bypass permissions. */}
+      <PendingDelegationsBanner />
 
       <Card>
         <CardHeader>
