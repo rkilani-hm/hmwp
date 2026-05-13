@@ -782,7 +782,7 @@ export function useCreatePermit() {
       } else {
         const uniqueRoles = Array.from(
           new Set(
-            ((activeApprovers || []) as Array<{ role_name: string }>)
+            (((activeApprovers || []) as unknown) as Array<{ role_name: string }>)
               .map((r) => r.role_name)
               .filter(Boolean),
           ),
@@ -1758,7 +1758,7 @@ export function useUpdateAndResubmitPermit() {
       } else {
         const uniqueRoles = Array.from(
           new Set(
-            ((activeApprovers || []) as Array<{ role_name: string }>)
+            (((activeApprovers || []) as unknown) as Array<{ role_name: string }>)
               .map((r) => r.role_name)
               .filter(Boolean),
           ),
