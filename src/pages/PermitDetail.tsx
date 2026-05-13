@@ -46,7 +46,8 @@ import {
   Bell,
   Settings2,
 } from 'lucide-react';
-import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+import { PermitAttachmentsView } from '@/components/PermitAttachmentsView';
+import { usePermitAttachments } from '@/hooks/usePermitAttachments';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
@@ -371,6 +372,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         </div>
       </div>
 
+      {/* ID validity banner — surfaces expired IDs prominently so an
+          approver doesn't have to drill into the Attachments tab to
+          notice. Hidden unless there's at least one expired ID. */}
+      <ExpiredIdsBanner permitId={permit.id} />
+
       {/* Main Content */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Details */}
@@ -475,25 +481,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {(permit.attachments || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No attachments</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {(permit.attachments || []).map((filePath, index) => {
-                        // Extract filename from path
-                        const filename = filePath.includes('/') 
-                          ? decodeURIComponent(filePath.split('/').pop() || `attachment-${index + 1}`)
-                          : filePath;
-                        return (
-                          <AttachmentPreview
-                            key={index}
-                            filePath={filePath}
-                            filename={filename}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
+                  <PermitAttachmentsView
+                    permitId={permit.id}
+                    legacyAttachments={permit.attachments || []}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -664,5 +655,52 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         workflowTemplateId={(permit.work_types as any)?.workflow_template_id || null}
       />
     </motion.div>
+  );
+}
+
+/**
+ * Banner shown above the main details section when one or more IDs
+ * attached to this permit have expired. Approvers see it on page
+ * load — they don't have to click through to the Attachments tab to
+ * notice. Renders nothing when all IDs are valid or there are none.
+ */
+function ExpiredIdsBanner({ permitId }: { permitId: string }) {
+  const { data: attachments } = usePermitAttachments(permitId);
+
+  if (!attachments || attachments.length === 0) return null;
+
+  const expired = attachments.filter(
+    (a) =>
+      (a.document_type === 'civil_id' || a.document_type === 'driving_license') &&
+      a.extraction_status === 'success' &&
+      a.is_valid === false,
+  );
+
+  if (expired.length === 0) return null;
+
+  return (
+    <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 mb-4 flex items-start gap-3">
+      <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+      <div className="flex-1 text-sm">
+        <p className="font-medium text-destructive">
+          {expired.length === 1
+            ? '1 expired ID attached to this permit'
+            : `${expired.length} expired IDs attached to this permit`}
+        </p>
+        <ul className="mt-1 space-y-0.5 text-foreground/80">
+          {expired.map((a) => (
+            <li key={a.id}>
+              <span className="font-medium">{a.extracted_name || a.file_name}</span>
+              {' — '}
+              <span className="text-muted-foreground">
+                {a.document_type === 'driving_license' ? 'Driving License' : 'Civil ID'}
+              </span>
+              {' expired on '}
+              <span className="font-medium">{a.extracted_expiry_date}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
