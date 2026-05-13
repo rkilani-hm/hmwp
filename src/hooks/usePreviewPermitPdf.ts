@@ -44,15 +44,40 @@ export function usePreviewPermitPdf() {
         body: { formData },
       });
 
+      // supabase-js wraps non-2xx HTTP responses into `error`. Read the
+      // response body off the error context where Supabase stashes it
+      // so we surface the actual server-side reason instead of the
+      // generic "non-2xx status code" string.
       if (error) {
-        console.error('Preview PDF error:', error);
-        toast.error('Could not generate preview. Please try again.');
+        console.error('Preview PDF transport error:', error);
+        let detail = error.message || 'Unknown error';
+        try {
+          // FunctionsHttpError exposes a Response in .context
+          const ctx = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error || body?.message) {
+              detail = body.error || body.message;
+            }
+          }
+        } catch {
+          // Best-effort; if we can't parse the body, fall back to
+          // error.message
+        }
+        toast.error(`Could not generate preview: ${detail}`);
         return null;
       }
 
       if (!data?.success || !data.pdfBase64) {
-        const msg = data?.error || 'Preview generation failed';
-        toast.error(msg);
+        const code = data?.error || 'preview_failed';
+        const message =
+          data?.message ||
+          (code === 'rate_limited'
+            ? 'Too many preview requests. Wait a minute and try again.'
+            : code === 'Unauthorized'
+              ? 'Your session has expired. Please sign in again.'
+              : `Preview generation failed (${code})`);
+        toast.error(message);
         return null;
       }
 
@@ -67,7 +92,7 @@ export function usePreviewPermitPdf() {
       return URL.createObjectURL(blob);
     } catch (err) {
       console.error('Preview PDF unexpected error:', err);
-      toast.error('Could not generate preview. Please try again.');
+      toast.error(`Could not generate preview: ${(err as Error).message || 'unknown error'}`);
       return null;
     } finally {
       setIsGenerating(false);

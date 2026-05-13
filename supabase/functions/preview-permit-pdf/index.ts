@@ -168,7 +168,7 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -179,7 +179,7 @@ serve(async (req) => {
     if (authErr || !user) {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -204,7 +204,7 @@ serve(async (req) => {
     if (!body || typeof body.formData !== "object") {
       return new Response(
         JSON.stringify({ success: false, error: "Missing formData" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
