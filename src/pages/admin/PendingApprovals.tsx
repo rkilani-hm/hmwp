@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, XCircle, Mail, Phone, Building2, Clock, Inbox } from 'lucide-react';
+import { CheckCircle2, XCircle, Mail, Phone, Building2, Clock, Inbox, Edit, MapPin } from 'lucide-react';
 import {
   usePendingTenants,
   useApproveTenant,
   useRejectTenant,
+  type PendingTenant,
 } from '@/hooks/usePendingTenants';
+import { EditTenantDetailsDialog } from '@/components/admin/EditTenantDetailsDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +55,11 @@ export default function PendingApprovals() {
   // Reject modal
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Edit-details dialog: admin can fix data before approval. Stores the
+  // full tenant row (not just an id) so the dialog can reset its inputs
+  // when the selection changes.
+  const [editTarget, setEditTarget] = useState<PendingTenant | null>(null);
 
   const handleApprove = () => {
     if (!approveTarget) return;
@@ -171,6 +178,17 @@ export default function PendingApprovals() {
                     <Building2 className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
                     <span className="truncate">{tenant.company_name || '—'}</span>
                   </div>
+                  {/* Unit + Floor — new master-data fields. Always
+                      visible so admins can see at a glance whether the
+                      tenant filled them in; '—' for blanks makes
+                      missing data obvious so admin knows to use the
+                      Edit dialog before approval. */}
+                  <div className="flex items-center gap-2 sm:col-span-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      Unit {tenant.unit || '—'} · Floor {tenant.floor || '—'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
@@ -180,6 +198,14 @@ export default function PendingApprovals() {
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditTarget(tenant)}
+                    disabled={approve.isPending || reject.isPending}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit details
                   </Button>
                   <Button
                     variant="outline"
@@ -267,6 +293,14 @@ export default function PendingApprovals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit-details dialog — opens when admin clicks 'Edit details'
+          on any tenant card. Local state in the dialog is reset on
+          tenant change via useEffect. */}
+      <EditTenantDetailsDialog
+        tenant={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
     </div>
   );
 }

@@ -24,17 +24,27 @@ const STEPS_GENERIC = ['Category & Type', 'Delivery Details', 'Material Details'
 export default function GatePassFormWizard() {
   const navigate = useNavigate();
   const createGatePass = useCreateGatePass();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [step, setStep] = useState(0);
 
   // Form state
   const [category, setCategory] = useState<GatePassCategory | ''>('');
   const [passType, setPassType] = useState<GatePassType | ''>('');
-  const [clientContractorName, setClientContractorName] = useState('');
-  const [clientRepName, setClientRepName] = useState('');
-  const [clientRepEmail, setClientRepEmail] = useState('');
-  const [clientRepContact, setClientRepContact] = useState('');
-  const [unitFloor, setUnitFloor] = useState('');
+  // Pre-fill from tenant profile master data. clientContractorName is
+  // analogous to the work-permit wizard's contractorName — it's the
+  // company on whose behalf the gate-pass is being requested. unitFloor
+  // is a single combined field on the gate-pass form (legacy shape);
+  // we join the profile's unit + floor with '/' so the tenant doesn't
+  // have to retype every time.
+  const [clientContractorName, setClientContractorName] = useState(profile?.company_name || '');
+  const [clientRepName, setClientRepName] = useState(profile?.full_name || '');
+  const [clientRepEmail, setClientRepEmail] = useState(profile?.email || user?.email || '');
+  const [clientRepContact, setClientRepContact] = useState(profile?.phone || '');
+  const [unitFloor, setUnitFloor] = useState(
+    profile?.unit || profile?.floor
+      ? `${profile?.unit || ''}${profile?.unit && profile?.floor ? ' / ' : ''}${profile?.floor || ''}`
+      : '',
+  );
   const [deliveryArea, setDeliveryArea] = useState('');
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
