@@ -44,42 +44,47 @@ const corsHeaders = {
 };
 
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash-lite";
+// gemini-2.5-flash (not the lite variant) — significantly better at
+// finding subjects in cluttered photos and reading text at angles.
+// The lite variant was failing on mobile photos where the ID card
+// occupies less than half the frame.
+const MODEL = "google/gemini-2.5-flash";
 
-const EXTRACTION_PROMPT = `You are extracting structured data from an image of a Kuwaiti civil ID or driving license.
+// Simplified prompt: ONLY two fields (English name + expiry date)
+// per user request. Less surface area to fail; faster response.
+const EXTRACTION_PROMPT = `You are reading a Kuwait Civil ID card or a Kuwait Driving License from a photograph.
 
-Look at the image carefully and identify:
-- The full name of the document holder (use the English/Latin name if shown; otherwise transliterate the Arabic name)
-- The civil ID number (a 12-digit number, usually labeled with "Civil ID No" or similar)
-- The expiry date (look for "Expiry" or "تاريخ الانتهاء"; format as YYYY-MM-DD)
-- The issue date if visible (format as YYYY-MM-DD)
-- The nationality if visible
-- Whether this is specifically a civil_id, driving_license, or some other document
+The photo may be a clean cropped image OR a mobile photo where the card occupies only part of the frame and may be slightly angled. Locate the card in the image first, then extract these TWO fields only:
 
-Return ONLY a JSON object — no markdown fences, no commentary — with this exact shape:
+1. The English name of the document holder (printed in Latin letters, usually after the label "Name"). On a Kuwait Civil ID this looks like: "MOHAMMAD SALIM MAKRANI"
+2. The expiry date (labeled "Expiry Date" in English or "تاريخ الانتهاء" in Arabic). On the card it is printed as DD/MM/YYYY (e.g. "01/03/2026" means 1 March 2026).
+
+Return ONLY a JSON object — no markdown fences, no commentary, no extra fields — in this exact shape:
 
 {
   "name": string | null,
-  "id_number": string | null,
   "expiry_date": string | null,
-  "issue_date": string | null,
-  "nationality": string | null,
   "document_type": "civil_id" | "driving_license" | "other",
   "is_kuwaiti_id_or_license": boolean
 }
 
-If the image is not a Kuwaiti civil ID or driving license, set is_kuwaiti_id_or_license=false, document_type="other", and all other fields to null. If a specific field is illegible or not present, set it to null individually.
-
-Dates MUST be in YYYY-MM-DD format. If the date on the document is in DD/MM/YYYY format, convert it. If only the year is visible, assume December 31 of that year for expiry_date.`;
+Rules:
+- The expiry_date MUST be in YYYY-MM-DD format. Convert DD/MM/YYYY → YYYY-MM-DD (e.g. "01/03/2026" → "2026-03-01"). Never confuse day and month.
+- If the image is not a Kuwait civil ID or driving license, set is_kuwaiti_id_or_license=false and both name and expiry_date to null.
+- If you can read the name but not the expiry date (or vice versa), populate the one you can read and set the other to null. Do NOT guess.
+- The name field should be in ALL CAPS, exactly as printed on the card.`;
 
 interface ExtractedFields {
   name: string | null;
-  id_number: string | null;
   expiry_date: string | null;
-  issue_date: string | null;
-  nationality: string | null;
   document_type: "civil_id" | "driving_license" | "other";
   is_kuwaiti_id_or_license: boolean;
+  // Legacy fields — always null in this simplified prompt. Kept in the
+  // shape so the frontend (which still has the columns from the
+  // permit_attachments table) doesn't break.
+  id_number: null;
+  issue_date: null;
+  nationality: null;
 }
 
 function stripDataUrlPrefix(input: string): { base64: string; mimeType: string } {
@@ -101,15 +106,26 @@ function parseExtractionResponse(content: string): ExtractedFields | null {
 
   try {
     const parsed = JSON.parse(cleaned);
-    // Minimal shape validation — accept whatever the model gives us
-    // and let the caller decide what to do with null fields.
     if (typeof parsed !== "object" || parsed === null) return null;
+
+    // Validate expiry_date format — must be YYYY-MM-DD. If the model
+    // returned a different shape (like DD/MM/YYYY despite instructions),
+    // try to convert; otherwise null it out rather than poison the row.
+    let expiryDate: string | null = null;
+    if (typeof parsed.expiry_date === "string") {
+      const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(parsed.expiry_date);
+      const dmy = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(parsed.expiry_date);
+      if (ymd) {
+        expiryDate = parsed.expiry_date;
+      } else if (dmy) {
+        const [, d, m, y] = dmy;
+        expiryDate = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      }
+    }
+
     return {
-      name: typeof parsed.name === "string" ? parsed.name : null,
-      id_number: typeof parsed.id_number === "string" ? parsed.id_number : null,
-      expiry_date: typeof parsed.expiry_date === "string" ? parsed.expiry_date : null,
-      issue_date: typeof parsed.issue_date === "string" ? parsed.issue_date : null,
-      nationality: typeof parsed.nationality === "string" ? parsed.nationality : null,
+      name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null,
+      expiry_date: expiryDate,
       document_type:
         parsed.document_type === "civil_id" ||
         parsed.document_type === "driving_license" ||
@@ -117,6 +133,9 @@ function parseExtractionResponse(content: string): ExtractedFields | null {
           ? parsed.document_type
           : "other",
       is_kuwaiti_id_or_license: Boolean(parsed.is_kuwaiti_id_or_license),
+      id_number: null,
+      issue_date: null,
+      nationality: null,
     };
   } catch (err) {
     console.error("Failed to parse extraction JSON:", err, "raw:", content);
@@ -210,8 +229,15 @@ serve(async (req) => {
     const content: string | undefined =
       aiJson?.choices?.[0]?.message?.content;
 
+    // Always log the raw model response — invaluable when debugging
+    // OCR failures. Truncate to keep the log readable.
+    console.log(
+      `[extract-id-document] Model ${MODEL} returned:`,
+      typeof content === "string" ? content.slice(0, 600) : "<no content>",
+    );
+
     if (!content) {
-      console.error("AI response had no content:", JSON.stringify(aiJson));
+      console.error("AI response had no content:", JSON.stringify(aiJson).slice(0, 800));
       return new Response(
         JSON.stringify({ success: false, error: "ai_empty_response" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -230,6 +256,15 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Log the extracted fields for observability (no PII concern in
+    // this context — admins already see this data when reviewing
+    // permits, and the logs are admin-only).
+    console.log(
+      `[extract-id-document] Extracted: name=${extracted.name}, ` +
+      `expiry=${extracted.expiry_date}, ` +
+      `is_kuwaiti=${extracted.is_kuwaiti_id_or_license}`,
+    );
 
     return new Response(
       JSON.stringify({ success: true, extracted }),

@@ -55,7 +55,11 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-const MAX_ID_DIMENSION = 1600;
+// OCR needs detail — bump up from the default 1600px / 0.9 used for
+// general image attachments. At 2000px / 0.95, Kuwait IDs photographed
+// at mobile-phone distances retain enough sharpness for Gemini to
+// read the printed text reliably even at slight angles.
+const MAX_ID_DIMENSION = 2000;
 
 /**
  * Build a user-friendly error explanation from a backend error code
@@ -211,7 +215,7 @@ async function downscaleImage(file: File): Promise<File> {
           resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
         },
         'image/jpeg',
-        0.9,
+        0.95,
       );
     };
     img.onerror = () => {
