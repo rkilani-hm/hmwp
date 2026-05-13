@@ -30,7 +30,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     password: '',
     fullName: '',
     companyName: '',
-    roles: ['tenant'] as string[],
+    roles: [] as string[],
   });
 
   const handleRoleToggle = (role: string) => {
@@ -96,7 +96,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         password: '',
         fullName: '',
         companyName: '',
-        roles: ['tenant'],
+        roles: [],
       });
       onOpenChange(false);
       
@@ -115,7 +115,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         password: '',
         fullName: '',
         companyName: '',
-        roles: ['tenant'],
+        roles: [],
       });
       onOpenChange(false);
     }
