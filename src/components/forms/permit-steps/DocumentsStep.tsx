@@ -729,11 +729,27 @@ function IdAttachmentCard({ attachment, onRemove, onRetry }: IdAttachmentCardPro
             </div>
           )}
 
-          {!validationError && extractionStatus === 'failed' && attachment.extractionError && (
-            <p className="mt-1.5 text-xs text-muted-foreground italic">
-              {attachment.extractionError}
-            </p>
-          )}
+          {!validationError && extractionStatus === 'failed' && attachment.extractionError && (() => {
+            // Split "Title. Hint" so the title can be emphasized and
+            // the hint reads as a distinct "how to fix it" line.
+            const idx = attachment.extractionError.indexOf('. ');
+            const title = idx > 0 ? attachment.extractionError.slice(0, idx) : attachment.extractionError;
+            const hint = idx > 0 ? attachment.extractionError.slice(idx + 2) : '';
+            return (
+              <div className="mt-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs">
+                <p className="flex items-start gap-1.5 font-medium text-warning">
+                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>{title}</span>
+                </p>
+                {hint && (
+                  <p className="mt-1 pl-5 text-muted-foreground">
+                    <span className="font-medium text-foreground">How to fix: </span>
+                    {hint}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <Button
