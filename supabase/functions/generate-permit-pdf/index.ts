@@ -375,11 +375,61 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawBrandLine(page, yPos);
     yPos -= 18;
 
-    // Status badge
-    const statusText = (permit.status || 'unknown').toUpperCase();
-    const statusColor = permit.status === 'approved' ? rgb(0.13, 0.77, 0.37) :
-                        permit.status === 'rejected' ? BRAND_RED :
-                        rgb(0.42, 0.45, 0.5);
+    // Status badge.
+    //
+    // Don't trust permit.status blindly: in workflows where multiple
+    // approvers must act, the work_permits.status enum can briefly
+    // read as the role-specific 'pending_X' even when several
+    // approvals are already in. Showing the raw value as the headline
+    // status is confusing — and showing 'APPROVED' before EVERY
+    // required approver acted is incorrect.
+    //
+    // Derived from permit_approvals (the canonical source — same
+    // table the inbox + progress sidebar read from):
+    //
+    //   - any rejected row  -> REJECTED
+    //   - all approved/none pending -> APPROVED
+    //   - some pending      -> AWAITING <role(s)>
+    //   - terminal but no rows (draft / cancelled) -> use permit.status
+    const humanizeRole = (r: string): string =>
+      (ROLE_DISPLAY_NAMES[r] ?? r)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const pendingRoles = approvals
+      .filter((a) => a.status === 'pending')
+      .map((a) => humanizeRole(a.roleKey));
+    const anyRejected = approvals.some((a) => a.status === 'rejected');
+    const anyApproved = approvals.some((a) => a.status === 'approved');
+
+    let statusText: string;
+    let statusColor: ReturnType<typeof rgb>;
+
+    if (permit.status === 'draft' || permit.status === 'cancelled') {
+      // Pre-workflow or withdrawn — show raw status, neutral color.
+      statusText = (permit.status || 'unknown').toUpperCase();
+      statusColor = rgb(0.42, 0.45, 0.5);
+    } else if (anyRejected || permit.status === 'rejected') {
+      statusText = 'REJECTED';
+      statusColor = BRAND_RED;
+    } else if (pendingRoles.length === 0 && anyApproved) {
+      // No pending rows AND at least one approved -> fully approved.
+      statusText = 'APPROVED';
+      statusColor = rgb(0.13, 0.77, 0.37);
+    } else if (pendingRoles.length > 0) {
+      // In progress — list who's holding it now (max 2 named, then "+N more")
+      const shown = pendingRoles.slice(0, 2).join(', ');
+      const extra = pendingRoles.length > 2
+        ? ` (+${pendingRoles.length - 2} more)`
+        : '';
+      statusText = `AWAITING ${shown}${extra}`;
+      statusColor = rgb(0.95, 0.6, 0.07); // amber — work-in-progress
+    } else {
+      // Fallback (rare: workflow_steps exist but no permit_approvals
+      // rows — shouldn't happen post-Phase-2c-5a, but guard anyway).
+      statusText = (permit.status || 'unknown').toUpperCase();
+      statusColor = rgb(0.42, 0.45, 0.5);
+    }
     drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
     yPos -= 20;
     drawText(page, 'Work Type: ' + workType, margin, yPos, 11, helvetica, BRAND_DARK);
