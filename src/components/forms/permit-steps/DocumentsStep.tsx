@@ -276,16 +276,14 @@ export function DocumentsStep({ data, updateField }: Props) {
         /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i.test(file.name);
       const previewUrl = !heic && isImage ? URL.createObjectURL(file) : undefined;
 
+      // AI OCR disabled — accept the file as-is. Civil IDs / driving
+      // licenses are uploaded without any auto-read; reviewer will read
+      // them manually. Status is 'skipped' for valid files.
       let initialStatus: AttachmentWithMetadata['extractionStatus'];
       if (!v.valid) {
         initialStatus = 'failed';
-      } else if (documentType === 'other') {
-        initialStatus = 'skipped';
-      } else if (heic) {
-        // HEIC needs conversion before anything else can happen
-        initialStatus = 'converting';
       } else {
-        initialStatus = 'pending';
+        initialStatus = 'skipped';
       }
 
       return {
@@ -301,15 +299,8 @@ export function DocumentsStep({ data, updateField }: Props) {
     const updated = [...data.attachments, ...newAttachments];
     updateField('attachments', updated);
 
-    // Phase 2: for ID documents, convert HEIC first (if needed), then
-    // run extraction. We chain via prepareAndExtract so the UI status
-    // smoothly transitions converting → processing → success/failed.
-    if (documentType !== 'other') {
-      for (const att of newAttachments) {
-        if (att.validationError) continue;
-        prepareAndExtract(att, updated);
-      }
-    }
+    // AI OCR disabled per user request — no extraction or HEIC
+    // conversion is triggered. Files are uploaded as-is.
   };
 
   /**
