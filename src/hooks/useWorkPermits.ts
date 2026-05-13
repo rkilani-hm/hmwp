@@ -370,7 +370,25 @@ export function useCreatePermit() {
       work_date_to: string;
       work_time_from: string;
       work_time_to: string;
-      files?: File[];
+      /**
+       * Attachments with metadata (categorization + AI-extracted ID
+       * fields). Each entry: { file, documentType, extracted*, isValid }.
+       * Uploaded to storage and persisted to permit_attachments table.
+       * The legacy work_permits.attachments text[] column gets the file
+       * paths too for backward compatibility with existing code paths.
+       */
+      files?: Array<{
+        file: File;
+        documentType: 'civil_id' | 'driving_license' | 'other';
+        extractedName?: string | null;
+        extractedIdNumber?: string | null;
+        extractedExpiryDate?: string | null;
+        extractedIssueDate?: string | null;
+        extractedNationality?: string | null;
+        isValid?: boolean;
+        extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+        extractionError?: string;
+      }>;
       urgency?: 'normal' | 'urgent';
     }) => {
       // Generate permit number via Postgres RPC. The function lives at
@@ -393,13 +411,36 @@ export function useCreatePermit() {
       // Generate a temporary ID for file uploads
       const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-      // Upload files first if any
+      // Upload files first if any.
+      // attachmentPaths populates the legacy text[] column on
+      // work_permits (kept for backward compatibility).
+      // uploadedAttachments carries the AI-extracted metadata to
+      // insert into permit_attachments after the work_permit row
+      // is created (we need its id first).
       const attachmentPaths: string[] = [];
+      type UploadedAttachment = {
+        path: string;
+        fileName: string;
+        fileSize: number;
+        mimeType: string;
+        documentType: 'civil_id' | 'driving_license' | 'other';
+        extractedName?: string | null;
+        extractedIdNumber?: string | null;
+        extractedExpiryDate?: string | null;
+        extractedIssueDate?: string | null;
+        extractedNationality?: string | null;
+        isValid?: boolean;
+        extractionStatus: 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
+        extractionError?: string;
+      };
+      const uploadedAttachments: UploadedAttachment[] = [];
+
       if (permitData.files && permitData.files.length > 0) {
         // Import file validation
         const { validateFile } = await import('./useFileUpload');
-        
-        for (const file of permitData.files) {
+
+        for (const att of permitData.files) {
+          const file = att.file;
           // Validate file before upload
           const validation = validateFile(file);
           if (!validation.valid) {
@@ -424,8 +465,22 @@ export function useCreatePermit() {
           }
 
           if (uploadData) {
-            // Store file path instead of public URL (bucket is now private)
             attachmentPaths.push(fileName);
+            uploadedAttachments.push({
+              path: fileName,
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+              documentType: att.documentType,
+              extractedName: att.extractedName,
+              extractedIdNumber: att.extractedIdNumber,
+              extractedExpiryDate: att.extractedExpiryDate,
+              extractedIssueDate: att.extractedIssueDate,
+              extractedNationality: att.extractedNationality,
+              isValid: att.isValid,
+              extractionStatus: att.extractionStatus,
+              extractionError: att.extractionError,
+            });
           }
         }
       }
@@ -462,6 +517,45 @@ export function useCreatePermit() {
         .single();
 
       if (error) throw error;
+
+      // Persist per-file attachment metadata to the new
+      // permit_attachments table (the legacy work_permits.attachments
+      // text[] column was already written above). Per-row failures
+      // are non-fatal — the permit itself is committed.
+      if (uploadedAttachments.length > 0) {
+        const attachmentRows = uploadedAttachments.map((a) => ({
+          permit_id: data.id,
+          file_path: a.path,
+          file_name: a.fileName,
+          file_size: a.fileSize,
+          mime_type: a.mimeType,
+          document_type: a.documentType,
+          extracted_name: a.extractedName,
+          extracted_id_number: a.extractedIdNumber,
+          extracted_expiry_date: a.extractedExpiryDate,
+          extracted_issue_date: a.extractedIssueDate,
+          extracted_nationality: a.extractedNationality,
+          extraction_status: a.extractionStatus,
+          extraction_error: a.extractionError,
+          extracted_at:
+            a.extractionStatus === 'success' || a.extractionStatus === 'failed'
+              ? new Date().toISOString()
+              : null,
+          uploaded_by: user?.id,
+        }));
+
+        const { error: attachErr } = await supabase
+          .from('permit_attachments')
+          .insert(attachmentRows);
+
+        if (attachErr) {
+          // Log but don't fail the whole permit submission. The
+          // legacy attachments array on work_permits still has the
+          // paths, so the files are accessible — they just won't
+          // carry the categorization + extraction metadata.
+          console.error('permit_attachments insert failed (non-fatal):', attachErr);
+        }
+      }
 
       // Log activity
       await supabase.from('activity_logs').insert({
