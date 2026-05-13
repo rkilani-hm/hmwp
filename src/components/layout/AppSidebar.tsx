@@ -16,6 +16,7 @@ import {
   Leaf,
   Cog,
   UserCheck,
+  Share2,
   ChevronDown,
   BarChart3,
   Timer,
@@ -113,6 +114,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: Cog,
         items: [
           { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
+          { icon: Share2, label: 'My Delegations', path: '/delegations' },
           { icon: BookOpen, label: 'User Manuals', path: '/user-manuals' },
           { icon: Settings, label: 'Settings', path: '/settings' },
         ],
@@ -152,6 +154,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: Cog,
         items: [
           { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
+          { icon: Share2, label: 'My Delegations', path: '/delegations' },
           { icon: BookOpen, label: 'User Manuals', path: '/user-manuals' },
           { icon: Settings, label: 'Settings', path: '/settings' },
         ],
@@ -184,6 +187,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         items: [
           { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
           { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
+          { icon: Share2, label: 'My Delegations', path: '/delegations' },
         ],
       },
       {
@@ -267,6 +271,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
       icon: Cog,
       items: [
         { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
+        { icon: Share2, label: 'My Delegations', path: '/delegations' },
         { icon: BookOpen, label: 'User Manuals', path: '/user-manuals' },
         { icon: Settings, label: 'Settings', path: '/settings' },
       ],

@@ -31,6 +31,7 @@ import GatePassDetail from './GatePassDetail';
 import GatePassApprovals from './GatePassApprovals';
 import GatePassWorkflowConfig from './admin/GatePassWorkflowConfig';
 import AdminDeletionAuditLog from './admin/AdminDeletionAuditLog';
+import MyDelegations from './MyDelegations';
 const Index = () => {
   const { roles, hasRole } = useAuth();
   
@@ -101,6 +102,7 @@ const Index = () => {
           element={isAdmin ? <ApproverPerformance /> : <Navigate to="/" replace />} 
         />
         <Route path="scan-verify" element={<ScanVerify />} />
+        <Route path="delegations" element={<MyDelegations />} />
         <Route path="settings" element={<Settings />} />
         <Route 
           path="vapid-keys" 
