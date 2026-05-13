@@ -22,8 +22,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Get active roles for selection
-  const availableRoles = roles?.filter(role => role.is_active) || [];
+  // Roles available for admin-created users.
+  // Tenants are EXCLUDED — they register themselves through the
+  // public signup form on /auth and shouldn't be created this way.
+  // The server-side schema also enforces this (admin-create-user
+  // edge function rejects 'tenant' in the roles list), but
+  // filtering here keeps the UI consistent: admins don't see a
+  // checkbox they're not allowed to use.
+  const availableRoles = roles?.filter(
+    (role) => role.is_active && role.name !== 'tenant',
+  ) || [];
   
   const [formData, setFormData] = useState({
     email: '',
@@ -213,7 +221,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Select one or more roles for the user
+              Select one or more staff/approver roles. Tenants register
+              themselves through the public signup form and cannot be
+              created here.
             </p>
           </div>
 

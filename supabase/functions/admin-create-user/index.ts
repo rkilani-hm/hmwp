@@ -49,7 +49,16 @@ const CreateUserSchema = z.object({
     .optional(),
   roles: z.array(z.string())
     .min(1, "At least one role is required")
-    .max(10, "Maximum 10 roles allowed"),
+    .max(10, "Maximum 10 roles allowed")
+    .refine(
+      (roles) => !roles.includes("tenant"),
+      {
+        message:
+          "Admin-created users cannot have the 'tenant' role. Tenants " +
+          "must register themselves through the public signup form. " +
+          "Use a staff/approver role instead.",
+      }
+    ),
 });
 
 serve(async (req) => {
@@ -202,37 +211,32 @@ serve(async (req) => {
       }
     }
 
-    // The handle_new_user trigger should have created the profile and default tenant role
-    // Now add any additional roles
+    // After the trigger runs, admin-created users have NO default
+    // role assigned (the trigger only assigns 'tenant' for self-
+    // signups). We add all the admin-specified roles here.
+    //
+    // Note: the request schema already rejects 'tenant' in the roles
+    // array, so this loop only ever inserts staff/approver roles.
     if (roles && roles.length > 0 && newUser.user) {
-      // Get role IDs from the roles table
       const { data: rolesData } = await supabaseAdmin
         .from("roles")
         .select("id, name")
-        .in("name", [...roles, "tenant"]);
+        .in("name", roles);
 
       const roleMap = new Map(rolesData?.map(r => [r.name, r.id]) || []);
-      const tenantRoleId = roleMap.get("tenant");
 
-      // First remove the default tenant role if other roles are specified
-      // and tenant is not in the list
-      if (!roles.includes("tenant") && tenantRoleId) {
-        await supabaseAdmin
-          .from("user_roles")
-          .delete()
-          .eq("user_id", newUser.user.id)
-          .eq("role_id", tenantRoleId);
-      }
-
-      // Add the specified roles (excluding tenant if it's already added by trigger)
-      const rolesToAdd = roles.filter(role => role !== "tenant");
-      
-      for (const role of rolesToAdd) {
+      // Insert each role. If the role name doesn't resolve to an ID
+      // (admin sent a role that doesn't exist), the earlier validation
+      // already returned 400 — this is just a paranoid lookup.
+      for (const role of roles) {
         const roleId = roleMap.get(role);
         if (roleId) {
-          await supabaseAdmin
+          const { error: insertErr } = await supabaseAdmin
             .from("user_roles")
             .insert({ user_id: newUser.user.id, role_id: roleId });
+          if (insertErr) {
+            console.error(`Failed to assign role ${role}:`, insertErr);
+          }
         }
       }
     }
