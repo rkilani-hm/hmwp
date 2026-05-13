@@ -397,6 +397,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Details */}
         <div className="lg:col-span-2 space-y-6">
+          <ExpiredIdsBanner permitId={permit.id} />
           <Tabs defaultValue="details">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="details">Details</TabsTrigger>
