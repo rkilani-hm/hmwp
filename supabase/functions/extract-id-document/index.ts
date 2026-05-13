@@ -176,7 +176,7 @@ serve(async (req) => {
 
     // Construct the OpenAI-compatible vision request expected by the
     // Lovable AI Gateway. Image is passed as a data URL inside
-    // image_url. Gemini Flash Lite accepts the same format.
+    // image_url. Gemini Flash accepts the same format.
     const requestBody = {
       model: MODEL,
       messages: [
