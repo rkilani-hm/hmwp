@@ -45,10 +45,12 @@ import {
   Edit,
   Bell,
   Settings2,
+  Plus,
 } from 'lucide-react';
 import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { PermitActivityLog } from '@/components/PermitActivityLog';
+import { AddAttachmentsDialog } from '@/components/AddAttachmentsDialog';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,6 +96,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [reworkDialogOpen, setReworkDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [addAttachmentsOpen, setAddAttachmentsOpen] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [modifyWorkflowOpen, setModifyWorkflowOpen] = useState(false);
 
@@ -490,6 +493,27 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </TabsContent>
 
             <TabsContent value="attachments" className="mt-6">
+              {/* Add-attachments button — visible to creator, admin,
+                  or anyone holding an approver role (any role other
+                  than just 'tenant'). RLS on permit_attachments is
+                  the actual source of truth; this is just frontend
+                  visibility. */}
+              {user && (
+                permit.requester_id === user.id ||
+                isAdmin ||
+                roles.some((r) => r !== 'tenant')
+              ) && (
+                <div className="flex justify-end mb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddAttachmentsOpen(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add documents
+                  </Button>
+                </div>
+              )}
               <PermitAttachmentsTab
                 permitId={permit.id}
                 legacyAttachments={permit.attachments || []}
@@ -650,6 +674,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         pdfUrl={previewPdfUrl}
         fileName={`${permit.permit_no.replace(/\//g, '-')}.pdf`}
         onDownload={handleDownloadPdf}
+      />
+
+      {/* Add Attachments Dialog */}
+      <AddAttachmentsDialog
+        permitId={permit.id}
+        open={addAttachmentsOpen}
+        onOpenChange={setAddAttachmentsOpen}
       />
       
       {/* Modify Workflow Dialog */}
