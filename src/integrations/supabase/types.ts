@@ -2134,6 +2134,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_emails_for_role: { Args: { p_role_name: string }; Returns: Json }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
@@ -2182,10 +2183,12 @@ export type Database = {
         Args: { _permit_id: string }
         Returns: undefined
       }
+      resolve_user_email: { Args: { p_user_id: string }; Returns: string }
       same_company: {
         Args: { _user_a: string; _user_b: string }
         Returns: boolean
       }
+      sync_profile_emails_from_auth: { Args: never; Returns: Json }
     }
     Enums: {
       app_role:
