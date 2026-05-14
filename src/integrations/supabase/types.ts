@@ -2169,6 +2169,11 @@ export type Database = {
         Args: { p_permit_id: string }
         Returns: Json
       }
+      reassign_all_active_permits: { Args: never; Returns: Json }
+      reassign_permit_approvals: {
+        Args: { p_permit_id: string }
+        Returns: Json
+      }
       reconcile_gate_pass_approvals: {
         Args: { _gate_pass_id: string }
         Returns: undefined
