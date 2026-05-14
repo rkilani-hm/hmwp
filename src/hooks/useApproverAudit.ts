@@ -194,3 +194,44 @@ export function useReassignAllPermits() {
     },
   });
 }
+
+/**
+ * Calls sync_profile_emails_from_auth() RPC. For every public.profiles
+ * row whose email is NULL/empty, copies it from auth.users.email.
+ * Also creates missing profile rows for any auth.users with none.
+ *
+ * Use case: approvers report "I see permits in my inbox but never get
+ * email" -> their profiles.email is empty -> notify_permit_active_approvers
+ * silently skips them. One click fixes the entire backlog.
+ *
+ * Idempotent; safe to re-run.
+ *
+ * Admin only.
+ */
+export function useSyncProfileEmails() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ updated_count: number; inserted_count: number }> => {
+      const { data, error } = await supabase.rpc(
+        'sync_profile_emails_from_auth' as any,
+      );
+      if (error) throw error;
+      return (data as unknown) as { updated_count: number; inserted_count: number };
+    },
+    onSuccess: (result) => {
+      const { updated_count: u, inserted_count: i } = result;
+      if (u === 0 && i === 0) {
+        toast.success('All profile emails are already in sync with auth.users.');
+      } else {
+        const parts: string[] = [];
+        if (u > 0) parts.push(`${u} profile email${u === 1 ? '' : 's'} backfilled`);
+        if (i > 0) parts.push(`${i} missing profile row${i === 1 ? '' : 's'} created`);
+        toast.success(parts.join(', ') + '. Approvers will now receive email notifications.');
+      }
+      qc.invalidateQueries({ queryKey: AUDIT_KEY });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to sync profile emails');
+    },
+  });
+}

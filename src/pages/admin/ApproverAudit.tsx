@@ -35,6 +35,7 @@ import {
   useApproverAudit,
   useNotifyPendingApproversBackfill,
   useReassignAllPermits,
+  useSyncProfileEmails,
   type ApproverAuditRow,
 } from '@/hooks/useApproverAudit';
 
@@ -51,6 +52,7 @@ export default function ApproverAudit() {
   const { data: rows, isLoading, refetch, isFetching } = useApproverAudit();
   const backfill = useNotifyPendingApproversBackfill();
   const reassign = useReassignAllPermits();
+  const syncEmails = useSyncProfileEmails();
 
   const orphanedCount =
     rows?.filter((r) => r.status === 'orphaned_pending').length ?? 0;
@@ -77,6 +79,19 @@ export default function ApproverAudit() {
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => syncEmails.mutate()}
+            disabled={syncEmails.isPending}
+            title="Copy email from auth.users into profiles.email for any user whose profile email is empty. Fix for 'approvers see permits but get no email'. Idempotent; safe to re-run."
+          >
+            {syncEmails.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Mail className="w-4 h-4 mr-2" />
+            )}
+            Sync profile emails
           </Button>
           <Button
             variant="outline"
