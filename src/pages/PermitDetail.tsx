@@ -117,7 +117,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   // Single source of truth across the page, matching what the inbox
   // sees — eliminates the old hardcoded statusToRole map that didn't
   // include custom roles like al_hamra_customer_service.
-  const { data: activeApprovers = [] } = usePermitActiveApprovers(id);
+  const { data: activeApprovers = [], isLoading: activeApproversLoading } = usePermitActiveApprovers(id);
   const { generatePdf, isGenerating } = useGeneratePdf();
   const resendNotification = useResendNotification();
   const archivePermit = useArchiveWorkPermit();
@@ -189,6 +189,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   // map of legacy status -> role names; broke for custom roles.)
   const canApprove = () => {
     if (currentRole === 'tenant') return false;
+    if (activeApproversLoading) return false;
     if (activeApprovers.length === 0) return false;
     const activeRoleNames = new Set(activeApprovers.map((a) => a.role_name));
     return roles.some((r) => activeRoleNames.has(r as string));
@@ -199,9 +200,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   // earliest step_order (the most active one in the workflow). The
   // approve edge function then double-checks role assignment via RLS.
   const getApprovalRole = (): string => {
-    const matchingActive = activeApprovers
-      .filter((a) => roles.includes(a.role_name as any))
-      .sort((a, b) => (a.step_order ?? 999) - (b.step_order ?? 999));
+    const matchingActive = activeApprovers.filter((a) => roles.includes(a.role_name as any));
     if (matchingActive.length > 0) return matchingActive[0].role_name;
     // Fallback: any role the user has from the active list (defensive)
     const activeRoleNames = activeApprovers.map((a) => a.role_name);

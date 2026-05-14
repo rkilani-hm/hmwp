@@ -26,7 +26,7 @@ export interface PermitActiveApprover {
   role_id: string;
   role_name: string;
   workflow_step_id: string | null;
-  step_order: number | null;
+  step_order?: number | null;
   sla_deadline: string | null;
 }
 
@@ -39,9 +39,9 @@ export function usePermitActiveApprovers(permitId: string | undefined) {
 
       const { data, error } = await supabase
         .from('permit_active_approvers' as any)
-        .select('role_id, role_name, workflow_step_id, step_order, sla_deadline')
+        .select('role_id, role_name, workflow_step_id, sla_deadline')
         .eq('permit_id', permitId)
-        .order('step_order', { ascending: true, nullsFirst: false });
+        .order('sla_deadline', { ascending: true, nullsFirst: false });
 
       if (error) {
         // Non-fatal — caller will see empty array and treat as "no
