@@ -243,7 +243,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     >
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 flex-wrap">
           <Button variant="ghost" size="icon" className="flex-shrink-0 mt-1" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -283,6 +283,68 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               </div>
             )}
           </div>
+
+          {/* Approval action buttons — visible only to current approvers
+              for the active workflow step. Mirrors the same Forward /
+              Rework / Reject / Approve controls users see in
+              /approver-inbox, with identical styling and the same
+              dialogs/handlers. canApprove() reads permit_active_approvers
+              so visibility is data-driven and stays in sync with the
+              inbox query. Non-approvers see none of these.
+
+              Rendered as a sibling of the title block so they sit at
+              the top-right of the header on wide screens; wraps to a
+              new row on narrow screens via flex-wrap on the parent. */}
+          {canApprove() && (
+            <div className="flex flex-wrap gap-2 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setForwardDialogOpen(true)}
+                disabled={secureApprove.isPending}
+              >
+                <Forward className="w-4 h-4" />
+                Forward
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setReworkDialogOpen(true)}
+                disabled={secureApprove.isPending}
+              >
+                <RotateCcw className="w-4 h-4" />
+                Rework
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-1.5"
+                // Open the dialog directly — matches My Inbox behavior.
+                // The inline Comments box (in the Approval card below)
+                // is still used for the rejection reason if the user
+                // typed one there; if empty, the dialog still confirms.
+                onClick={() => {
+                  setApprovalAction('reject');
+                  setApprovalDialogOpen(true);
+                }}
+                disabled={secureApprove.isPending}
+              >
+                <XCircle className="w-4 h-4" />
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
+                onClick={handleApprove}
+                disabled={secureApprove.isPending}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Approve
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Edit button for rework_needed permits - only for creators */}
