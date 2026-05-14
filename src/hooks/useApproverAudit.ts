@@ -72,3 +72,125 @@ export function useNotifyPendingApproversBackfill() {
     },
   });
 }
+
+export interface ReassignmentResult {
+  permit_id: string;
+  permit_no: string | null;
+  skipped_count: number;
+  inserted_count: number;
+  active_roles: string[] | null;
+  old_status: string;
+  new_status: string;
+  status_changed: boolean;
+  error?: string;
+}
+
+export interface BulkReassignmentSummary {
+  processed_count: number;
+  changed_count: number;
+  results: ReassignmentResult[];
+}
+
+/**
+ * Calls reassign_all_active_permits() RPC. For every non-terminal
+ * permit, reconciles its permit_approvals rows against the CURRENT
+ * workflow configuration. Used when admin has updated workflows and
+ * wants existing permits to pick up the new structure (instead of
+ * being stuck waiting for roles that no longer exist).
+ *
+ * The reconciliation is idempotent and safe to re-run.
+ *
+ * After reconciliation, for every permit where a NEW active role
+ * appeared (skipped_count > 0 OR inserted_count > 0), fires the
+ * notify_permit_active_approvers RPC. That RPC inserts in-app
+ * notifications AND returns the email list. We then call
+ * send-email-notification so the newly-assigned approvers get
+ * email pings too.
+ *
+ * Admin only.
+ */
+export function useReassignAllPermits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<BulkReassignmentSummary> => {
+      const { data, error } = await supabase.rpc(
+        'reassign_all_active_permits' as any,
+      );
+      if (error) throw error;
+      const summary = (data as unknown) as BulkReassignmentSummary;
+
+      // For every permit where the active approver set changed, fire
+      // the notification RPC. Best-effort; failures don't roll back
+      // the reassignment.
+      const needsNotify = (summary.results ?? []).filter(
+        (r) =>
+          !r.error &&
+          ((r.skipped_count ?? 0) > 0 ||
+           (r.inserted_count ?? 0) > 0 ||
+           r.status_changed) &&
+          Array.isArray(r.active_roles) &&
+          r.active_roles.length > 0,
+      );
+
+      for (const r of needsNotify) {
+        try {
+          const { data: notifyResult, error: notifyErr } = await supabase.rpc(
+            'notify_permit_active_approvers' as any,
+            {
+              p_permit_id: r.permit_id,
+              p_notification_type: 'new_permit',
+            },
+          );
+          if (notifyErr) {
+            console.warn(`notify failed for ${r.permit_no}:`, notifyErr);
+            continue;
+          }
+          const payload = (notifyResult || {}) as {
+            emails?: string[] | null;
+            permit_no?: string;
+            urgency?: string;
+            requester_name?: string;
+          };
+          const emails = payload.emails ?? [];
+          if (emails.length > 0) {
+            // Reuse the existing edge function which has SMTP creds.
+            await supabase.functions.invoke('send-email-notification', {
+              body: {
+                to: emails,
+                subject: `Work Permit Awaiting Your Review: ${payload.permit_no || r.permit_no || ''}`,
+                type: 'new_permit',
+                data: {
+                  permitId: r.permit_id,
+                  permitNo: payload.permit_no || r.permit_no || '',
+                  urgency: payload.urgency || 'normal',
+                  requesterName: payload.requester_name,
+                },
+              },
+            });
+          }
+        } catch (err) {
+          console.warn(`notify chain failed for ${r.permit_no}:`, err);
+        }
+      }
+
+      return summary;
+    },
+    onSuccess: (summary) => {
+      if (summary.changed_count === 0) {
+        toast.success(
+          `Checked ${summary.processed_count} permit${summary.processed_count === 1 ? '' : 's'} — all already aligned with current workflow.`,
+        );
+      } else {
+        toast.success(
+          `Reconciled ${summary.changed_count} of ${summary.processed_count} permit${summary.processed_count === 1 ? '' : 's'} against the current workflow. Newly-assigned approvers have been notified.`,
+        );
+      }
+      qc.invalidateQueries({ queryKey: AUDIT_KEY });
+      qc.invalidateQueries({ queryKey: ['work-permits'] });
+      qc.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to reassign permits');
+    },
+  });
+}

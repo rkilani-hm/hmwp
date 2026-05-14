@@ -34,6 +34,7 @@ import {
 import {
   useApproverAudit,
   useNotifyPendingApproversBackfill,
+  useReassignAllPermits,
   type ApproverAuditRow,
 } from '@/hooks/useApproverAudit';
 
@@ -49,6 +50,7 @@ import {
 export default function ApproverAudit() {
   const { data: rows, isLoading, refetch, isFetching } = useApproverAudit();
   const backfill = useNotifyPendingApproversBackfill();
+  const reassign = useReassignAllPermits();
 
   const orphanedCount =
     rows?.filter((r) => r.status === 'orphaned_pending').length ?? 0;
@@ -75,6 +77,19 @@ export default function ApproverAudit() {
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => reassign.mutate()}
+            disabled={reassign.isPending}
+            title="Reconcile every active permit against the current workflow configuration. Skips pending rows for roles no longer in the workflow, inserts rows for required roles missing. Safe to re-run; idempotent."
+          >
+            {reassign.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Workflow className="w-4 h-4 mr-2" />
+            )}
+            Reassign active permits
           </Button>
           <Button
             onClick={() => backfill.mutate()}
