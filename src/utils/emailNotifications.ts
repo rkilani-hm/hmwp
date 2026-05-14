@@ -68,13 +68,57 @@ export async function sendEmailNotification(
 
 // Get emails for users with specific roles.
 //
-// Accepts ANY role name as a plain string — including custom roles
-// admins create through RolesManagement (e.g. 'al_hamra_customer_service').
-// Previously this was typed as a fixed union of legacy role names,
-// forcing call sites to use `as any`; that worked at runtime but
-// made it look like custom roles weren't supported.
+// Calls the get_emails_for_role server-side RPC, which:
+//   - Reads user_roles + profiles via SECURITY DEFINER (bypasses RLS)
+//   - Falls back to auth.users.email when profiles.email is empty
+//   - Returns a deduplicated array
+//
+// The previous client-side query against profiles directly hit two
+// problems:
+//   1. RLS sometimes blocked reading other users' profile rows
+//      (depending on caller's session and policy state)
+//   2. profiles.email could be NULL/empty for users created via
+//      service_role or pre-trigger paths — the filter(Boolean) would
+//      silently drop them
+//
+// Both are solved by going through the RPC.
 export async function getEmailsForRole(role: string): Promise<string[]> {
-  // First get the role_id from the roles table
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_emails_for_role' as any,
+      { p_role_name: role },
+    );
+
+    if (error) {
+      console.error(
+        `getEmailsForRole RPC failed for role "${role}":`,
+        error,
+      );
+      // Fall back to the old direct-query path so callers don't break
+      // on environments where the migration hasn't been applied yet.
+      return await getEmailsForRoleFallback(role);
+    }
+
+    const payload = (data || {}) as {
+      emails?: string[] | null;
+      role_found?: boolean;
+    };
+
+    if (!payload.role_found) {
+      console.warn(`getEmailsForRole: role "${role}" not found in roles table`);
+      return [];
+    }
+
+    return payload.emails ?? [];
+  } catch (err) {
+    console.error(`getEmailsForRole exception for role "${role}":`, err);
+    return await getEmailsForRoleFallback(role);
+  }
+}
+
+// Legacy direct-query path. Kept as a fallback for environments
+// where the get_emails_for_role RPC isn't yet deployed.
+async function getEmailsForRoleFallback(role: string): Promise<string[]> {
   const { data: roleData } = await supabase
     .from('roles')
     .select('id')
@@ -91,7 +135,7 @@ export async function getEmailsForRole(role: string): Promise<string[]> {
   if (!userRoles || userRoles.length === 0) return [];
 
   const userIds = userRoles.map(ur => ur.user_id);
-  
+
   const { data: profiles } = await supabase
     .from('profiles')
     .select('email')

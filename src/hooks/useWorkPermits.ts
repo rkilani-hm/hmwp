@@ -149,11 +149,13 @@ async function notifyActiveApprovers(
     const userIds = payload.user_ids ?? [];
     const emails = payload.emails ?? [];
     const activeRoles = payload.active_roles ?? [];
+    const skippedNoEmail = (payload as { skipped_no_email?: number }).skipped_no_email ?? 0;
 
     console.log(
       `[notify] permit=${permitNo} type=${notificationType} ` +
       `roles=[${activeRoles.join(', ')}] users=${userIds.length} ` +
-      `emails=${emails.length} in_app_inserted=${payload.inserted_count ?? 0}`,
+      `emails=${emails.length} in_app_inserted=${payload.inserted_count ?? 0} ` +
+      `skipped_no_email=${skippedNoEmail}`,
     );
 
     if (userIds.length === 0) {
@@ -164,6 +166,18 @@ async function notifyActiveApprovers(
         `/approver-audit to diagnose.`,
       );
       return;
+    }
+
+    // Surface a visible warning when users exist but none have email.
+    // This is the exact failure mode of "approvers don't get email
+    // even though dynamic assignment works".
+    if (skippedNoEmail > 0) {
+      console.warn(
+        `[notify] permit ${permitNo}: ${skippedNoEmail} approver(s) ` +
+        `had no email (neither profiles.email nor auth.users.email). ` +
+        `Admin should run sync_profile_emails_from_auth() from ` +
+        `/approver-audit.`,
+      );
     }
 
     // Push notifications (best-effort; push not always configured).
@@ -183,14 +197,24 @@ async function notifyActiveApprovers(
       console.error('[notify] push failed:', pushError);
     }
 
-    // Email notifications via the existing edge function. The function
-    // runs under service_role; the email list was assembled by the
-    // RPC so RLS doesn't get a chance to filter it.
+    // Email notifications. The notify RPC now uses resolve_user_email
+    // which falls back to auth.users.email when profiles.email is
+    // empty — so emails.length is reliably > 0 whenever at least one
+    // active approver has any email anywhere.
+    //
+    // Note: edge function `send-email-notification` uses notificationType
+    // 'new_permit' (template exists). Resubmitted falls back to
+    // 'new_permit' template since there's no separate 'resubmitted'
+    // template in the edge function — the subject line distinguishes.
     if (emails.length > 0) {
       try {
+        const emailType =
+          notificationType === 'new_permit'
+            ? 'new_permit'
+            : ('new_permit' as const); // edge fn has no resubmitted template
         await sendEmailNotification(
           emails,
-          notificationType,
+          emailType,
           notificationType === 'new_permit'
             ? `New ${urgency === 'urgent' ? 'URGENT ' : ''}Work Permit: ${permitNo}`
             : `Work Permit Resubmitted: ${permitNo}`,
@@ -207,6 +231,14 @@ async function notifyActiveApprovers(
       } catch (emailError) {
         console.error('[notify] email failed:', emailError);
       }
+    } else {
+      // userIds > 0 but emails === 0 — every user lacked an email.
+      console.error(
+        `[notify] permit ${permitNo}: ${userIds.length} user(s) ` +
+        `assigned but ZERO emails could be resolved. Approvers will see ` +
+        `the in-app notification but no email was sent. Run ` +
+        `sync_profile_emails_from_auth() via /approver-audit.`,
+      );
     }
   } catch (err) {
     console.error('[notify] unexpected error:', err);
