@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAllApproversPerformance, useApproverRoleNames } from '@/hooks/useApproverPerformance';
+import { useAllApproversDrilldown } from '@/hooks/usePerformanceDrilldown';
+import { PerformanceDrilldown } from '@/components/performance/PerformanceDrilldown';
 import { DateRangePresets, type DateRange, type DateRangePreset, presetToRange } from '@/components/ui/DateRangePresets';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
@@ -103,6 +105,11 @@ export default function ApproverPerformance() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const { data: roleNames } = useApproverRoleNames();
   const { data: approvers, isLoading } = useAllApproversPerformance({
+    from: range.from,
+    to: range.to,
+    role: roleFilter === 'all' ? null : roleFilter,
+  });
+  const { data: drilldown, isLoading: drilldownLoading } = useAllApproversDrilldown({
     from: range.from,
     to: range.to,
     role: roleFilter === 'all' ? null : roleFilter,
@@ -574,6 +581,18 @@ export default function ApproverPerformance() {
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Drill-down across all filtered approvers */}
+      <motion.div variants={itemVariants}>
+        <PerformanceDrilldown
+          title="Approval records"
+          description="Every decision behind the metrics above. Tabs match the stat cards."
+          records={drilldown}
+          isLoading={drilldownLoading}
+          showApprover
+          humanizeRole={humanizeRole}
+        />
       </motion.div>
     </motion.div>
   );
