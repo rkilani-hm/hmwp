@@ -6,7 +6,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2, AlertCircle } from 'lucide-react';
+import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PdfPreviewDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface PdfPreviewDialogProps {
   pdfUrl: string | null;
   fileName: string;
   onDownload: () => void;
+  /** When true, require user to confirm they've visually checked Section 3 before download is enabled. */
+  requireSection3Verification?: boolean;
 }
 
 export function PdfPreviewDialog({
@@ -22,11 +25,18 @@ export function PdfPreviewDialog({
   pdfUrl,
   fileName,
   onDownload,
+  requireSection3Verification = false,
 }: PdfPreviewDialogProps) {
   const [zoom, setZoom] = useState(100);
   const [isLoading, setIsLoading] = useState(true);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [section3Verified, setSection3Verified] = useState(false);
+
+  // Reset verification when dialog re-opens with a fresh PDF.
+  useEffect(() => {
+    if (open) setSection3Verified(false);
+  }, [open, pdfUrl]);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
@@ -118,13 +128,46 @@ export function PdfPreviewDialog({
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open in New Tab
               </Button>
-              <Button size="sm" onClick={onDownload}>
+              <Button
+                size="sm"
+                onClick={onDownload}
+                disabled={requireSection3Verification && !section3Verified}
+                title={
+                  requireSection3Verification && !section3Verified
+                    ? 'Confirm you have reviewed Section 3 — Approval Chain before downloading'
+                    : undefined
+                }
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </div>
           </div>
         </DialogHeader>
+
+        {requireSection3Verification && (
+          <div className="px-6 py-3 border-b bg-amber-50 dark:bg-amber-950/30 flex items-center justify-between gap-4 flex-shrink-0">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-900 dark:text-amber-100">
+                  Verify Section 3 — Approval Chain
+                </p>
+                <p className="text-amber-800/80 dark:text-amber-200/80 text-xs mt-0.5">
+                  Scroll to Section 3 and confirm each approver row (number badge, role,
+                  signer, status pill, and signature) renders correctly before downloading.
+                </p>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-100 cursor-pointer flex-shrink-0">
+              <Checkbox
+                checked={section3Verified}
+                onCheckedChange={(v) => setSection3Verified(v === true)}
+              />
+              I've reviewed Section 3
+            </label>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto bg-muted/30 p-4 relative">
           {isLoading && (
