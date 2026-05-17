@@ -18,6 +18,7 @@ import { Loader2, Fingerprint, KeyRound, ShieldCheck, CheckCircle2, Info } from 
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSavedSignature } from '@/hooks/useSavedSignature';
 
 /**
  * AuthPayload — the dialog hands this to the caller on confirm. The
@@ -72,6 +73,7 @@ export function SecureApprovalDialog({
   const { t } = useTranslation();
   const { profile } = useAuth();
   const isMobile = useIsMobile();
+  const { data: savedSignature } = useSavedSignature();
   const {
     isSupported: webauthnSupported,
     platformAvailable,
@@ -256,6 +258,7 @@ export function SecureApprovalDialog({
               <SignaturePad
                 onSave={(sig) => setSignature(sig)}
                 disabled={isLoading}
+                initialValue={savedSignature?.signature ?? null}
               />
             </div>
           )}
