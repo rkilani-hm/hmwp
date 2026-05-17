@@ -187,9 +187,9 @@ export default function ApproverPerformance() {
       return acc;
     }, {} as Record<string, number>)
   ).map(([role, count]) => ({
-    name: roleLabels[role] || role,
+    name: humanizeRole(role),
     value: count,
-    color: roleColors[role] || '#6b7280',
+    color: roleColor(role),
   }));
 
   return (
@@ -274,7 +274,7 @@ export default function ApproverPerformance() {
                   />
                   <Bar dataKey="decisions" radius={[0, 4, 4, 0]}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={roleColors[entry.role] || '#6b7280'} />
+                      <Cell key={`cell-${index}`} fill={roleColor(entry.role)} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -407,9 +407,9 @@ export default function ApproverPerformance() {
                                 <Badge
                                   variant="outline"
                                   className="text-xs mt-0.5"
-                                  style={{ borderColor: roleColors[a.role], color: roleColors[a.role] }}
+                                  style={{ borderColor: roleColor(a.role), color: roleColor(a.role) }}
                                 >
-                                  {roleLabels[a.role] || a.role}
+                                  {humanizeRole(a.role)}
                                 </Badge>
                               </div>
                               <div className="text-right">
@@ -464,9 +464,9 @@ export default function ApproverPerformance() {
                       <TableCell>
                         <Badge 
                           variant="outline"
-                          style={{ borderColor: roleColors[approver.role], color: roleColors[approver.role] }}
+                          style={{ borderColor: roleColor(approver.role), color: roleColor(approver.role) }}
                         >
-                          {roleLabels[approver.role] || approver.role}
+                          {humanizeRole(approver.role)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center font-medium">
