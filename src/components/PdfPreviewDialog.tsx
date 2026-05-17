@@ -6,7 +6,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2, AlertCircle } from 'lucide-react';
+import { Download, ExternalLink, ZoomIn, ZoomOut, RotateCw, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PdfPreviewDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface PdfPreviewDialogProps {
   pdfUrl: string | null;
   fileName: string;
   onDownload: () => void;
+  /** When true, require user to confirm they've visually checked Section 3 before download is enabled. */
+  requireSection3Verification?: boolean;
 }
 
 export function PdfPreviewDialog({
