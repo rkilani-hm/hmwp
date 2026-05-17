@@ -185,19 +185,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'effective_approvers view unavailable, falling back to user_roles direct read:',
           effectiveErr,
         );
-        const { data: rolesData, error: rolesError } = await supabase
+        // user_roles has no declared FK to roles in this project, so
+        // PostgREST embedding (`roles:role_id(name)`) returns null.
+        // Do an explicit two-step fetch instead: collect role_ids,
+        // then resolve names from the roles table. This is the path
+        // that actually fires for users with custom roles like
+        // coordinator‑_client_relations, because the effective_approvers
+        // view doesn't exist in every environment.
+        const { data: roleLinks, error: linksError } = await supabase
           .from('user_roles')
-          .select('role_id, roles:role_id(name)')
+          .select('role_id')
           .eq('user_id', userId);
 
-        if (rolesError) {
-          console.error('Error fetching roles:', rolesError);
+        if (linksError) {
+          console.error('Error fetching user_roles:', linksError);
+          setRoles([]);
         } else {
-          setRoles(
-            rolesData
-              ?.map((r) => (r.roles as any)?.name as RoleName)
-              .filter(Boolean) || [],
-          );
+          const roleIds = (roleLinks ?? [])
+            .map((r: any) => r.role_id)
+            .filter(Boolean);
+          if (roleIds.length === 0) {
+            setRoles([]);
+          } else {
+            const { data: rolesData, error: rolesError } = await supabase
+              .from('roles')
+              .select('name')
+              .in('id', roleIds);
+            if (rolesError) {
+              console.error('Error fetching roles:', rolesError);
+              setRoles([]);
+            } else {
+              setRoles(
+                (rolesData ?? [])
+                  .map((r: any) => r.name as RoleName)
+                  .filter(Boolean),
+              );
+            }
+          }
         }
       }
     } catch (error) {
