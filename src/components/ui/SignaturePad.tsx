@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { useTranslation } from 'react-i18next';
 import { Button } from './button';
-import { Eraser } from 'lucide-react';
+import { Eraser, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SignaturePadProps {
@@ -14,6 +14,13 @@ interface SignaturePadProps {
    * which was cramped on phones. Approvers need room to actually sign.
    */
   height?: number;
+  /**
+   * Optional data-URL to pre-load. When provided, the pad starts already
+   * filled with this image (typically the user's saved signature) and
+   * shows a small hint telling them it was loaded automatically. Tapping
+   * the eraser clears it so they can sign fresh.
+   */
+  initialValue?: string | null;
 }
 
 /**
@@ -29,15 +36,26 @@ interface SignaturePadProps {
  *     pad had (sign → Confirm button).
  *   - Translatable copy.
  *   - RTL-safe (uses logical properties).
+ *   - Optional `initialValue` prop pre-loads a saved signature.
  */
-export function SignaturePad({ onSave, className, disabled, height = 220 }: SignaturePadProps) {
+export function SignaturePad({
+  onSave,
+  className,
+  disabled,
+  height = 220,
+  initialValue,
+}: SignaturePadProps) {
   const { t } = useTranslation();
   const sigRef = useRef<SignatureCanvas>(null);
   const [isEmpty, setIsEmpty] = useState(true);
+  const [loadedFromSaved, setLoadedFromSaved] = useState(false);
+  const loadedKeyRef = useRef<string | null>(null);
 
   // Resize the underlying canvas on mount / window resize so drawing
   // coordinates line up with the displayed element. react-signature-canvas
-  // doesn't do this internally for percentage widths.
+  // doesn't do this internally for percentage widths. After resizing we
+  // re-apply the saved signature (if any) because the canvas is cleared
+  // by a width/height change.
   useEffect(() => {
     const resize = () => {
       const canvas = sigRef.current?.getCanvas();
@@ -46,22 +64,52 @@ export function SignaturePad({ onSave, className, disabled, height = 220 }: Sign
       canvas.width = canvas.offsetWidth * ratio;
       canvas.height = canvas.offsetHeight * ratio;
       canvas.getContext('2d')?.scale(ratio, ratio);
+      // Reapply pre-loaded signature after the canvas was reset.
+      if (initialValue && loadedKeyRef.current === initialValue) {
+        sigRef.current?.fromDataURL(initialValue);
+      }
     };
     resize();
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pre-load the saved signature once it arrives.
+  useEffect(() => {
+    if (!initialValue) return;
+    if (loadedKeyRef.current === initialValue) return;
+    // Defer to allow canvas size to settle.
+    const id = window.setTimeout(() => {
+      const pad = sigRef.current;
+      if (!pad) return;
+      try {
+        pad.fromDataURL(initialValue);
+        loadedKeyRef.current = initialValue;
+        setIsEmpty(false);
+        setLoadedFromSaved(true);
+        onSave(initialValue);
+      } catch {
+        // ignore — bad data URL
+      }
+    }, 50);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValue]);
 
   const commit = () => {
     if (sigRef.current && !sigRef.current.isEmpty()) {
       onSave(sigRef.current.toDataURL('image/png'));
       setIsEmpty(false);
+      setLoadedFromSaved(false);
     }
   };
 
   const handleClear = () => {
     sigRef.current?.clear();
     setIsEmpty(true);
+    setLoadedFromSaved(false);
+    loadedKeyRef.current = null;
     onSave(null);
   };
 
@@ -87,7 +135,10 @@ export function SignaturePad({ onSave, className, disabled, height = 220 }: Sign
           minWidth={1.2}
           maxWidth={2.4}
           velocityFilterWeight={0.7}
-          onBegin={() => setIsEmpty(false)}
+          onBegin={() => {
+            setIsEmpty(false);
+            setLoadedFromSaved(false);
+          }}
           onEnd={commit}
         />
         {isEmpty && !disabled && (
@@ -98,7 +149,13 @@ export function SignaturePad({ onSave, className, disabled, height = 220 }: Sign
           </div>
         )}
       </div>
-      <div className="flex">
+      <div className="flex items-center">
+        {loadedFromSaved && !isEmpty && (
+          <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            Loaded from your saved signature
+          </p>
+        )}
         <Button
           type="button"
           variant="ghost"

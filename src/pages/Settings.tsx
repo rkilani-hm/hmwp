@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
@@ -597,6 +598,9 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+
+          {/* Saved signature & initials — pre-loaded into every approval pad */}
+          <UserSignaturesCard />
 
           {/* Registered biometric devices (WebAuthn) */}
           <BiometricDevices />
