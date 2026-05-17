@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 import { BiometricDevices } from '@/components/BiometricDevices';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -484,6 +485,13 @@ export default function Settings() {
 
         {/* Push Notifications and Approver Settings */}
         <div className="space-y-4">
+          {/* Saved signature + initials. Shown to everyone (any user
+              may be an approver in the future, and even tenants can
+              save these for any future signed actions). For pure
+              tenants this is a one-time setup that doesn't fire until
+              they receive an approval task — harmless extra option. */}
+          <UserSignaturesCard />
+
           <PushNotificationSettings />
           
           {/* Authentication Preference - Only for approvers */}

@@ -14,6 +14,20 @@ interface SignaturePadProps {
    * which was cramped on phones. Approvers need room to actually sign.
    */
   height?: number;
+  /**
+   * Optional initial signature as a PNG data URL. When provided, the pad
+   * draws this image into the canvas on mount and immediately commits it
+   * via onSave — so the parent sees a non-null signature without the user
+   * having to touch the pad.
+   *
+   * Use case: an approver has saved a signature in their settings; the
+   * SecureApprovalDialog pre-loads it so a single "Confirm" tap completes
+   * the approval. The user can still tap Clear and sign fresh to override.
+   *
+   * Loaded once on mount; subsequent changes to this prop are ignored
+   * (avoids stomping on what the user is currently drawing).
+   */
+  initialValue?: string | null;
 }
 
 /**
@@ -29,8 +43,15 @@ interface SignaturePadProps {
  *     pad had (sign → Confirm button).
  *   - Translatable copy.
  *   - RTL-safe (uses logical properties).
+ *   - Optional initialValue prop pre-loads a saved signature.
  */
-export function SignaturePad({ onSave, className, disabled, height = 220 }: SignaturePadProps) {
+export function SignaturePad({
+  onSave,
+  className,
+  disabled,
+  height = 220,
+  initialValue,
+}: SignaturePadProps) {
   const { t } = useTranslation();
   const sigRef = useRef<SignatureCanvas>(null);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -38,6 +59,11 @@ export function SignaturePad({ onSave, className, disabled, height = 220 }: Sign
   // Resize the underlying canvas on mount / window resize so drawing
   // coordinates line up with the displayed element. react-signature-canvas
   // doesn't do this internally for percentage widths.
+  //
+  // ALSO: after resize, if initialValue was provided, paint the saved
+  // signature into the canvas. Must happen AFTER resize because
+  // resize() clears the canvas, and BEFORE the first paint so the
+  // image appears immediately.
   useEffect(() => {
     const resize = () => {
       const canvas = sigRef.current?.getCanvas();
@@ -49,7 +75,38 @@ export function SignaturePad({ onSave, className, disabled, height = 220 }: Sign
     };
     resize();
     window.addEventListener('resize', resize);
+
+    // One-time paint of the saved signature, if any.
+    if (initialValue) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = sigRef.current?.getCanvas();
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        // Render scaled to fit the canvas. devicePixelRatio scaling is
+        // already applied to ctx via resize() above, so we use CSS pixels
+        // for the destination size.
+        const cssW = canvas.offsetWidth;
+        const cssH = canvas.offsetHeight;
+        // Maintain aspect ratio inside the available area.
+        const scale = Math.min(cssW / img.width, cssH / img.height, 1);
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+        const dx = (cssW - drawW) / 2;
+        const dy = (cssH - drawH) / 2;
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+        setIsEmpty(false);
+        // Commit so the parent gets the signature without user interaction.
+        onSave(initialValue);
+      };
+      img.src = initialValue;
+    }
+
     return () => window.removeEventListener('resize', resize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+    // mount-only; subsequent initialValue changes are ignored to avoid
+    // overwriting the user's in-progress drawing.
   }, []);
 
   const commit = () => {

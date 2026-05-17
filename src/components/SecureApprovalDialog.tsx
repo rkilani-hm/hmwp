@@ -18,6 +18,7 @@ import { Loader2, Fingerprint, KeyRound, ShieldCheck, CheckCircle2, Info } from 
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSavedSignature } from '@/hooks/useSavedSignature';
 
 /**
  * AuthPayload — the dialog hands this to the caller on confirm. The
@@ -88,6 +89,13 @@ export function SecureApprovalDialog({
   >(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showSecurityNotice, setShowSecurityNotice] = useState(false);
+
+  // Pre-load the user's saved signature (set on /settings). The
+  // SignaturePad receives it as `initialValue` and paints it on mount,
+  // immediately committing via onSave so the parent sees a non-null
+  // signature without the user having to touch the pad. Clear+redraw
+  // works exactly as before. NULL = nothing saved; pad starts empty.
+  const { data: savedSig } = useSavedSignature();
 
   const showBiometricOption =
     isMobile && webauthnSupported && platformAvailable && !checkingBiometric;
@@ -250,13 +258,26 @@ export function SecureApprovalDialog({
           {/* ==== Signature (approve only) ==== */}
           {actionType === 'approve' && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium" dir="auto">
-                {t('permits.approve.signature')}
-              </Label>
+              <div className="flex items-baseline justify-between">
+                <Label className="text-sm font-medium" dir="auto">
+                  {t('permits.approve.signature')}
+                </Label>
+                {savedSig?.signature_data && (
+                  <span className="text-xs text-muted-foreground">
+                    Loaded from your saved signature
+                  </span>
+                )}
+              </div>
               <SignaturePad
                 onSave={(sig) => setSignature(sig)}
                 disabled={isLoading}
+                initialValue={savedSig?.signature_data ?? null}
               />
+              {savedSig?.signature_data && (
+                <p className="text-xs text-muted-foreground">
+                  Tap the eraser to clear and sign fresh.
+                </p>
+              )}
             </div>
           )}
 
