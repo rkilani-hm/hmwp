@@ -3,6 +3,8 @@ import { useMyPerformance } from '@/hooks/useApproverPerformance';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRangePresets, type DateRange, type DateRangePreset, presetToRange } from '@/components/ui/DateRangePresets';
+import { useMyPerformanceDrilldown } from '@/hooks/usePerformanceDrilldown';
+import { PerformanceDrilldown } from '@/components/performance/PerformanceDrilldown';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +69,7 @@ export default function MyPerformance() {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [range, setRange] = useState<DateRange>(presetToRange('30d'));
   const { data: metrics, isLoading } = useMyPerformance({ from: range.from, to: range.to });
+  const { data: drilldown, isLoading: drilldownLoading } = useMyPerformanceDrilldown({ from: range.from, to: range.to });
 
   // Fetch my workflow modifications
   const { data: myWorkflowMods } = useQuery({
@@ -353,6 +356,17 @@ export default function MyPerformance() {
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Drill-down */}
+      <motion.div variants={itemVariants}>
+        <PerformanceDrilldown
+          title="Decisions behind the numbers"
+          description="Tap a permit to open it. Tabs match the metric cards above."
+          records={drilldown}
+          isLoading={drilldownLoading}
+          humanizeRole={humanizeRole}
+        />
       </motion.div>
     </motion.div>
   );
