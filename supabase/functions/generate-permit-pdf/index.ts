@@ -413,6 +413,89 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawBrandLine(page, yPos);
     yPos -= 20;
 
+    // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
+    // Moved above the status badge so the badge logic (which derives
+    // 'APPROVED / AWAITING X' from the approvals array) can read it
+    // without hitting a temporal-dead-zone ReferenceError.
+    const ROLE_DISPLAY_NAMES: Record<string, string> = {
+      customer_service: 'Customer Service',
+      cr_coordinator: 'CR Coordinator',
+      head_cr: 'Head CR',
+      helpdesk: 'Helpdesk',
+      pm: 'PM',
+      pd: 'PD',
+      bdcr: 'BDCR',
+      mpr: 'MPR',
+      it: 'IT',
+      fitout: 'Fit-Out',
+      ecovert_supervisor: 'Ecovert Supervisor',
+      pmd_coordinator: 'PMD Coordinator',
+      fmsp_approval: 'FMSP Approval',
+    };
+    const ROLE_RENDER_ORDER: string[] = [
+      'customer_service', 'cr_coordinator', 'head_cr',
+      'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it',
+      'fitout', 'ecovert_supervisor', 'pmd_coordinator',
+      'fmsp_approval',
+    ];
+    const ROLE_ORDER_INDEX: Record<string, number> = Object.fromEntries(
+      ROLE_RENDER_ORDER.map((r, i) => [r, i]),
+    );
+
+    type ApprovalRow = {
+      name: string;
+      roleKey: string;
+      status: string | null;
+      approver: string | null;
+      date: string | null;
+      signature: string | null;
+      comments: string | null;
+    };
+
+    let approvals: ApprovalRow[] = [];
+
+    const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
+      .from('permit_approvals')
+      .select('role_name, status, approver_name, approved_at, signature, comments')
+      .eq('permit_id', permitId);
+
+    if (approvalsErr) {
+      console.error('permit_approvals fetch error:', approvalsErr);
+    }
+
+    if (approvalRows && approvalRows.length > 0) {
+      approvals = approvalRows.map((r): ApprovalRow => ({
+        name: ROLE_DISPLAY_NAMES[r.role_name] ?? r.role_name,
+        roleKey: r.role_name,
+        status: r.status,
+        approver: r.approver_name,
+        date: r.approved_at,
+        signature: r.signature,
+        comments: r.comments,
+      }));
+    } else {
+      const p = permit as Record<string, unknown>;
+      for (const roleKey of ROLE_RENDER_ORDER) {
+        const status = p[`${roleKey}_status`] as string | null | undefined;
+        if (status !== 'approved' && status !== 'rejected') continue;
+        approvals.push({
+          name: ROLE_DISPLAY_NAMES[roleKey],
+          roleKey,
+          status,
+          approver: (p[`${roleKey}_approver_name`] as string | null) ?? null,
+          date: (p[`${roleKey}_date`] as string | null) ?? null,
+          signature: (p[`${roleKey}_signature`] as string | null) ?? null,
+          comments: (p[`${roleKey}_comments`] as string | null) ?? null,
+        });
+      }
+    }
+
+    approvals.sort((a, b) => {
+      const oa = ROLE_ORDER_INDEX[a.roleKey] ?? Number.POSITIVE_INFINITY;
+      const ob = ROLE_ORDER_INDEX[b.roleKey] ?? Number.POSITIVE_INFINITY;
+      return oa - ob;
+    });
+
     // Status badge.
     //
     // Don't trust permit.status blindly: in workflows where multiple
