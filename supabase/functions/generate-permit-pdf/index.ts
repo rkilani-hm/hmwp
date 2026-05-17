@@ -264,22 +264,57 @@ const serve_handler = async (req: Request): Promise<Response> => {
      *  Phase 4b: also draws the Arabic translation right-aligned on the
      *  same line. Falls back to English-only when arabicFonts is null
      *  (font load failed) or the label has no Arabic translation. */
-    const drawSectionHeader = async (page: PDFPage, text: string, y: number, size = 12) => {
-      drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
+    // Added 2026-05-17: aligns with the v3 PDF design reference at
+    // docs/design/work-permit-pdf-template.html. The previous look
+    // (red text on a thin grey underline) is replaced by a solid
+    // black bar with white text — matching the Hot Works permit
+    // form aesthetic used elsewhere in Al Hamra's official documents.
+    // Burgundy subsection bars are introduced for numbered subsections.
+    const SECTION_BAR_INK    = rgb(0.102, 0.102, 0.102); // matches --section-bar #1a1a1a
+    const SUBSECTION_BAR_INK = rgb(0.478, 0.082, 0.094); // matches --subsection-bar #7a1518
+    const WHITE              = rgb(1, 1, 1);
+
+    /** Section header — top-level black banner with white text.
+     *  Replaces the legacy red-text-on-grey-underline style.
+     *  Bilingual: English left, Arabic right inside the same bar. */
+    const drawSectionHeader = async (page: PDFPage, text: string, y: number, size = 11) => {
+      const barHeight = size + 8;
+      // Filled black banner spanning the content width
+      page.drawRectangle({
+        x: margin, y: y - barHeight + size + 2,
+        width: pageWidth - margin * 2, height: barHeight,
+        color: SECTION_BAR_INK,
+      });
+      drawText(page, text, margin + 8, y, size, helveticaBold, WHITE);
       const ar = arabicLabel(text);
       if (arabicFonts && ar) {
-        await drawArabic(page, ar, pageWidth - margin, y, {
+        await drawArabic(page, ar, pageWidth - margin - 8, y, {
           font: arabicFonts.bold,
           size,
-          color: BRAND_RED,
+          color: WHITE,
         });
       }
-      page.drawLine({
-        start: { x: margin, y: y - 4 },
-        end: { x: pageWidth - margin, y: y - 4 },
-        thickness: 0.75,
-        color: BRAND_GREY,
+    };
+
+    /** Subsection header — numbered burgundy banner. Use for the
+     *  numbered subsections within each top-level section
+     *  (1. CLIENT/CONTRACTOR DETAILS, 2. WORK DESCRIPTION, etc.). */
+    const drawSubsectionHeader = async (page: PDFPage, text: string, y: number, size = 10) => {
+      const barHeight = size + 6;
+      page.drawRectangle({
+        x: margin, y: y - barHeight + size + 1,
+        width: pageWidth - margin * 2, height: barHeight,
+        color: SUBSECTION_BAR_INK,
       });
+      drawText(page, text, margin + 8, y, size, helveticaBold, WHITE);
+      const ar = arabicLabel(text);
+      if (arabicFonts && ar) {
+        await drawArabic(page, ar, pageWidth - margin - 8, y, {
+          font: arabicFonts.bold,
+          size,
+          color: WHITE,
+        });
+      }
     };
 
     const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
@@ -357,23 +392,26 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
     
-    // ---- Phase 4a/4b: Branded bilingual title block ----
-    // English title on the left, Arabic on the right (large), brand red.
-    drawText(page, 'WORK PERMIT', margin, yPos, 24, helveticaBold, BRAND_RED);
+    // ---- Bilingual title block (v3 design) ----
+    // Layout: Arabic title large at top-left, English title directly
+    // beneath at smaller size. Matches docs/design/work-permit-pdf-template.html.
+    // The previous look (English left + Arabic right on the same baseline)
+    // is replaced because the Hot Works form reference establishes
+    // Arabic-primary stacked-bilingual as the official Al Hamra layout.
     if (arabicFonts) {
-      // Arabic anchored to the right edge of the page text area, same baseline.
-      // ar = "تصريح عمل" — bold for visual parity with the 24pt English title.
-      await drawArabic(page, arabicLabel('WORK PERMIT') ?? '', pageWidth - margin, yPos, {
+      await drawArabic(page, arabicLabel('WORK PERMIT') ?? '', margin + 180, yPos, {
         font: arabicFonts.bold,
-        size: 24,
-        color: BRAND_RED,
+        size: 26,
+        color: BRAND_DARK,
       });
     }
-    yPos -= 28;
-    drawText(page, permit.permit_no || '', margin, yPos, 16, helveticaBold, BRAND_DARK);
+    yPos -= 26;
+    drawText(page, 'Work Permit Form', margin, yPos, 20, helveticaBold, BRAND_DARK);
+    yPos -= 18;
+    drawText(page, permit.permit_no || '', margin, yPos, 14, helveticaBold, BRAND_RED);
     yPos -= 8;
     drawBrandLine(page, yPos);
-    yPos -= 18;
+    yPos -= 20;
 
     // Status badge.
     //
@@ -439,8 +477,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Work Description
-    await drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 12);
-    yPos -= 18;
+    await drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 11);
+    yPos -= 24;
     const description = String(permit.work_description || '').substring(0, 200);
     const words = description.split(' ');
     let line = '';
@@ -466,22 +504,15 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Two column layout
     const col1 = margin;
     const col2 = pageWidth / 2 + 10;
-    
-    // Requester Info
-    drawText(page, 'REQUESTER INFORMATION', col1, yPos, 11, helveticaBold, BRAND_RED);
-    drawText(page, 'CONTRACTOR INFORMATION', col2, yPos, 11, helveticaBold, BRAND_RED);
-    if (arabicFonts) {
-      // Arabic anchored below each English column header. Smaller (8pt)
-      // because the column is narrow and Arabic glyph height runs taller
-      // than Latin.
-      await drawArabic(page, arabicLabel('REQUESTER INFORMATION') ?? '', col1 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-      await drawArabic(page, arabicLabel('CONTRACTOR INFORMATION') ?? '', col2 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-    }
-    yPos -= 18;
+
+    // Parties subsection bar (single bar spanning width, columns below).
+    // Replaces the previous two parallel red text headers; aligns with
+    // the v3 design where each numbered subsection has one banner.
+    await drawSubsectionHeader(page, '1. CLIENT / CONTRACTOR DETAILS', yPos, 10);
+    yPos -= 22;
+    drawText(page, 'REQUESTER', col1, yPos, 9, helveticaBold, BRAND_DARK);
+    drawText(page, 'CONTRACTOR', col2, yPos, 9, helveticaBold, BRAND_DARK);
+    yPos -= 14;
     drawText(page, 'Name: ' + (permit.requester_name || 'N/A'), col1, yPos, 10, helvetica);
     drawText(page, 'Company: ' + (permit.contractor_name || 'N/A'), col2, yPos, 10, helvetica);
     yPos -= 14;
@@ -512,8 +543,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 25;
     
     // Approvals section with signatures - 3 per row grid layout
-    await drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 12);
-    yPos -= 25;
+    await drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 11);
+    yPos -= 26;
 
     // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
     // Populated by Phase 2b dual-write since 2026-04. Replaces the hardcoded
