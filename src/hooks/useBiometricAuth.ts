@@ -51,11 +51,32 @@ async function invokeEdge<T>(
     method,
   });
   if (error) {
-    // supabase-js wraps edge errors — try to surface the useful message
-    const message =
-      // deno-lint-ignore no-explicit-any
-      (error as any)?.context?.error || error.message || "Edge function error";
-    throw new Error(message);
+    // supabase-js wraps non-2xx responses in a FunctionsHttpError where
+    // .context is the raw Response object. The actual server-side
+    // error message lives in that response body — calling .json() on
+    // it reveals it. Without this, every server error surfaces as the
+    // useless 'Edge Function returned a non-2xx status code' string,
+    // making field diagnosis (e.g. 'WEBAUTHN_ORIGINS env var must be
+    // set') impossible from the UI.
+    let message = error.message || "Edge function error";
+    // deno-lint-ignore no-explicit-any
+    const ctx = (error as any)?.context;
+    if (ctx) {
+      try {
+        if (typeof ctx.json === "function") {
+          const cloned = typeof ctx.clone === "function" ? ctx.clone() : ctx;
+          const body = await cloned.json();
+          if (body?.error) message = String(body.error);
+          else if (body?.message) message = String(body.message);
+        } else if (typeof ctx.error === "string") {
+          // Older supabase-js variants stash the parsed body directly
+          message = ctx.error;
+        }
+      } catch {
+        // Body wasn't JSON or already consumed — fall back to default
+      }
+    }
+    throw new Error(`[${name}] ${message}`);
   }
   return data as T;
 }
