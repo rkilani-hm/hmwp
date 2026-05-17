@@ -142,7 +142,14 @@ async function sendEmail(accessToken: string, to: string[], subject: string, bod
 
 // Generate email HTML template
 function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: string, details: Record<string, string>): string {
-  const baseUrl = "https://hmwp.lovable.app";
+  // Base URL for in-email links. Env-driven so different deploys can
+  // point at different frontends without code changes. Falls back to
+  // the production domain.
+  //
+  // Old fallback was https://hmwp.lovable.app (the Lovable preview
+  // URL). Production now lives at hmwp.alhamra.com.kw, which is what
+  // approvers expect to land on when they click an email link.
+  const baseUrl = Deno.env.get("HMWP_BASE_URL") || "https://www.hmwp.alhamra.com.kw";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   // Public URL for company logo from company-assets bucket
   const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
@@ -299,13 +306,40 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
   const template = templates[type];
   const permitUrl = `${baseUrl}/permits/${details.permitId || ''}`;
 
-  // CTA resolution: account-status templates override the default
-  // "View Permit Details" link. account_rejected omits ctaEn entirely
-  // so the CTA row renders empty.
-  const ctaTextEn = template.ctaEn ?? "View Permit Details";
-  const ctaTextAr = template.ctaAr ?? "عرض تفاصيل التصريح";
+  // CTA resolution.
+  //
+  // Account-status templates set ctaEn / ctaAr / ctaUrlOverride to
+  // override the defaults (account approvals route to /auth,
+  // pending-review routes to /pending-tenants).
+  //
+  // For permit-related notifications, the CTA label is action-oriented
+  // — "Review & Approve" for an approver awaiting your decision is
+  // more useful than a generic "View Permit Details".
+  //
+  // Previously this only rendered the CTA when template.ctaEn was set,
+  // which meant permit emails had NO clickable link to the permit.
+  // Approvers had to either type the URL or navigate via the app every
+  // time. Now the CTA renders whenever there's somewhere to send the
+  // recipient — either explicitly via template.ctaEn OR because we
+  // have a permitId.
+  const ctaDefaultsForPermit: Partial<Record<EmailRequest['notificationType'], { en: string; ar: string }>> = {
+    new_permit:        { en: 'Review & Approve',      ar: 'مراجعة واعتماد' },
+    approval_required: { en: 'Review & Approve',      ar: 'مراجعة واعتماد' },
+    sla_warning:       { en: 'Review Now',            ar: 'مراجعة الآن' },
+    sla_breach:        { en: 'Review Now',            ar: 'مراجعة الآن' },
+    rework:            { en: 'Open Permit & Resubmit', ar: 'فتح التصريح وإعادة الإرسال' },
+    rejected:          { en: 'View Permit',           ar: 'عرض التصريح' },
+    approved:          { en: 'View Permit',           ar: 'عرض التصريح' },
+    forwarded:         { en: 'View Permit',           ar: 'عرض التصريح' },
+    closed:            { en: 'View Permit',           ar: 'عرض التصريح' },
+    status_update:     { en: 'View Permit',           ar: 'عرض التصريح' },
+  };
+  const permitDefault = ctaDefaultsForPermit[type];
+
+  const ctaTextEn = template.ctaEn ?? permitDefault?.en ?? 'View Permit Details';
+  const ctaTextAr = template.ctaAr ?? permitDefault?.ar ?? 'عرض تفاصيل التصريح';
   const ctaUrl = template.ctaUrlOverride ?? permitUrl;
-  const showCta = !!template.ctaEn;
+  const showCta = !!template.ctaEn || !!details.permitId;
 
   // ---- Brand-aligned font stack ----
   // 'Jost' renders correctly on web-mail clients that load Google Fonts
@@ -411,6 +445,15 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
               <div dir="rtl" lang="ar" style="margin-top: 8px; font-family: ${FONT_ARABIC}; font-size: 13px; color: #6b7280;">
                 <a href="${ctaUrl}" style="color: ${BRAND_RED}; text-decoration: none;">${ctaTextAr}</a>
               </div>
+              <!-- Plain-text URL — some mail clients (older Outlook,
+                   plain-text mode, link-trimming spam filters) strip
+                   the styled button. The raw URL ensures everyone
+                   still has a way through. Small + muted so it doesn't
+                   compete with the primary CTA visually. -->
+              <p style="margin: 14px 0 0 0; font-size: 11px; color: #9ca3af; line-height: 1.5; word-break: break-all;">
+                Or paste this link in your browser:<br>
+                <a href="${ctaUrl}" style="color: #6b7280; text-decoration: underline;">${ctaUrl}</a>
+              </p>
             </td>
           </tr>
           ` : `
