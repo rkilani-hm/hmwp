@@ -864,8 +864,11 @@ export type Database = {
           floor: string | null
           full_name: string | null
           id: string
+          initials_data: string | null
           is_active: boolean | null
           phone: string | null
+          signature_data: string | null
+          signature_updated_at: string | null
           unit: string | null
           updated_at: string
         }
@@ -884,8 +887,11 @@ export type Database = {
           floor?: string | null
           full_name?: string | null
           id: string
+          initials_data?: string | null
           is_active?: boolean | null
           phone?: string | null
+          signature_data?: string | null
+          signature_updated_at?: string | null
           unit?: string | null
           updated_at?: string
         }
@@ -904,8 +910,11 @@ export type Database = {
           floor?: string | null
           full_name?: string | null
           id?: string
+          initials_data?: string | null
           is_active?: boolean | null
           phone?: string | null
+          signature_data?: string | null
+          signature_updated_at?: string | null
           unit?: string | null
           updated_at?: string
         }
