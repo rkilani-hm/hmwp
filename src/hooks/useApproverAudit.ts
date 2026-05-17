@@ -154,12 +154,19 @@ export function useReassignAllPermits() {
           const emails = payload.emails ?? [];
           if (emails.length > 0) {
             // Reuse the existing edge function which has SMTP creds.
+            // Field names match EmailRequest interface in
+            // supabase/functions/send-email-notification: notificationType
+            // (not 'type') and details (not 'data'). Also pass permitId
+            // and permitNo at top level — the function reads them there
+            // for activity logging and rate-limiting.
             await supabase.functions.invoke('send-email-notification', {
               body: {
                 to: emails,
                 subject: `Work Permit Awaiting Your Review: ${payload.permit_no || r.permit_no || ''}`,
-                type: 'new_permit',
-                data: {
+                notificationType: 'new_permit',
+                permitId: r.permit_id,
+                permitNo: payload.permit_no || r.permit_no || '',
+                details: {
                   permitId: r.permit_id,
                   permitNo: payload.permit_no || r.permit_no || '',
                   urgency: payload.urgency || 'normal',

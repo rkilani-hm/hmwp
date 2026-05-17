@@ -142,7 +142,22 @@ async function sendEmail(accessToken: string, to: string[], subject: string, bod
 
 // Generate email HTML template
 function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: string, details: Record<string, string>): string {
-  const baseUrl = "https://hmwp.lovable.app";
+  // App URL for deep links in email CTAs.
+  //
+  // Resolution order:
+  //   1. APP_URL env var — set this in Supabase Dashboard -> Edge Functions
+  //      -> send-email-notification -> Secrets. Production should be
+  //      'https://www.hmwp.alhamra.com.kw'.
+  //   2. Fallback to the production domain. Used to point to
+  //      'https://hmwp.lovable.app' (the old Lovable preview), so
+  //      approver emails for months took recipients to a stale preview
+  //      env. Switched to the live domain so the button works
+  //      out-of-the-box even if APP_URL isn't set.
+  //
+  // The URL must NOT have a trailing slash — we append paths like
+  // `/permits/<id>` directly.
+  const baseUrl = (Deno.env.get("APP_URL") || "https://www.hmwp.alhamra.com.kw").replace(/\/$/, "");
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   // Public URL for company logo from company-assets bucket
   const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
@@ -185,6 +200,8 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       contentEn: `A new work permit <strong>${permitNo}</strong> has been submitted and requires your review.`,
       contentAr: `تم إرسال تصريح عمل جديد <strong>${permitNo}</strong> ويتطلب مراجعتك.`,
       color: INFO,
+      ctaEn: "Review this work permit →",
+      ctaAr: "مراجعة تصريح العمل →",
     },
     approval_required: {
       titleEn: "Work Permit Awaiting Your Approval",
@@ -192,6 +209,8 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       contentEn: `Work permit <strong>${permitNo}</strong> is now pending your approval.`,
       contentAr: `تصريح العمل <strong>${permitNo}</strong> بانتظار اعتمادك.`,
       color: WARNING,
+      ctaEn: "Open and approve →",
+      ctaAr: "افتح واعتمد →",
     },
     approved: {
       titleEn: "Work Permit Approved",
@@ -410,6 +429,15 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
               </a>
               <div dir="rtl" lang="ar" style="margin-top: 8px; font-family: ${FONT_ARABIC}; font-size: 13px; color: #6b7280;">
                 <a href="${ctaUrl}" style="color: ${BRAND_RED}; text-decoration: none;">${ctaTextAr}</a>
+              </div>
+              <!-- Plain-text fallback. Many email clients strip
+                   the styled button or block it as "image" by default.
+                   This raw URL is always clickable, and approvers
+                   replying from mobile clients (Outlook for iOS, etc.)
+                   often prefer it. -->
+              <div style="margin-top: 16px; font-size: 12px; color: #6b7280; word-break: break-all; font-family: ${FONT_LATIN};">
+                Or copy this link:<br>
+                <a href="${ctaUrl}" style="color: #6b7280; text-decoration: underline;">${ctaUrl}</a>
               </div>
             </td>
           </tr>
