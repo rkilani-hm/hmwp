@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { PermitStatus } from '@/types/workPermit';
+import { humanRoleName } from '@/utils/roleDisplay';
 import {
   ArrowLeft,
   Building2,
@@ -84,16 +85,10 @@ interface PermitDetailProps {
   currentRole: string;
 }
 
-// Snake_case role name (e.g. 'al_hamra_customer_service') -> Title Case
-// ("Al Hamra Customer Service") for human display. Used by the
-// "Currently with" badge and other inline approver indicators.
-function humanRoleName(name: string): string {
-  if (!name) return '';
-  return name
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
+// Snake_case role name -> Title Case. Moved to src/utils/roleDisplay.ts
+// so dashboards, badges, and approval-chain widgets share one
+// implementation. Kept this import-style stub since several call sites
+// in this file use the name 'humanRoleName' unqualified.
 
 export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { t } = useTranslation();
