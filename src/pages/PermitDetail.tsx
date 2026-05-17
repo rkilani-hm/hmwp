@@ -406,22 +406,24 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <span className="sm:hidden">PDF</span>
             </Button>
           )}
-          {permit.pdf_url && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handlePreviewPdf}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Eye className="w-4 h-4 mr-2" />
-              )}
-              <span className="hidden sm:inline">View PDF</span>
-              <span className="sm:hidden">PDF</span>
-            </Button>
-          )}
+          {/* Preview PDF — always available. Renders a fresh PDF on the fly
+              and opens it in the in-app dialog so reviewers can verify the
+              latest design (e.g. new section banners) without downloading. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePreviewPdf}
+            disabled={isGenerating}
+            title="Render the latest PDF and open it in a preview dialog"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Eye className="w-4 h-4 mr-2" />
+            )}
+            <span className="hidden sm:inline">Preview PDF</span>
+            <span className="sm:hidden">Preview</span>
+          </Button>
           {isAdmin && !isPermitArchived && (
             <AdminDeleteDialog
               title="Archive Work Permit"
