@@ -39,23 +39,34 @@ import {
   Legend,
 } from 'recharts';
 
-const roleLabels: Record<string, string> = {
-  helpdesk: 'Helpdesk',
-  pm: 'Property Mgmt',
-  pd: 'Project Dev',
-  bdcr: 'BDCR',
-  mpr: 'MPR',
-  it: 'IT',
-  fitout: 'Fit-Out',
-  ecovert_supervisor: 'Ecovert Supervisor',
-  pmd_coordinator: 'PMD Coordinator',
-  customer_service: 'Customer Service',
-  cr_coordinator: 'CR Coordinator',
-  head_cr: 'Head of CR',
-  fmsp_approval: 'FMSP Approval',
-};
+// Humanize a snake_case role name for display. Built-in roles get
+// curated labels; custom roles fall through to mechanical Title Case
+// so dynamic-workflow additions (e.g. al_hamra_customer_service)
+// render properly without code changes.
+function humanizeRole(role: string | null | undefined): string {
+  if (!role) return '';
+  const overrides: Record<string, string> = {
+    helpdesk: 'Helpdesk',
+    pm: 'Property Mgmt',
+    pd: 'Project Dev',
+    bdcr: 'BDCR',
+    mpr: 'MPR',
+    it: 'IT',
+    fitout: 'Fit-Out',
+  };
+  const key = role.toLowerCase();
+  if (overrides[key]) return overrides[key];
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
-const roleColors: Record<string, string> = {
+// Deterministic color for a role name. Curated palette for legacy
+// roles, hash-based fallback for new/custom roles so the same role
+// always gets the same color across renders.
+const CURATED_ROLE_COLORS: Record<string, string> = {
   helpdesk: '#3b82f6',
   pm: '#8b5cf6',
   pd: '#10b981',
@@ -70,6 +81,18 @@ const roleColors: Record<string, string> = {
   head_cr: '#a855f7',
   fmsp_approval: '#0ea5e9',
 };
+const FALLBACK_PALETTE = [
+  '#dc2626', '#d97706', '#65a30d', '#0d9488', '#0284c7',
+  '#7c3aed', '#c026d3', '#be185d', '#9333ea', '#15803d',
+];
+function roleColor(role: string | null | undefined): string {
+  if (!role) return '#6b7280';
+  const key = role.toLowerCase();
+  if (CURATED_ROLE_COLORS[key]) return CURATED_ROLE_COLORS[key];
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
+}
 
 export default function ApproverPerformance() {
   const { data: approvers, isLoading } = useAllApproversPerformance();
