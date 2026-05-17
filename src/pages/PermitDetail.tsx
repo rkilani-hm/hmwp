@@ -729,6 +729,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
         pdfUrl={previewPdfUrl}
         fileName={`${permit.permit_no.replace(/\//g, '-')}.pdf`}
         onDownload={handleDownloadPdf}
+        requireSection3Verification
       />
       
       {/* Modify Workflow Dialog */}
