@@ -111,9 +111,14 @@ export function useMyPerformanceDrilldown(filters: PerformanceFilters = {}) {
   const { user, roles } = useAuth();
   const { from, to } = filters;
 
+  // Same gate as useMyPerformance — tenant-only users don't get
+  // approver KPI data even at the hook level. See that hook's
+  // comment for the rationale.
+  const hasApproverRole = roles.some((r) => r !== 'tenant');
+
   return useQuery({
     queryKey: ['my-performance-drilldown', user?.id, roles, from?.toISOString() ?? null, to?.toISOString() ?? null],
-    enabled: !!user && roles.length > 0,
+    enabled: !!user && roles.length > 0 && hasApproverRole,
     queryFn: async (): Promise<DrilldownRecord[]> => {
       if (!user) return [];
 

@@ -185,9 +185,19 @@ export function useMyPerformance(filters: PerformanceFilters = {}) {
   const { user, roles } = useAuth();
   const { from, to } = filters;
 
+  // Tenants have no business with approver KPIs. Block the query at
+  // the hook level so even if route protection ever lapses (race
+  // during sign-in, deep link, dev-tools detour), no permit_approvals
+  // data leaves the server for a tenant-only user.
+  //
+  // A user with BOTH tenant AND an approver role still gets their
+  // approver metrics — that's intended (they DO act on permits).
+  // 'Tenant-only' = no non-tenant role at all.
+  const hasApproverRole = roles.some((r) => r !== 'tenant');
+
   return useQuery({
     queryKey: ['my-performance', user?.id, roles, isoOrNull(from), isoOrNull(to)],
-    enabled: !!user && roles.length > 0,
+    enabled: !!user && roles.length > 0 && hasApproverRole,
     queryFn: async (): Promise<ApproverMetrics | null> => {
       if (!user) return null;
 

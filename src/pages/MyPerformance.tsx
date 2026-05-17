@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useMyPerformance } from '@/hooks/useApproverPerformance';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,7 +66,7 @@ function humanizeRole(role: string | null | undefined): string {
 }
 
 export default function MyPerformance() {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [range, setRange] = useState<DateRange>(presetToRange('30d'));
   const { data: metrics, isLoading } = useMyPerformance({ from: range.from, to: range.to });
@@ -101,6 +102,22 @@ export default function MyPerformance() {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 },
   };
+
+  // Tenant-only users have no approver KPIs to view. The router
+  // protects this route (Index.tsx isApprover guard), but this is
+  // defense-in-depth — covers the race window during sign-in where
+  // roles briefly resolve mid-render, plus any future code path
+  // that might bypass the router check.
+  //
+  // Anyone with at least one NON-tenant role passes (they may
+  // actually approve permits).
+  //
+  // Placed AFTER all hooks so the hook-call order stays stable
+  // across renders (React Rules of Hooks).
+  const hasApproverRole = roles.some((r) => r !== 'tenant');
+  if (!hasApproverRole) {
+    return <Navigate to="/" replace />;
+  }
 
   if (isLoading) {
     return (
