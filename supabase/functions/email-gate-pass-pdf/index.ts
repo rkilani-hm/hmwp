@@ -125,7 +125,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get company logo URL for email
     const logoUrl = `${supabaseUrl}/storage/v1/object/public/company-assets/company-logo.jpg`;
-    const baseUrl = "https://hmwp.lovable.app";
+    // Env-driven, falls back to production. Was hardcoded to the old
+    // hmwp.lovable.app domain which broke clicks from the email after
+    // the production cutover to hmwp.alhamra.com.kw.
+    const baseUrl = Deno.env.get("HMWP_BASE_URL") || "https://www.hmwp.alhamra.com.kw";
 
     // Build email HTML
     const categoryLabel = gp.pass_category === "detailed_material_pass" ? "Detailed Material Pass" : "Generic Delivery Permit";

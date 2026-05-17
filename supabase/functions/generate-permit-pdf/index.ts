@@ -362,8 +362,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
       const permitNoForQr = String(permit.permit_no || "").trim();
       if (!permitNoForQr) throw new Error("Missing permit number for QR code");
 
-      // Create the public verification URL (points to /status for unauthenticated access)
-      const verificationUrl = `https://hmwp.lovable.app/status?permit=${encodeURIComponent(permitNoForQr)}`;
+      // Create the public verification URL (points to /status for unauthenticated access).
+      // Env-driven; was hardcoded to the old hmwp.lovable.app domain.
+      const verificationBaseUrl = Deno.env.get("HMWP_BASE_URL") || "https://www.hmwp.alhamra.com.kw";
+      const verificationUrl = `${verificationBaseUrl}/status?permit=${encodeURIComponent(permitNoForQr)}`;
       
       qrCode = qrcode(0, "M");
       qrCode.addData(verificationUrl);

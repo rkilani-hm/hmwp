@@ -217,7 +217,9 @@ const handler = async (req: Request): Promise<Response> => {
       const passNo = String(gp.pass_no || "").trim();
       if (passNo) {
         qrCode = qrcode(0, "M");
-        qrCode.addData(`https://hmwp.lovable.app/gate-passes/${gp.id}`);
+        // Env-driven; was hardcoded to the old hmwp.lovable.app domain.
+        const gpBaseUrl = Deno.env.get("HMWP_BASE_URL") || "https://www.hmwp.alhamra.com.kw";
+        qrCode.addData(`${gpBaseUrl}/gate-passes/${gp.id}`);
         qrCode.make();
       }
     } catch (e) {
