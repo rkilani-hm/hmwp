@@ -420,7 +420,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const ROLE_DISPLAY_NAMES: Record<string, string> = {
       customer_service: 'Customer Service',
       cr_coordinator: 'CR Coordinator',
-      head_cr: 'Head CR',
+      head_cr: 'Head of CR',
       helpdesk: 'Helpdesk',
       pm: 'PM',
       pd: 'PD',
@@ -432,6 +432,29 @@ const serve_handler = async (req: Request): Promise<Response> => {
       pmd_coordinator: 'PMD Coordinator',
       fmsp_approval: 'FMSP Approval',
     };
+
+    // Arabic translations for known role names. Fallback for unknown
+    // (custom) roles: humanize the key (snake_case → Title Case) and
+    // render in the English column only (no Arabic line). This keeps
+    // the layout dynamic — custom roles still render correctly, they
+    // just don't get an Arabic translation until admin adds one to
+    // this map (or, later, a roles.label_ar column).
+    const ROLE_DISPLAY_NAMES_AR: Record<string, string> = {
+      customer_service: 'خدمة العملاء',
+      cr_coordinator: 'منسق علاقات العملاء',
+      head_cr: 'رئيس علاقات العملاء',
+      helpdesk: 'الدعم الفني',
+      pm: 'إدارة العقار',
+      pd: 'تطوير المشاريع',
+      bdcr: 'العلاقات التجارية',
+      mpr: 'إدارة الصيانة',
+      it: 'تكنولوجيا المعلومات',
+      fitout: 'التجهيزات الداخلية',
+      ecovert_supervisor: 'مشرف إيكوفرت',
+      pmd_coordinator: 'منسق إدارة المرافق',
+      fmsp_approval: 'اعتماد إدارة المرافق',
+    };
+
     const ROLE_RENDER_ORDER: string[] = [
       'customer_service', 'cr_coordinator', 'head_cr',
       'helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it',
@@ -444,19 +467,21 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     type ApprovalRow = {
       name: string;
+      nameAr: string | null;
       roleKey: string;
       status: string | null;
       approver: string | null;
       date: string | null;
       signature: string | null;
       comments: string | null;
+      stepOrder: number;
     };
 
     let approvals: ApprovalRow[] = [];
 
     const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
       .from('permit_approvals')
-      .select('role_name, status, approver_name, approved_at, signature, comments')
+      .select('role_name, status, approver_name, approved_at, signature, comments, workflow_step_id, workflow_steps(step_order)')
       .eq('permit_id', permitId);
 
     if (approvalsErr) {
@@ -464,15 +489,25 @@ const serve_handler = async (req: Request): Promise<Response> => {
     }
 
     if (approvalRows && approvalRows.length > 0) {
-      approvals = approvalRows.map((r): ApprovalRow => ({
-        name: ROLE_DISPLAY_NAMES[r.role_name] ?? r.role_name,
+      approvals = approvalRows.map((r: any): ApprovalRow => ({
+        name: ROLE_DISPLAY_NAMES[r.role_name]
+          ?? r.role_name.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        nameAr: ROLE_DISPLAY_NAMES_AR[r.role_name] ?? null,
         roleKey: r.role_name,
         status: r.status,
         approver: r.approver_name,
         date: r.approved_at,
         signature: r.signature,
         comments: r.comments,
+        // step_order comes from the joined workflow_steps row; if the
+        // approval row has no workflow_step_id (very old data) fall
+        // back to the legacy hardcoded order via ROLE_ORDER_INDEX so
+        // the chain still sorts deterministically.
+        stepOrder: (r.workflow_steps?.step_order ?? null)
+          ?? ROLE_ORDER_INDEX[r.role_name] ?? 999,
       }));
+      // Sort by step order so the chain renders in workflow sequence.
+      approvals.sort((a, b) => a.stepOrder - b.stepOrder);
     } else {
       const p = permit as Record<string, unknown>;
       for (const roleKey of ROLE_RENDER_ORDER) {
@@ -480,21 +515,19 @@ const serve_handler = async (req: Request): Promise<Response> => {
         if (status !== 'approved' && status !== 'rejected') continue;
         approvals.push({
           name: ROLE_DISPLAY_NAMES[roleKey],
+          nameAr: ROLE_DISPLAY_NAMES_AR[roleKey] ?? null,
           roleKey,
           status,
           approver: (p[`${roleKey}_approver_name`] as string | null) ?? null,
           date: (p[`${roleKey}_date`] as string | null) ?? null,
           signature: (p[`${roleKey}_signature`] as string | null) ?? null,
           comments: (p[`${roleKey}_comments`] as string | null) ?? null,
+          stepOrder: ROLE_ORDER_INDEX[roleKey] ?? 999,
         });
       }
     }
 
-    approvals.sort((a, b) => {
-      const oa = ROLE_ORDER_INDEX[a.roleKey] ?? Number.POSITIVE_INFINITY;
-      const ob = ROLE_ORDER_INDEX[b.roleKey] ?? Number.POSITIVE_INFINITY;
-      return oa - ob;
-    });
+    approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
     // Status badge.
     //
@@ -623,139 +656,220 @@ const serve_handler = async (req: Request): Promise<Response> => {
     yPos -= 30;
     
     drawLine(page, yPos);
-    yPos -= 25;
-    
-    // Approvals section with signatures - 3 per row grid layout
-    await drawSectionHeader(page, 'APPROVALS & SIGNATURES', yPos, 11);
-    yPos -= 26;
+    yPos -= 18;
 
-    // (approvals fetched earlier — see block above the status badge.)
+    // ====================================================================
+    // Approval Chain — full-width row layout (v3 design)
+    // ====================================================================
+    //
+    // Replaces the previous 3-column grid of cards with a single column
+    // of full-width rows. Mirrors the design reference at
+    // docs/design/work-permit-pdf-template.html (Section 3 — APPROVAL
+    // CHAIN). Each row shows:
+    //
+    //   [01]  Customer Service             Sara Al-Mutairi      ✓ APPROVED   [signature]
+    //         خدمة العملاء                 14 May 2026 · 10:25
+    //
+    // Columns (left to right):
+    //   1. Number badge (32pt) — colored status dot + step number "01"
+    //   2. Role + signer (260pt) — English role name (bold) over
+    //      Arabic role name; signer name + date next to it
+    //   3. Status pill (95pt) — colored text like '✓ APPROVED'
+    //   4. Signature (rest) — embedded signature image, or
+    //      'AWAITING SIGNATURE' placeholder for pending rows
 
-    // Filter to only show approved/rejected approvals
-    const activeApprovals = approvals.filter(a => a.status === 'approved' || a.status === 'rejected');
-    
-    // Grid layout: 3 columns
-    const colCount = 3;
-    const colWidth = (pageWidth - 2 * margin) / colCount;
-    const rowHeight = 135; // Increased height for comments
-    
-    let colIndex = 0;
-    let rowStartY = yPos;
-    
-    for (let i = 0; i < activeApprovals.length; i++) {
-      const approval = activeApprovals[i];
-      const statusColor = approval.status === 'approved' ? rgb(0.13, 0.77, 0.37) : BRAND_RED;
-      const statusSymbol = approval.status === 'approved' ? '✓' : '✗';
-      
-      // Get audit info for IP address
-      const auditInfo = auditInfoByRole.get(approval.roleKey);
-      const ipAddress = auditInfo?.ip_address || 'N/A';
-      
-      // Calculate x position based on column
-      const xPos = margin + (colIndex * colWidth);
-      let cellY = rowStartY;
-      
-      // Draw approval box border
-      page.drawRectangle({
-        x: xPos,
-        y: cellY - rowHeight + 10,
-        width: colWidth - 10,
-        height: rowHeight - 5,
-        borderColor: rgb(0.85, 0.85, 0.85),
-        borderWidth: 0.5,
-      });
-      
-      // Draw approval header with status
-      drawText(page, statusSymbol + ' ' + approval.name, xPos + 5, cellY - 12, 9, helveticaBold, statusColor);
-      cellY -= 24;
-      
-      // Approver name (truncated to fit)
-      const approverName = (approval.approver || 'N/A').substring(0, 20);
-      drawText(page, approverName, xPos + 5, cellY, 8, helvetica, rgb(0.3, 0.3, 0.3));
-      cellY -= 11;
-      
-      // Date
-      drawText(page, formatDateTime(approval.date), xPos + 5, cellY, 7, helvetica, rgb(0.5, 0.5, 0.5));
-      cellY -= 10;
-      
-      // IP (truncated)
-      const shortIP = ipAddress.length > 15 ? ipAddress.substring(0, 15) + '...' : ipAddress;
-      drawText(page, 'IP: ' + shortIP, xPos + 5, cellY, 7, helvetica, rgb(0.5, 0.5, 0.5));
-      cellY -= 11;
-      
-      // Comments (truncated to fit in cell)
-      if (approval.comments && approval.comments.trim()) {
-        const maxCommentLength = 40;
-        const truncatedComment = approval.comments.trim().substring(0, maxCommentLength);
-        const displayComment = truncatedComment.length < approval.comments.trim().length 
-          ? truncatedComment + '...' 
-          : truncatedComment;
-        drawText(page, '"' + displayComment + '"', xPos + 5, cellY, 6, helvetica, rgb(0.4, 0.4, 0.4));
-        cellY -= 10;
-      } else {
-        cellY -= 2;
+    await drawSubsectionHeader(page, '3. APPROVAL CHAIN', yPos, 10);
+    yPos -= 18;
+
+    // Status colors. APPROVED = success green, REJECTED = brand red,
+    // PENDING (the first not-yet-acted-upon row) = burgundy with halo,
+    // AWAITING (subsequent rows) = neutral gray.
+    const STATUS_OK         = rgb(0.086, 0.396, 0.204); // #166534
+    const STATUS_REJECTED   = BRAND_RED;
+    const STATUS_PENDING    = SUBSECTION_BAR_INK;       // burgundy
+    const STATUS_AWAITING   = rgb(0.541, 0.541, 0.541); // gray
+    const ROW_STROKE        = rgb(0.92, 0.92, 0.92);
+
+    // Identify the FIRST pending row — it gets the active-pending
+    // styling (filled burgundy dot + halo + PENDING label). Any
+    // subsequent pending rows are shown as AWAITING (muted).
+    let firstPendingIdx = -1;
+    for (let i = 0; i < approvals.length; i++) {
+      if (approvals[i].status === 'pending') { firstPendingIdx = i; break; }
+    }
+
+    const ROW_HEIGHT = 38;
+    const CONTENT_RIGHT = pageWidth - margin;
+
+    for (let i = 0; i < approvals.length; i++) {
+      const approval = approvals[i];
+
+      // Page-break check — if this row + footer wouldn't fit, start a
+      // new page and re-render the subsection header so the chain is
+      // legible if it spans pages.
+      if (yPos < 90) {
+        const np = createPage();
+        page = np.page;
+        yPos = np.yPos;
+        await drawSubsectionHeader(page, '3. APPROVAL CHAIN (continued)', yPos, 10);
+        yPos -= 18;
       }
-      
-      // Embed signature image if available
-      if (approval.signature && approval.signature.startsWith('data:image')) {
+
+      const rowTop = yPos;
+      const rowMid = rowTop - ROW_HEIGHT / 2;
+
+      // Categorize status for this specific row.
+      let dotColor: ReturnType<typeof rgb>;
+      let pillColor: ReturnType<typeof rgb>;
+      let pillLabel: string;
+      let drawHalo = false;
+      const isApproved = approval.status === 'approved';
+      const isRejected = approval.status === 'rejected';
+      const isFirstPending = i === firstPendingIdx;
+
+      if (isApproved) {
+        dotColor = STATUS_OK;
+        pillColor = STATUS_OK;
+        pillLabel = 'APPROVED';
+      } else if (isRejected) {
+        dotColor = STATUS_REJECTED;
+        pillColor = STATUS_REJECTED;
+        pillLabel = 'REJECTED';
+      } else if (isFirstPending) {
+        dotColor = STATUS_PENDING;
+        pillColor = STATUS_PENDING;
+        pillLabel = 'PENDING';
+        drawHalo = true;
+      } else {
+        dotColor = STATUS_AWAITING;
+        pillColor = STATUS_AWAITING;
+        pillLabel = 'AWAITING';
+      }
+
+      // ---- Cell 1: number badge (colored dot + step number) ----
+      const dotX = margin + 8;
+      const dotY = rowMid;
+      if (drawHalo) {
+        page.drawCircle({ x: dotX, y: dotY, size: 7, color: rgb(0.95, 0.85, 0.85) });
+      }
+      page.drawCircle({ x: dotX, y: dotY, size: 3.5, color: dotColor });
+      drawText(
+        page,
+        String(i + 1).padStart(2, '0'),
+        dotX + 8, dotY - 3, 10, helveticaBold, BRAND_DARK,
+      );
+
+      // ---- Cell 2: role name (English bold + Arabic below) + signer/date ----
+      const roleX = margin + 40;
+      const signerX = margin + 220;
+
+      // English role name (top, bold)
+      drawText(page, approval.name, roleX, rowMid + 5, 10, helveticaBold, BRAND_DARK);
+
+      // Arabic role name (below, smaller, RTL anchored)
+      if (approval.nameAr && arabicFonts) {
+        await drawArabic(page, approval.nameAr, roleX + 175, rowMid - 9, {
+          font: arabicFonts.regular,
+          size: 9,
+          color: rgb(0.302, 0.302, 0.302),
+        });
+      }
+
+      // Signer name (top)
+      const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
+      drawText(page, signerName, signerX, rowMid + 5, 9.5, helvetica, BRAND_DARK);
+
+      // Date or Pending
+      const dateLabel = (isApproved || isRejected) && approval.date
+        ? formatDateTime(approval.date)
+        : 'Pending';
+      drawText(page, dateLabel, signerX, rowMid - 7, 8, helvetica, rgb(0.541, 0.541, 0.541));
+
+      // ---- Cell 3: status pill (colored text) ----
+      const pillX = pageWidth * 0.62;
+      const prefix = isApproved ? '\u2713 '
+                    : isRejected ? '\u2717 '
+                    : isFirstPending ? '\u25CF '
+                    : '\u25CB ';
+      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 9, helveticaBold, pillColor);
+
+      // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
+      const sigX = pageWidth * 0.78;
+      const sigW = CONTENT_RIGHT - sigX - 4;
+
+      if ((isApproved || isRejected) && approval.signature && approval.signature.startsWith('data:image')) {
         try {
           const base64Data = approval.signature.split(',')[1];
           if (base64Data) {
-            const signatureBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-            
-            let signatureImage;
-            if (approval.signature.includes('image/png')) {
-              signatureImage = await pdfDoc.embedPng(signatureBytes);
-            } else if (approval.signature.includes('image/jpeg') || approval.signature.includes('image/jpg')) {
-              signatureImage = await pdfDoc.embedJpg(signatureBytes);
-            }
-            
-            if (signatureImage) {
-              // Scale signature to fit in cell (max 80x35)
-              const maxWidth = 80;
-              const maxHeight = 35;
-              const scale = Math.min(maxWidth / signatureImage.width, maxHeight / signatureImage.height, 1);
-              const scaledWidth = signatureImage.width * scale;
-              const scaledHeight = signatureImage.height * scale;
-              
-              page.drawImage(signatureImage, {
-                x: xPos + 5,
-                y: cellY - scaledHeight,
-                width: scaledWidth,
-                height: scaledHeight,
-              });
-            }
+            const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            const sigImg = approval.signature.includes('image/png')
+              ? await pdfDoc.embedPng(sigBytes)
+              : await pdfDoc.embedJpg(sigBytes);
+
+            const maxW = sigW;
+            const maxH = ROW_HEIGHT - 10;
+            const scale = Math.min(maxW / sigImg.width, maxH / sigImg.height, 1);
+            const drawW = sigImg.width * scale;
+            const drawH = sigImg.height * scale;
+
+            page.drawImage(sigImg, {
+              x: sigX + (maxW - drawW) / 2,
+              y: rowMid - drawH / 2,
+              width: drawW,
+              height: drawH,
+            });
           }
         } catch (sigError) {
           console.error('Error embedding signature for', approval.name, sigError);
         }
-      }
-      
-      // Move to next column or next row
-      colIndex++;
-      if (colIndex >= colCount) {
-        colIndex = 0;
-        rowStartY -= rowHeight;
-        yPos = rowStartY;
-        
-        // Check if we need a new page
-        if (yPos < 120) {
-          const newPageResult = createPage();
-          page = newPageResult.page;
-          yPos = newPageResult.yPos;
-          rowStartY = yPos;
-          drawText(page, 'APPROVALS (continued)', margin, yPos, 12, helveticaBold);
-          yPos -= 25;
-          rowStartY = yPos;
+
+        // Signature underline (continuous line)
+        page.drawLine({
+          start: { x: sigX, y: rowMid - ROW_HEIGHT / 2 + 4 },
+          end: { x: sigX + sigW, y: rowMid - ROW_HEIGHT / 2 + 4 },
+          thickness: 0.5,
+          color: rgb(0.6, 0.6, 0.6),
+        });
+      } else {
+        // Pending / awaiting — dashed underline + "AWAITING SIGNATURE" placeholder
+        drawText(
+          page,
+          'AWAITING SIGNATURE',
+          sigX + 4, rowMid - 1, 8, helvetica, STATUS_AWAITING,
+        );
+        // Dashed line (pdf-lib doesn't natively support dashes here;
+        // draw a sequence of short segments).
+        const dashY = rowMid - ROW_HEIGHT / 2 + 4;
+        const dashLen = 3; const gap = 2;
+        for (let x = sigX; x < sigX + sigW; x += dashLen + gap) {
+          page.drawLine({
+            start: { x, y: dashY },
+            end: { x: Math.min(x + dashLen, sigX + sigW), y: dashY },
+            thickness: 0.4,
+            color: rgb(0.7, 0.7, 0.7),
+          });
         }
       }
+
+      // ---- Row separator ----
+      page.drawLine({
+        start: { x: margin, y: rowTop - ROW_HEIGHT },
+        end: { x: CONTENT_RIGHT, y: rowTop - ROW_HEIGHT },
+        thickness: 0.4,
+        color: ROW_STROKE,
+      });
+
+      yPos -= ROW_HEIGHT;
     }
-    
-    // Adjust yPos after all approvals
-    if (colIndex !== 0) {
-      // We ended mid-row, move to next row
-      yPos = rowStartY - rowHeight;
-    }
+
+    yPos -= 8; // breathing room after the chain
+
+    // ====================================================================
+    // (legacy 3-column grid removed — replaced by the row layout above.)
+    // ====================================================================
+    // Skip past the OLD rendering block: we intentionally don't filter
+    // to approved/rejected anymore — the chain shows all rows so
+    // viewers see the full audit trail including pending steps.
     
     // Footer on first page
     drawLine(page, 50);
