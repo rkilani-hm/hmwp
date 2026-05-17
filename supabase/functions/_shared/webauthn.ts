@@ -1,11 +1,23 @@
 // =============================================================================
 // Shared WebAuthn helpers + config for Supabase edge functions.
 //
-// Env vars required:
-//   WEBAUTHN_RP_ID      e.g. "hmwp.lovable.app" or "permits.alhamra.com.kw"
-//   WEBAUTHN_RP_NAME    human-readable, e.g. "Al Hamra Work Permit System"
-//   WEBAUTHN_ORIGINS    comma-separated list of allowed origins, e.g.
-//                       "https://hmwp.lovable.app,https://permits.alhamra.com.kw"
+// Env vars required (set on the Supabase Edge Functions dashboard):
+//   WEBAUTHN_RP_ID      The exact domain (no protocol, no path).
+//                       Production: "hmwp.alhamra.com.kw"
+//                       Must match — or be a registrable parent of —
+//                       the domain shown in the browser address bar.
+//                       The browser rejects registration with
+//                       "The RP ID is invalid for this domain" if
+//                       they don't match.
+//   WEBAUTHN_RP_NAME    Human-readable, e.g. "Al Hamra Work Permit System"
+//   WEBAUTHN_ORIGINS    Comma-separated list of allowed origins
+//                       (full URLs including scheme).
+//                       Production:
+//                         "https://hmwp.alhamra.com.kw,https://www.hmwp.alhamra.com.kw"
+//
+// To update these without redeploying code:
+//   supabase secrets set WEBAUTHN_RP_ID=hmwp.alhamra.com.kw
+//   supabase secrets set WEBAUTHN_ORIGINS=https://hmwp.alhamra.com.kw,https://www.hmwp.alhamra.com.kw
 //
 // Uses @simplewebauthn/server v11 via esm.sh.
 // =============================================================================
