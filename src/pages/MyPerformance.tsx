@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useMyPerformance } from '@/hooks/useApproverPerformance';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { DateRangePresets, type DateRange, type DateRangePreset, presetToRange } from '@/components/ui/DateRangePresets';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +64,9 @@ function humanizeRole(role: string | null | undefined): string {
 
 export default function MyPerformance() {
   const { user } = useAuth();
-  const { data: metrics, isLoading } = useMyPerformance();
+  const [preset, setPreset] = useState<DateRangePreset>('30d');
+  const [range, setRange] = useState<DateRange>(presetToRange('30d'));
+  const { data: metrics, isLoading } = useMyPerformance({ from: range.from, to: range.to });
 
   // Fetch my workflow modifications
   const { data: myWorkflowMods } = useQuery({
@@ -153,6 +157,16 @@ export default function MyPerformance() {
         <Badge variant="outline" className="text-sm px-3 py-1">
           {humanizeRole(metrics.role)}
         </Badge>
+      </motion.div>
+
+      {/* Filters */}
+      <motion.div variants={itemVariants}>
+        <DateRangePresets
+          preset={preset}
+          onPresetChange={setPreset}
+          range={range}
+          onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+        />
       </motion.div>
 
       {/* Stats Grid */}

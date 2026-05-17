@@ -154,11 +154,39 @@ async function fetchPendingCountsByRole(roleNames: string[]): Promise<Record<str
   return counts;
 }
 
-export function useMyPerformance() {
+export interface PerformanceFilters {
+  from?: Date | null;
+  to?: Date | null;
+  /** Restrict admin view to a single role (role_name). Ignored by useMyPerformance. */
+  role?: string | null;
+}
+
+function isoOrNull(d: Date | null | undefined): string | null {
+  return d ? d.toISOString() : null;
+}
+
+function filterApprovalsByDate(
+  approvals: ApprovalRow[],
+  from: Date | null | undefined,
+  to: Date | null | undefined,
+): ApprovalRow[] {
+  if (!from && !to) return approvals;
+  const fromMs = from ? from.getTime() : -Infinity;
+  // Include the full "to" day by pushing to end-of-day if no time component.
+  const toMs = to ? new Date(to).setHours(23, 59, 59, 999) : Infinity;
+  return approvals.filter((a) => {
+    if (!a.approved_at) return false;
+    const ms = new Date(a.approved_at).getTime();
+    return ms >= fromMs && ms <= toMs;
+  });
+}
+
+export function useMyPerformance(filters: PerformanceFilters = {}) {
   const { user, roles } = useAuth();
+  const { from, to } = filters;
 
   return useQuery({
-    queryKey: ['my-performance', user?.id, roles],
+    queryKey: ['my-performance', user?.id, roles, isoOrNull(from), isoOrNull(to)],
     enabled: !!user && roles.length > 0,
     queryFn: async (): Promise<ApproverMetrics | null> => {
       if (!user) return null;
@@ -170,8 +198,6 @@ export function useMyPerformance() {
         .single();
 
       const approverRoleNames = await fetchApproverRoleNames();
-      // Pick the user's first role that participates in a workflow;
-      // fall back to first non-tenant/admin role, then first role.
       const role =
         roles.find((r) => approverRoleNames.includes(r)) ||
         roles.find((r) => r !== 'tenant' && r !== 'admin') ||
@@ -179,7 +205,6 @@ export function useMyPerformance() {
 
       if (!role) return null;
 
-      // All approval rows for this user across all permits.
       const { data: approvals, error } = await supabase
         .from('permit_approvals')
         .select(
@@ -191,8 +216,14 @@ export function useMyPerformance() {
 
       const pendingByRole = await fetchPendingCountsByRole([role]);
 
-      return computeMetrics(
+      const filtered = filterApprovalsByDate(
         (approvals as unknown as ApprovalRow[]) || [],
+        from,
+        to,
+      );
+
+      return computeMetrics(
+        filtered,
         pendingByRole,
         {
           id: user.id,
@@ -205,17 +236,17 @@ export function useMyPerformance() {
   });
 }
 
-export function useAllApproversPerformance() {
+export function useAllApproversPerformance(filters: PerformanceFilters = {}) {
   const { user, roles } = useAuth();
+  const { from, to, role: roleFilter } = filters;
 
   return useQuery({
-    queryKey: ['all-approvers-performance'],
+    queryKey: ['all-approvers-performance', isoOrNull(from), isoOrNull(to), roleFilter ?? null],
     enabled: !!user && roles.includes('admin'),
     queryFn: async (): Promise<ApproverMetrics[]> => {
       const approverRoleNames = await fetchApproverRoleNames();
       if (approverRoleNames.length === 0) return [];
 
-      // All user_roles for the discovered approver roles.
       const { data: userRolesRaw, error: urErr } = await supabase
         .from('user_roles')
         .select('user_id, roles:role_id(name)');
@@ -226,7 +257,8 @@ export function useAllApproversPerformance() {
           user_id: ur.user_id as string,
           role: (ur.roles as { name?: string } | null)?.name ?? '',
         }))
-        .filter((ur) => ur.role && approverRoleNames.includes(ur.role));
+        .filter((ur) => ur.role && approverRoleNames.includes(ur.role))
+        .filter((ur) => !roleFilter || ur.role === roleFilter);
 
       if (userRolePairs.length === 0) return [];
 
@@ -236,7 +268,6 @@ export function useAllApproversPerformance() {
         .select('id, full_name, email')
         .in('id', userIds);
 
-      // All approval decisions ever made by these users (1 query).
       const { data: approvals, error: aErr } = await supabase
         .from('permit_approvals')
         .select(
@@ -246,10 +277,13 @@ export function useAllApproversPerformance() {
       if (aErr) throw aErr;
 
       const pendingByRole = await fetchPendingCountsByRole(approverRoleNames);
+      const allApprovals = filterApprovalsByDate(
+        (approvals as unknown as ApprovalRow[]) || [],
+        from,
+        to,
+      );
 
-      const allApprovals = (approvals as unknown as ApprovalRow[]) || [];
       const result: ApproverMetrics[] = [];
-
       for (const { user_id, role } of userRolePairs) {
         const profile = profiles?.find((p) => p.id === user_id);
         if (!profile) continue;
@@ -268,3 +302,16 @@ export function useAllApproversPerformance() {
     },
   });
 }
+
+/**
+ * Discover all approver role names (those that appear in any workflow_steps row).
+ * Exposed for filter dropdowns on the performance dashboards.
+ */
+export function useApproverRoleNames() {
+  return useQuery({
+    queryKey: ['approver-role-names'],
+    queryFn: fetchApproverRoleNames,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+

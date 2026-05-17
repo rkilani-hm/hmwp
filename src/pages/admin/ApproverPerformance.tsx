@@ -1,4 +1,7 @@
-import { useAllApproversPerformance } from '@/hooks/useApproverPerformance';
+import { useState } from 'react';
+import { useAllApproversPerformance, useApproverRoleNames } from '@/hooks/useApproverPerformance';
+import { DateRangePresets, type DateRange, type DateRangePreset, presetToRange } from '@/components/ui/DateRangePresets';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/ui/StatsCard';
@@ -95,7 +98,15 @@ function roleColor(role: string | null | undefined): string {
 }
 
 export default function ApproverPerformance() {
-  const { data: approvers, isLoading } = useAllApproversPerformance();
+  const [preset, setPreset] = useState<DateRangePreset>('30d');
+  const [range, setRange] = useState<DateRange>(presetToRange('30d'));
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const { data: roleNames } = useApproverRoleNames();
+  const { data: approvers, isLoading } = useAllApproversPerformance({
+    from: range.from,
+    to: range.to,
+    role: roleFilter === 'all' ? null : roleFilter,
+  });
 
   // Fetch workflow modification stats per approver
   const { data: workflowModifications } = useQuery({
@@ -149,10 +160,44 @@ export default function ApproverPerformance() {
     );
   }
 
+  // Filter bar shown above the page; moved out of the early-empty
+  // branch so users can adjust filters even when the current range
+  // returns no rows.
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-3">
+      <DateRangePresets
+        preset={preset}
+        onPresetChange={setPreset}
+        range={range}
+        onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+      />
+      <Select value={roleFilter} onValueChange={setRoleFilter}>
+        <SelectTrigger className="h-8 w-[200px]">
+          <SelectValue placeholder="All roles" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All roles</SelectItem>
+          {(roleNames || []).slice().sort().map((r) => (
+            <SelectItem key={r} value={r}>{humanizeRole(r)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   if (!approvers || approvers.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">No approver performance data available.</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Approver Performance</h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor all approvers' metrics and identify bottlenecks
+          </p>
+        </div>
+        {filterBar}
+        <div className="flex items-center justify-center h-48">
+          <p className="text-muted-foreground">No approver performance data for the current filters.</p>
+        </div>
       </div>
     );
   }
@@ -239,6 +284,11 @@ export default function ApproverPerformance() {
           icon={Settings2}
           variant="default"
         />
+      </motion.div>
+
+      {/* Filters */}
+      <motion.div variants={itemVariants}>
+        {filterBar}
       </motion.div>
 
       {/* Charts Row */}
