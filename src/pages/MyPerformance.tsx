@@ -159,6 +159,16 @@ export default function MyPerformance() {
         </Badge>
       </motion.div>
 
+      {/* Filters */}
+      <motion.div variants={itemVariants}>
+        <DateRangePresets
+          preset={preset}
+          onPresetChange={setPreset}
+          range={range}
+          onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+        />
+      </motion.div>
+
       {/* Stats Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
