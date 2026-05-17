@@ -35,18 +35,30 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-const roleLabels: Record<string, string> = {
-  helpdesk: 'Helpdesk',
-  pm: 'Property Management',
-  pd: 'Project Development',
-  bdcr: 'BDCR',
-  mpr: 'MPR',
-  it: 'IT Department',
-  fitout: 'Fit-Out',
-  ecovert_supervisor: 'Ecovert Supervisor',
-  pmd_coordinator: 'PMD Coordinator',
-  admin: 'Administrator',
-};
+// Humanize a snake_case role name for display. Covers built-in
+// roles whose mechanical title-casing isn't quite right (PM, IT,
+// BDCR…) and falls back to Title Case for any custom role added via
+// the dynamic workflow builder.
+function humanizeRole(role: string | null | undefined): string {
+  if (!role) return '';
+  const overrides: Record<string, string> = {
+    helpdesk: 'Helpdesk',
+    pm: 'Property Management',
+    pd: 'Project Development',
+    bdcr: 'BDCR',
+    mpr: 'MPR',
+    it: 'IT Department',
+    fitout: 'Fit-Out',
+    admin: 'Administrator',
+  };
+  const key = role.toLowerCase();
+  if (overrides[key]) return overrides[key];
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 export default function MyPerformance() {
   const { user } = useAuth();
@@ -139,7 +151,7 @@ export default function MyPerformance() {
           </p>
         </div>
         <Badge variant="outline" className="text-sm px-3 py-1">
-          {roleLabels[metrics.role] || metrics.role}
+          {humanizeRole(metrics.role)}
         </Badge>
       </motion.div>
 

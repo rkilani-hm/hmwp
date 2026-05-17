@@ -1,7 +1,25 @@
+// useApproverPerformance — Phase 2c read of permit_approvals.
+//
+// Previously this hook aggregated approver metrics by scanning the
+// legacy per-role columns on work_permits (helpdesk_date, pm_date,
+// helpdesk_approver_email, …). That hardcoded the role list and
+// silently produced empty dashboards for any user whose role was
+// added via the dynamic workflow builder (e.g. custom roles like
+// `al_hamra_customer_service`).
+//
+// This rewrite reads from `permit_approvals` — the canonical source
+// kept current by the Phase 2b dual-write — and discovers approver
+// roles dynamically from workflow_steps + roles. Custom roles work
+// automatically.
+//
+// Response time is computed as `approved_at - permit_approvals.created_at`
+// (the approval row is inserted when the permit reaches that step, so
+// this represents the time the row sat pending for that approver).
+// SLA compliance still uses work_permits.sla_deadline as the deadline.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { differenceInHours, differenceInMinutes, parseISO, subDays } from 'date-fns';
+import { differenceInMinutes, parseISO, subDays } from 'date-fns';
 
 export interface ApproverMetrics {
   userId: string;
@@ -21,320 +39,232 @@ export interface ApproverMetrics {
   last30DaysDecisions: number;
 }
 
-// Helper to calculate response time between permit submission and approval
-function calculateResponseTime(permit: any, role: string): number | null {
-  const roleField = role.toLowerCase().replace(' ', '_');
-  const approvalDate = permit[`${roleField}_date`];
-  
-  if (!approvalDate) return null;
-  
-  // Calculate from when the permit reached this approver's queue
-  // For helpdesk, it's from created_at; for others, it's from previous approval
-  let startDate: string;
-  
-  if (role === 'helpdesk') {
-    startDate = permit.created_at;
-  } else if (role === 'pm') {
-    startDate = permit.helpdesk_date || permit.created_at;
-  } else if (role === 'pd') {
-    startDate = permit.pm_date || permit.helpdesk_date || permit.created_at;
-  } else {
-    // For other roles, use created_at as fallback
-    startDate = permit.created_at;
+interface ApprovalRow {
+  permit_id: string;
+  role_name: string;
+  status: string;
+  approver_user_id: string | null;
+  approver_email: string | null;
+  approved_at: string | null;
+  created_at: string;
+  work_permits: { sla_deadline: string | null } | null;
+}
+
+interface ProfileLite {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
+/**
+ * Fetch the set of role names that participate in any workflow
+ * (i.e. they appear in at least one workflow_steps row). Falls back
+ * to an empty array if the lookup fails so the dashboard still
+ * renders even when workflow_steps is empty in a fresh environment.
+ */
+async function fetchApproverRoleNames(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('workflow_steps')
+    .select('roles:role_id(name)');
+  if (error || !data) return [];
+  const names = new Set<string>();
+  for (const row of data as Array<{ roles: { name: string } | null }>) {
+    const n = row.roles?.name;
+    if (n) names.add(n);
   }
-  
-  const start = parseISO(startDate);
-  const end = parseISO(approvalDate);
-  
-  return differenceInMinutes(end, start);
+  return Array.from(names);
+}
+
+function computeMetrics(
+  approvals: ApprovalRow[],
+  pendingCountByRole: Record<string, number>,
+  profile: ProfileLite,
+  role: string,
+): ApproverMetrics {
+  const thirtyDaysAgo = subDays(new Date(), 30);
+  const metrics: ApproverMetrics = {
+    userId: profile.id,
+    userName: profile.full_name || 'Unknown',
+    userEmail: profile.email,
+    role,
+    totalDecisions: 0,
+    approvals: 0,
+    rejections: 0,
+    approvalRate: 0,
+    averageResponseTimeHours: 0,
+    averageResponseTimeMinutes: 0,
+    pendingCount: pendingCountByRole[role] || 0,
+    slaCompliance: 0,
+    completedOnTime: 0,
+    completedLate: 0,
+    last30DaysDecisions: 0,
+  };
+  const responseTimes: number[] = [];
+
+  for (const a of approvals) {
+    if (a.role_name !== role) continue;
+    if (a.status !== 'approved' && a.status !== 'rejected') continue;
+    metrics.totalDecisions++;
+    if (a.status === 'approved') metrics.approvals++;
+    else metrics.rejections++;
+
+    if (a.approved_at) {
+      const end = parseISO(a.approved_at);
+      const start = parseISO(a.created_at);
+      const mins = differenceInMinutes(end, start);
+      if (Number.isFinite(mins) && mins >= 0) responseTimes.push(mins);
+
+      const sla = a.work_permits?.sla_deadline;
+      if (sla) {
+        if (end <= parseISO(sla)) metrics.completedOnTime++;
+        else metrics.completedLate++;
+      }
+
+      if (end >= thirtyDaysAgo) metrics.last30DaysDecisions++;
+    }
+  }
+
+  if (responseTimes.length > 0) {
+    const avg = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+    metrics.averageResponseTimeMinutes = Math.round(avg);
+    metrics.averageResponseTimeHours = Math.round((avg / 60) * 10) / 10;
+  }
+  if (metrics.totalDecisions > 0) {
+    metrics.approvalRate = Math.round((metrics.approvals / metrics.totalDecisions) * 100);
+  }
+  const slaTotal = metrics.completedOnTime + metrics.completedLate;
+  if (slaTotal > 0) {
+    metrics.slaCompliance = Math.round((metrics.completedOnTime / slaTotal) * 100);
+  }
+  return metrics;
+}
+
+async function fetchPendingCountsByRole(roleNames: string[]): Promise<Record<string, number>> {
+  if (roleNames.length === 0) return {};
+  const { data, error } = await supabase
+    .from('permit_approvals')
+    .select('role_name')
+    .eq('status', 'pending')
+    .in('role_name', roleNames);
+  if (error || !data) return {};
+  const counts: Record<string, number> = {};
+  for (const row of data as Array<{ role_name: string }>) {
+    counts[row.role_name] = (counts[row.role_name] || 0) + 1;
+  }
+  return counts;
 }
 
 export function useMyPerformance() {
   const { user, roles } = useAuth();
-  
+
   return useQuery({
     queryKey: ['my-performance', user?.id, roles],
-    queryFn: async () => {
-      if (!user || roles.length === 0) return null;
-      
-      // Get profile info
+    enabled: !!user && roles.length > 0,
+    queryFn: async (): Promise<ApproverMetrics | null> => {
+      if (!user) return null;
+
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, email')
+        .select('id, full_name, email')
         .eq('id', user.id)
         .single();
-      
-      // Get all permits with decisions by this user
-      const { data: permits, error } = await supabase
-        .from('work_permits')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
+
+      const approverRoleNames = await fetchApproverRoleNames();
+      // Pick the user's first role that participates in a workflow;
+      // fall back to first non-tenant/admin role, then first role.
+      const role =
+        roles.find((r) => approverRoleNames.includes(r)) ||
+        roles.find((r) => r !== 'tenant' && r !== 'admin') ||
+        roles[0];
+
+      if (!role) return null;
+
+      // All approval rows for this user across all permits.
+      const { data: approvals, error } = await supabase
+        .from('permit_approvals')
+        .select(
+          'permit_id, role_name, status, approver_user_id, approver_email, approved_at, created_at, work_permits!inner(sla_deadline)'
+        )
+        .eq('approver_user_id', user.id);
+
       if (error) throw error;
-      
-      const metrics: ApproverMetrics = {
-        userId: user.id,
-        userName: profile?.full_name || 'Unknown',
-        userEmail: profile?.email || user.email || '',
-        role: roles[0] || 'unknown',
-        totalDecisions: 0,
-        approvals: 0,
-        rejections: 0,
-        approvalRate: 0,
-        averageResponseTimeHours: 0,
-        averageResponseTimeMinutes: 0,
-        pendingCount: 0,
-        slaCompliance: 0,
-        completedOnTime: 0,
-        completedLate: 0,
-        last30DaysDecisions: 0,
-      };
-      
-      const responseTimes: number[] = [];
-      const thirtyDaysAgo = subDays(new Date(), 30);
-      
-      // Get approver role for field lookup
-      const approverRole = roles.find(r => r !== 'tenant' && r !== 'admin') || roles[0];
-      const roleField = approverRole?.toLowerCase().replace(' ', '_');
-      
-      for (const permit of permits || []) {
-        const status = permit[`${roleField}_status`];
-        const approverEmail = permit[`${roleField}_approver_email`];
-        const approvalDate = permit[`${roleField}_date`];
-        const slaDeadline = permit.sla_deadline;
-        
-        // Check if this user made a decision on this permit
-        if (approverEmail === user.email && status) {
-          metrics.totalDecisions++;
-          
-          if (status === 'approved') {
-            metrics.approvals++;
-          } else if (status === 'rejected') {
-            metrics.rejections++;
-          }
-          
-          // Calculate response time
-          const responseTime = calculateResponseTime(permit, approverRole);
-          if (responseTime !== null) {
-            responseTimes.push(responseTime);
-          }
-          
-          // Check SLA compliance
-          if (approvalDate && slaDeadline) {
-            const decisionDate = parseISO(approvalDate);
-            const deadline = parseISO(slaDeadline);
-            if (decisionDate <= deadline) {
-              metrics.completedOnTime++;
-            } else {
-              metrics.completedLate++;
-            }
-          }
-          
-          // Count last 30 days
-          if (approvalDate) {
-            const date = parseISO(approvalDate);
-            if (date >= thirtyDaysAgo) {
-              metrics.last30DaysDecisions++;
-            }
-          }
-        }
-      }
-      
-      // Calculate pending count based on role
-      const statusMap: Record<string, string> = {
-        helpdesk: 'submitted',
-        pm: 'pending_pm',
-        pd: 'pending_pd',
-        bdcr: 'pending_bdcr',
-        mpr: 'pending_mpr',
-        it: 'pending_it',
-        fitout: 'pending_fitout',
-        ecovert_supervisor: 'pending_ecovert_supervisor',
-        pmd_coordinator: 'pending_pmd_coordinator',
-      };
-      
-      const pendingStatus = statusMap[approverRole] as any;
-      if (pendingStatus) {
-        const { count } = await supabase
-          .from('work_permits')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', pendingStatus);
-        
-        metrics.pendingCount = count || 0;
-      }
-      
-      // Calculate averages
-      if (responseTimes.length > 0) {
-        const avgMinutes = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
-        metrics.averageResponseTimeMinutes = Math.round(avgMinutes);
-        metrics.averageResponseTimeHours = Math.round(avgMinutes / 60 * 10) / 10;
-      }
-      
-      if (metrics.totalDecisions > 0) {
-        metrics.approvalRate = Math.round((metrics.approvals / metrics.totalDecisions) * 100);
-      }
-      
-      if (metrics.completedOnTime + metrics.completedLate > 0) {
-        metrics.slaCompliance = Math.round(
-          (metrics.completedOnTime / (metrics.completedOnTime + metrics.completedLate)) * 100
-        );
-      }
-      
-      return metrics;
+
+      const pendingByRole = await fetchPendingCountsByRole([role]);
+
+      return computeMetrics(
+        (approvals as unknown as ApprovalRow[]) || [],
+        pendingByRole,
+        {
+          id: user.id,
+          full_name: profile?.full_name ?? null,
+          email: profile?.email ?? user.email ?? '',
+        },
+        role,
+      );
     },
-    enabled: !!user && roles.length > 0,
   });
 }
 
 export function useAllApproversPerformance() {
   const { user, roles } = useAuth();
-  
+
   return useQuery({
     queryKey: ['all-approvers-performance'],
-    queryFn: async () => {
-      // Get all users with approver roles - join with roles table to get role names
-      const { data: userRolesRaw, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role_id, roles:role_id(name)');
-      
-      if (rolesError) throw rolesError;
+    enabled: !!user && roles.includes('admin'),
+    queryFn: async (): Promise<ApproverMetrics[]> => {
+      const approverRoleNames = await fetchApproverRoleNames();
+      if (approverRoleNames.length === 0) return [];
 
-      // Filter to only approver roles
-      const approverRoleNames = ['helpdesk', 'pm', 'pd', 'bdcr', 'mpr', 'it', 'fitout', 'ecovert_supervisor', 'pmd_coordinator'];
-      const userRoles = userRolesRaw
-        ?.filter(ur => approverRoleNames.includes((ur.roles as any)?.name))
-        .map(ur => ({ user_id: ur.user_id, role: (ur.roles as any)?.name as string })) || [];
-      
-      // Get all profiles
-      const userIds = [...new Set(userRoles?.map(ur => ur.user_id) || [])];
+      // All user_roles for the discovered approver roles.
+      const { data: userRolesRaw, error: urErr } = await supabase
+        .from('user_roles')
+        .select('user_id, roles:role_id(name)');
+      if (urErr) throw urErr;
+
+      const userRolePairs = (userRolesRaw || [])
+        .map((ur) => ({
+          user_id: ur.user_id as string,
+          role: (ur.roles as { name?: string } | null)?.name ?? '',
+        }))
+        .filter((ur) => ur.role && approverRoleNames.includes(ur.role));
+
+      if (userRolePairs.length === 0) return [];
+
+      const userIds = [...new Set(userRolePairs.map((u) => u.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .in('id', userIds);
-      
-      // Get all permits
-      const { data: permits, error: permitsError } = await supabase
-        .from('work_permits')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (permitsError) throw permitsError;
-      
-      const approverMetrics: ApproverMetrics[] = [];
-      const thirtyDaysAgo = subDays(new Date(), 30);
-      
-      // Process each approver
-      for (const userRole of userRoles || []) {
-        const profile = profiles?.find(p => p.id === userRole.user_id);
+
+      // All approval decisions ever made by these users (1 query).
+      const { data: approvals, error: aErr } = await supabase
+        .from('permit_approvals')
+        .select(
+          'permit_id, role_name, status, approver_user_id, approver_email, approved_at, created_at, work_permits!inner(sla_deadline)'
+        )
+        .in('approver_user_id', userIds);
+      if (aErr) throw aErr;
+
+      const pendingByRole = await fetchPendingCountsByRole(approverRoleNames);
+
+      const allApprovals = (approvals as unknown as ApprovalRow[]) || [];
+      const result: ApproverMetrics[] = [];
+
+      for (const { user_id, role } of userRolePairs) {
+        const profile = profiles?.find((p) => p.id === user_id);
         if (!profile) continue;
-        
-        const roleField = userRole.role.toLowerCase().replace(' ', '_');
-        
-        const metrics: ApproverMetrics = {
-          userId: userRole.user_id,
-          userName: profile.full_name || 'Unknown',
-          userEmail: profile.email,
-          role: userRole.role,
-          totalDecisions: 0,
-          approvals: 0,
-          rejections: 0,
-          approvalRate: 0,
-          averageResponseTimeHours: 0,
-          averageResponseTimeMinutes: 0,
-          pendingCount: 0,
-          slaCompliance: 0,
-          completedOnTime: 0,
-          completedLate: 0,
-          last30DaysDecisions: 0,
-        };
-        
-        const responseTimes: number[] = [];
-        
-        for (const permit of permits || []) {
-          const status = permit[`${roleField}_status`];
-          const approverEmail = permit[`${roleField}_approver_email`];
-          const approvalDate = permit[`${roleField}_date`];
-          const slaDeadline = permit.sla_deadline;
-          
-          if (approverEmail === profile.email && status) {
-            metrics.totalDecisions++;
-            
-            if (status === 'approved') {
-              metrics.approvals++;
-            } else if (status === 'rejected') {
-              metrics.rejections++;
-            }
-            
-            const responseTime = calculateResponseTime(permit, userRole.role);
-            if (responseTime !== null) {
-              responseTimes.push(responseTime);
-            }
-            
-            if (approvalDate && slaDeadline) {
-              const decisionDate = parseISO(approvalDate);
-              const deadline = parseISO(slaDeadline);
-              if (decisionDate <= deadline) {
-                metrics.completedOnTime++;
-              } else {
-                metrics.completedLate++;
-              }
-            }
-            
-            if (approvalDate) {
-              const date = parseISO(approvalDate);
-              if (date >= thirtyDaysAgo) {
-                metrics.last30DaysDecisions++;
-              }
-            }
-          }
-        }
-        
-        // Calculate pending count
-        const statusMap: Record<string, string> = {
-          helpdesk: 'submitted',
-          pm: 'pending_pm',
-          pd: 'pending_pd',
-          bdcr: 'pending_bdcr',
-          mpr: 'pending_mpr',
-          it: 'pending_it',
-          fitout: 'pending_fitout',
-          ecovert_supervisor: 'pending_ecovert_supervisor',
-          pmd_coordinator: 'pending_pmd_coordinator',
-        };
-        
-        const pendingStatus = statusMap[userRole.role] as any;
-        if (pendingStatus) {
-          const { count } = await supabase
-            .from('work_permits')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', pendingStatus);
-          
-          metrics.pendingCount = count || 0;
-        }
-        
-        // Calculate averages
-        if (responseTimes.length > 0) {
-          const avgMinutes = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
-          metrics.averageResponseTimeMinutes = Math.round(avgMinutes);
-          metrics.averageResponseTimeHours = Math.round(avgMinutes / 60 * 10) / 10;
-        }
-        
-        if (metrics.totalDecisions > 0) {
-          metrics.approvalRate = Math.round((metrics.approvals / metrics.totalDecisions) * 100);
-        }
-        
-        if (metrics.completedOnTime + metrics.completedLate > 0) {
-          metrics.slaCompliance = Math.round(
-            (metrics.completedOnTime / (metrics.completedOnTime + metrics.completedLate)) * 100
-          );
-        }
-        
-        approverMetrics.push(metrics);
+        const userApprovals = allApprovals.filter((a) => a.approver_user_id === user_id);
+        result.push(
+          computeMetrics(
+            userApprovals,
+            pendingByRole,
+            { id: profile.id, full_name: profile.full_name, email: profile.email },
+            role,
+          ),
+        );
       }
-      
-      // Sort by total decisions descending
-      return approverMetrics.sort((a, b) => b.totalDecisions - a.totalDecisions);
+
+      return result.sort((a, b) => b.totalDecisions - a.totalDecisions);
     },
-    enabled: !!user && roles.includes('admin'),
   });
 }
