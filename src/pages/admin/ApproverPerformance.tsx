@@ -1,4 +1,7 @@
-import { useAllApproversPerformance } from '@/hooks/useApproverPerformance';
+import { useState } from 'react';
+import { useAllApproversPerformance, useApproverRoleNames } from '@/hooks/useApproverPerformance';
+import { DateRangePresets, type DateRange, type DateRangePreset, presetToRange } from '@/components/ui/DateRangePresets';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/ui/StatsCard';
@@ -95,7 +98,15 @@ function roleColor(role: string | null | undefined): string {
 }
 
 export default function ApproverPerformance() {
-  const { data: approvers, isLoading } = useAllApproversPerformance();
+  const [preset, setPreset] = useState<DateRangePreset>('30d');
+  const [range, setRange] = useState<DateRange>(presetToRange('30d'));
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const { data: roleNames } = useApproverRoleNames();
+  const { data: approvers, isLoading } = useAllApproversPerformance({
+    from: range.from,
+    to: range.to,
+    role: roleFilter === 'all' ? null : roleFilter,
+  });
 
   // Fetch workflow modification stats per approver
   const { data: workflowModifications } = useQuery({
