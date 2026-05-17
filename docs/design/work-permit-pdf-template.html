@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Work Permit PDF — Bilingual Design v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4d4d4d;
+    --ink-mute: #8a8a8a;
+    --line: #d8d8d8;
+    --line-soft: #ececec;
+    --bg-page: #efefef;
+    --paper: #ffffff;
+    --section-bar: #1a1a1a;
+    --subsection-bar: #7a1518;
+    --accent-red: #c0383d;
+    --mandatory: #d6453f;
+    --ok: #166534;
+    --ok-soft: #e6f4ea;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Hanken Grotesk', sans-serif;
+    background: var(--bg-page);
+    color: var(--ink);
+    padding: 28px 14px 80px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .page-label {
+    max-width: 794px; margin: 0 auto 18px;
+    font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-mute);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .page-label span:first-child::before {
+    content: "●"; color: var(--subsection-bar);
+    margin-right: 8px; font-size: 8px; vertical-align: 2px;
+  }
+
+  /* ===== A4 PAGE ===== */
+  .sheet {
+    width: 794px;
+    min-height: 1123px;
+    margin: 0 auto;
+    background: var(--paper);
+    position: relative;
+    padding: 22px 22px 28px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 20px 50px -10px rgba(0,0,0,0.18);
+    overflow: hidden;
+  }
+
+  /* Decorative triangular pattern in the margin/border area */
+  .sheet::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.045) 50%, rgba(0,0,0,0.045) 51%, transparent 51%),
+      linear-gradient(45deg, transparent 50%, rgba(0,0,0,0.045) 50%, rgba(0,0,0,0.045) 51%, transparent 51%);
+    background-size: 22px 22px;
+    background-position: 0 0, 11px 11px;
+    pointer-events: none;
+  }
+  /* White content area mask — only show pattern in gutter */
+  .sheet > .gutter-mask {
+    position: absolute;
+    top: 22px; left: 22px; right: 22px; bottom: 28px;
+    background: var(--paper);
+    pointer-events: none;
+  }
+
+  .sheet-inner {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ===== TOP HEADER ===== */
+  .top {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    padding: 8px 4px 14px;
+    gap: 24px;
+  }
+  .title-block {
+    display: flex; flex-direction: column;
+  }
+  .title-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-weight: 800;
+    font-size: 34px;
+    color: var(--ink);
+    line-height: 1.15;
+    letter-spacing: 0;
+  }
+  .title-en {
+    font-weight: 800;
+    font-size: 26px;
+    color: var(--ink);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-top: 2px;
+  }
+
+  /* Location boxes — bilingual labels, checkbox pattern */
+  .locations {
+    display: flex; gap: 18px;
+    padding-bottom: 4px;
+  }
+  .loc-item {
+    display: flex; align-items: flex-end; gap: 6px;
+    flex-direction: row-reverse;
+  }
+  .loc-check {
+    width: 14px; height: 14px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    flex-shrink: 0;
+    margin-bottom: 1px;
+  }
+  .loc-text {
+    text-align: right;
+  }
+  .loc-en {
+    font-size: 10px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  .loc-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 10px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  /* ===== SECTION BAR ===== */
+  .section-bar {
+    background: var(--section-bar);
+    color: white;
+    padding: 7px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .section-bar .ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ===== SUBSECTION BAR ===== */
+  .subsection-bar {
+    background: var(--subsection-bar);
+    color: white;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .subsection-bar .ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ===== SECTION CONTAINER ===== */
+  .section {
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    background: var(--paper);
+  }
+
+  /* ===== FIELD GROUPS ===== */
+  .field-grid {
+    display: grid;
+    padding: 14px 14px 16px;
+    gap: 14px 24px;
+  }
+  .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .field-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .field-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* Form-field underline style */
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+  .field-label {
+    font-size: 9px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+  .field-label-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 10px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .field-row-labels {
+    display: flex; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .field-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--ink);
+    min-height: 18px;
+    line-height: 1.3;
+  }
+  .field-value-mono {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+  }
+
+  /* ===== TWO-COLUMN ROW (Equipment + Mitigation pattern) ===== */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .two-col > div + div {
+    border-left: 1px solid var(--line);
+  }
+
+  /* ===== MANDATORY NOTICE ===== */
+  .mandatory {
+    background: #fbeaeb;
+    border-top: 1px solid var(--line);
+    padding: 7px 14px;
+    font-size: 10px;
+    font-style: italic;
+    color: var(--mandatory);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .mandatory .ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl; font-style: normal;
+    font-size: 11px; font-weight: 500;
+  }
+  .mandatory-icon::before {
+    content: '☐ ';
+    color: var(--ink); font-style: normal;
+    margin-right: 4px;
+  }
+
+  /* ===== STATUS RIBBON (top right of title bar) ===== */
+  .status-ribbon {
+    position: relative;
+    margin-top: 6px;
+    align-self: flex-start;
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    background: var(--ok-soft);
+    color: var(--ok);
+    border: 1px solid var(--ok);
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .status-pill::before {
+    content: ''; width: 6px; height: 6px;
+    background: var(--ok); border-radius: 50%;
+  }
+
+  /* ===== DOC ID STRIP ===== */
+  .doc-id-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--line);
+    background: var(--paper);
+    margin-bottom: 14px;
+  }
+  .doc-id-strip > div {
+    padding: 8px 12px;
+    border-right: 1px solid var(--line-soft);
+  }
+  .doc-id-strip > div:last-child { border-right: none; }
+  .doc-id-strip .lbl {
+    font-size: 9px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .doc-id-strip .lbl-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl; font-size: 10px;
+    color: var(--ink-soft); margin-bottom: 3px;
+  }
+  .doc-id-strip .val {
+    font-size: 13px; font-weight: 600;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .doc-id-strip .val.permit-no {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 14px;
+  }
+  .doc-id-strip .val.urgent {
+    color: var(--subsection-bar);
+  }
+
+  /* ===== WORK DESCRIPTION BLOCK ===== */
+  .work-desc {
+    padding: 14px;
+  }
+  .work-desc-text {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ink);
+    min-height: 48px;
+  }
+  .work-desc-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 14px;
+  }
+
+  /* ===== APPROVAL CHAIN ===== */
+  .chain-rows {
+    padding: 0;
+  }
+  .chain-step {
+    display: grid;
+    grid-template-columns: 36px 1fr 1.3fr 1fr 1.2fr;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    align-items: center;
+  }
+  .chain-step:last-child { border-bottom: none; }
+  .chain-step .num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .chain-step .num::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ink-mute);
+    flex-shrink: 0;
+  }
+  .chain-step.done .num::before { background: var(--ok); }
+  .chain-step.pending .num::before {
+    background: var(--subsection-bar);
+    box-shadow: 0 0 0 2px rgba(122,21,24,0.18);
+  }
+  .chain-step .role {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .chain-step .role-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .chain-step .signer {
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .chain-step .signer-date {
+    font-size: 9px;
+    color: var(--ink-mute);
+    font-family: ui-monospace, monospace;
+    margin-top: 1px;
+  }
+  .chain-step .sig-area {
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 1px;
+    min-height: 22px;
+    display: flex; align-items: flex-end;
+    font-family: 'Caveat', cursive;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-soft);
+  }
+  .chain-step.pending .sig-area {
+    border-bottom-style: dashed;
+    border-bottom-color: var(--line);
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 9px;
+    font-style: normal;
+    letter-spacing: 0.12em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+  }
+  .chain-step.pending .sig-area::before {
+    content: 'Awaiting Signature';
+  }
+
+  /* ===== FOOTER ===== */
+  .page-footer {
+    text-align: center;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    padding: 10px 14px 4px;
+    border-top: 1px solid var(--line);
+    margin-top: 8px;
+  }
+  .page-footer .ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    margin-left: 8px;
+  }
+
+  /* ===== QR ROW ===== */
+  .qr-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    margin-top: 14px;
+    align-items: center;
+  }
+  .qr {
+    width: 60px; height: 60px;
+    background:
+      repeating-linear-gradient(0deg, var(--ink) 0 2px, transparent 2px 6px),
+      repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 6px);
+    background-blend-mode: multiply;
+    position: relative;
+  }
+  .qr::before, .qr::after {
+    content: ''; position: absolute;
+    width: 16px; height: 16px;
+    border: 3px solid var(--ink); background: white;
+  }
+  .qr::before { top: 0; left: 0; }
+  .qr::after { top: 0; right: 0; }
+  .qr-corner { position: absolute; bottom: 0; left: 0; width: 16px; height: 16px; border: 3px solid var(--ink); background: white; }
+  .qr-text-en {
+    font-size: 10.5px;
+    color: var(--ink);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .qr-text-ar {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .qr-verify {
+    font-size: 9px;
+    color: var(--ink-mute);
+    font-family: ui-monospace, monospace;
+    margin-top: 4px;
+  }
+
+  /* ===== ATTACHMENT GRID (PAGE 2) ===== */
+  .att-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  .att-card {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .att-thumb {
+    height: 110px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+  }
+  .att-type-pill {
+    position: absolute;
+    top: 7px; left: 7px;
+    padding: 2px 7px;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: white;
+  }
+  .img-pill { background: var(--ink); }
+  .pdf-pill { background: var(--subsection-bar); }
+
+  /* Sample image thumbnails — colored gradients suggesting site photos */
+  .img-thumb-1 {
+    background:
+      linear-gradient(135deg, rgba(0,0,0,0.06) 0%, transparent 60%),
+      linear-gradient(180deg, #8a96a8 0%, #7a8597 40%, #6a7587 70%, #5a6577 100%);
+    position: relative;
+  }
+  .img-thumb-1::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 38px;
+    background: linear-gradient(180deg, transparent 0%, rgba(60,55,50,0.4) 100%);
+  }
+  .img-thumb-1::before {
+    content: '';
+    position: absolute;
+    inset: 30% 30% 25% 30%;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .img-thumb-2 {
+    background:
+      linear-gradient(180deg, #d4d0c4 0%, #b8b0a0 50%, #98907e 100%);
+    position: relative;
+  }
+  .img-thumb-2::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 0 0;
+    background: linear-gradient(180deg, rgba(120,100,80,0.3) 0%, rgba(80,65,50,0.5) 100%);
+  }
+  .img-thumb-2::after {
+    content: '';
+    position: absolute;
+    top: 20%; left: 35%;
+    width: 25%; height: 40%;
+    background: rgba(255,255,255,0.2);
+    transform: skewX(-5deg);
+  }
+  .img-thumb-3 {
+    background:
+      repeating-linear-gradient(45deg,
+        rgba(0,0,0,0.04) 0 4px,
+        transparent 4px 12px),
+      linear-gradient(135deg, #c9b896 0%, #b09872 100%);
+    position: relative;
+  }
+  .img-thumb-3::before {
+    content: '';
+    position: absolute;
+    inset: 25% 15% 25% 15%;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .pdf-thumb {
+    background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+  }
+  .att-thumb-icon {
+    color: var(--subsection-bar);
+    opacity: 0.7;
+  }
+
+  .att-meta {
+    padding: 9px 11px 11px;
+  }
+  .att-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    line-height: 1.25;
+    word-break: break-all;
+  }
+  .att-meta-row {
+    display: flex; justify-content: space-between;
+    font-size: 9.5px;
+    line-height: 1.5;
+  }
+  .att-meta-key {
+    color: var(--ink-mute);
+  }
+  .att-meta-val {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ===== TIMELINE ===== */
+  .timeline {
+    padding: 14px 14px 16px;
+  }
+  .timeline-row {
+    display: grid;
+    grid-template-columns: 70px 16px 1fr;
+    gap: 14px;
+    padding: 9px 0;
+    align-items: center;
+    border-bottom: 1px dashed var(--line-soft);
+    position: relative;
+  }
+  .timeline-row:last-child { border-bottom: none; }
+  .timeline-time {
+    text-align: right;
+  }
+  .timeline-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .timeline-clock {
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    font-family: ui-monospace, monospace;
+    margin-top: 1px;
+  }
+  .timeline-marker {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 2px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--ink);
+    position: relative;
+    z-index: 2;
+    justify-self: center;
+  }
+  .timeline-marker.ok { background: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+  .timeline-marker.pending {
+    background: var(--subsection-bar);
+    box-shadow: 0 0 0 1px var(--subsection-bar), 0 0 0 4px rgba(122,21,24,0.15);
+  }
+  /* Vertical connector line through markers */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: calc(14px + 70px + 14px + 8px);
+    top: 14px; bottom: 16px;
+    width: 1px;
+    background: var(--line);
+    z-index: 1;
+  }
+  .timeline {
+    position: relative;
+  }
+  .timeline-body {
+    display: flex; flex-direction: column;
+  }
+  .timeline-action {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .timeline-actor {
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-label">
+  <span>BILINGUAL WORK PERMIT PDF · v3 (with attachments page)</span>
+  <span>A4 · 2 pages</span>
+</div>
+
+<div class="sheet">
+  <div class="gutter-mask"></div>
+
+  <div class="sheet-inner">
+
+    <!-- ===== TOP HEADER (matches reference layout) ===== -->
+    <div class="top">
+      <div class="title-block">
+        <div class="title-ar">تصريح عمل</div>
+        <div class="title-en">Work Permit Form</div>
+        <div class="status-ribbon">
+          <div class="status-pill">Approved · معتمد</div>
+        </div>
+      </div>
+      <div class="locations">
+        <div class="loc-item">
+          <div class="loc-check"></div>
+          <div class="loc-text">
+            <div class="loc-en">Business Tower</div>
+            <div class="loc-ar">برج الحمراء للأعمال</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-check" style="background: var(--ink);"></div>
+          <div class="loc-text">
+            <div class="loc-en">Shopping Center</div>
+            <div class="loc-ar">مركز الحمراء للتسوق</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-check"></div>
+          <div class="loc-text">
+            <div class="loc-en">Carpark</div>
+            <div class="loc-ar">موقف السيارات</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-check"></div>
+          <div class="loc-text">
+            <div class="loc-en">Outdoor</div>
+            <div class="loc-ar">أعمال خارجية</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DOC ID STRIP ===== -->
+    <div class="doc-id-strip">
+      <div>
+        <div class="lbl">Permit No.</div>
+        <div class="lbl-ar">رقم التصريح</div>
+        <div class="val permit-no">WP-260514-01</div>
+      </div>
+      <div>
+        <div class="lbl">Work Type</div>
+        <div class="lbl-ar">نوع العمل</div>
+        <div class="val">Client Maintenance</div>
+      </div>
+      <div>
+        <div class="lbl">Urgency</div>
+        <div class="lbl-ar">الأولوية</div>
+        <div class="val urgent">Urgent · 4hr SLA</div>
+      </div>
+      <div>
+        <div class="lbl">Issued</div>
+        <div class="lbl-ar">تاريخ الإصدار</div>
+        <div class="val">14 May 2026</div>
+      </div>
+    </div>
+
+    <!-- ===== SECTION A ===== -->
+    <div class="section-bar">
+      <span>SECTION A — PERMIT DETAILS</span>
+      <span class="ar">القسم أ — تفاصيل التصريح</span>
+    </div>
+
+    <!-- 1. CLIENT / CONTRACTOR DETAILS -->
+    <div class="section">
+      <div class="subsection-bar">
+        <span>1. CLIENT / CONTRACTOR DETAILS</span>
+        <span class="ar">بيانات العميل والمقاول</span>
+      </div>
+      <div class="field-grid cols-3">
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Requester Name</span>
+            <span class="field-label-ar">اسم مقدم الطلب</span>
+          </div>
+          <div class="field-value">Rami Kilani</div>
+        </div>
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Requester Company</span>
+            <span class="field-label-ar">شركة مقدم الطلب</span>
+          </div>
+          <div class="field-value">Rami Kilani Company</div>
+        </div>
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Contact</span>
+            <span class="field-label-ar">جهة الاتصال</span>
+          </div>
+          <div class="field-value field-value-mono">rkilani@gmail.com</div>
+        </div>
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Contracting Company</span>
+            <span class="field-label-ar">الشركة المقاولة</span>
+          </div>
+          <div class="field-value">Rami Kilani Company Test</div>
+        </div>
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Supervisor</span>
+            <span class="field-label-ar">المشرف</span>
+          </div>
+          <div class="field-value">Ahmed Al-Saleh</div>
+        </div>
+        <div class="field">
+          <div class="field-row-labels">
+            <span class="field-label">Civil ID</span>
+            <span class="field-label-ar">الرقم المدني</span>
+          </div>
+          <div class="field-value field-value-mono">282091500***</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. WORK DESCRIPTION -->
+    <div class="section">
+      <div class="subsection-bar">
+        <span>2. WORK DESCRIPTION</span>
+        <span class="ar">وصف العمل</span>
+      </div>
+      <div class="work-desc">
+        <div class="work-desc-text">
+          Replace ceiling-mounted HVAC diffuser in Unit B-14. Work involves
+          ladder access, no hot work. Personal protective equipment required at all
+          times. Existing diffuser to be removed, new unit to be installed and
+          tested for airflow before sign-off.
+        </div>
+        <div class="work-desc-meta">
+          <div class="field">
+            <div class="field-row-labels">
+              <span class="field-label">Proposed Start Date</span>
+              <span class="field-label-ar">تاريخ البدء</span>
+            </div>
+            <div class="field-value">15 May 2026</div>
+          </div>
+          <div class="field">
+            <div class="field-row-labels">
+              <span class="field-label">Proposed End Date</span>
+              <span class="field-label-ar">تاريخ الانتهاء</span>
+            </div>
+            <div class="field-value">17 May 2026</div>
+          </div>
+          <div class="field">
+            <div class="field-row-labels">
+              <span class="field-label">Location</span>
+              <span class="field-label-ar">الموقع</span>
+            </div>
+            <div class="field-value">Tower A · Floor B1 · Unit B-14</div>
+          </div>
+        </div>
+      </div>
+      <div class="mandatory">
+        <span class="mandatory-icon">Permit must be displayed at work site at all times.</span>
+        <span class="ar">يجب عرض هذا التصريح في موقع العمل.</span>
+      </div>
+    </div>
+
+    <!-- ===== SECTION B — APPROVAL CHAIN ===== -->
+    <div class="section-bar">
+      <span>SECTION B — APPROVAL CHAIN</span>
+      <span class="ar">القسم ب — سلسلة الاعتماد</span>
+    </div>
+
+    <div class="section">
+      <div class="subsection-bar">
+        <span>3. APPROVAL CHAIN</span>
+        <span class="ar">سلسلة الاعتماد</span>
+      </div>
+      <div class="chain-rows">
+
+        <div class="chain-step done">
+          <div class="num">01</div>
+          <div>
+            <div class="role">Customer Service</div>
+            <div class="role-ar">خدمة العملاء</div>
+          </div>
+          <div>
+            <div class="signer">Sara Al-Mutairi</div>
+            <div class="signer-date">14 May 2026 · 10:25</div>
+          </div>
+          <div>
+            <span style="font-size: 10px; color: var(--ok); font-weight: 600;">✓ APPROVED</span>
+          </div>
+          <div class="sig-area">S. AlMutairi</div>
+        </div>
+
+        <div class="chain-step done">
+          <div class="num">02</div>
+          <div>
+            <div class="role">CR Coordinator</div>
+            <div class="role-ar">منسق علاقات العملاء</div>
+          </div>
+          <div>
+            <div class="signer">Khalid Hassan</div>
+            <div class="signer-date">14 May 2026 · 11:08</div>
+          </div>
+          <div>
+            <span style="font-size: 10px; color: var(--ok); font-weight: 600;">✓ APPROVED</span>
+          </div>
+          <div class="sig-area">K. Hassan</div>
+        </div>
+
+        <div class="chain-step pending">
+          <div class="num">03</div>
+          <div>
+            <div class="role">Head of CR</div>
+            <div class="role-ar">رئيس علاقات العملاء</div>
+          </div>
+          <div>
+            <div class="signer">—</div>
+            <div class="signer-date">Pending</div>
+          </div>
+          <div>
+            <span style="font-size: 10px; color: var(--subsection-bar); font-weight: 600;">● PENDING</span>
+          </div>
+          <div class="sig-area"></div>
+        </div>
+
+        <div class="chain-step pending">
+          <div class="num">04</div>
+          <div>
+            <div class="role">FMSP Approval</div>
+            <div class="role-ar">اعتماد إدارة المرافق</div>
+          </div>
+          <div>
+            <div class="signer">—</div>
+            <div class="signer-date">Pending</div>
+          </div>
+          <div>
+            <span style="font-size: 10px; color: var(--ink-mute); font-weight: 600;">○ AWAITING</span>
+          </div>
+          <div class="sig-area"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== QR / VERIFICATION ROW ===== -->
+    <div class="qr-row">
+      <div class="qr">
+        <div class="qr-corner"></div>
+      </div>
+      <div>
+        <div class="qr-text-en">Scan to verify authenticity of this permit.</div>
+        <div class="qr-text-ar">امسح الرمز للتحقق من صحة التصريح.</div>
+        <div class="qr-verify">hmwp.alhamra.com.kw/v/WP-260514-01</div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE FOOTER ===== -->
+    <div class="page-footer">
+      HMWP / 2026 / 05 / 01 · Version 1
+      <span class="ar">إصدار 1</span>
+      · For Internal and External Use · Page 1 of 2
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ===== PAGE 2 — ATTACHMENTS + ACTIVITY LOG ================== -->
+<!-- ============================================================ -->
+
+<div class="sheet" style="margin-top: 28px;">
+  <div class="gutter-mask"></div>
+
+  <div class="sheet-inner">
+
+    <!-- ===== CONTINUATION HEADER ===== -->
+    <div class="top">
+      <div class="title-block">
+        <div class="title-ar">المرفقات وسجل النشاط</div>
+        <div class="title-en">Attachments &amp; Activity Log</div>
+        <div style="margin-top: 6px; font-size: 10px; color: var(--ink-mute); letter-spacing: 0.12em; text-transform: uppercase;">
+          Continuation of permit
+          <span style="font-family: ui-monospace, monospace; color: var(--ink); font-weight: 600;">WP-260514-01</span>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 9px; color: var(--ink-soft); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 3px;">Attachments</div>
+        <div style="font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1;">06</div>
+        <div style="font-size: 9px; color: var(--ink-mute); margin-top: 3px;">Total · 3.4 MB</div>
+      </div>
+    </div>
+
+    <!-- ===== SECTION C — ATTACHMENTS ===== -->
+    <div class="section-bar">
+      <span>SECTION C — ATTACHMENTS</span>
+      <span class="ar">القسم ج — المرفقات</span>
+    </div>
+
+    <div class="section">
+      <div class="subsection-bar">
+        <span>4. ATTACHED DOCUMENTS</span>
+        <span class="ar">الوثائق المرفقة</span>
+      </div>
+
+      <div class="att-grid">
+        <!-- Attachment 1 — Image -->
+        <div class="att-card">
+          <div class="att-thumb img-thumb-1">
+            <div class="att-type-pill img-pill">IMG</div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">site-photo-before.jpg</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Rami Kilani</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 09:12</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">842 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachment 2 — Image -->
+        <div class="att-card">
+          <div class="att-thumb img-thumb-2">
+            <div class="att-type-pill img-pill">IMG</div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">site-photo-area-clear.jpg</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Rami Kilani</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 09:14</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">967 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachment 3 — PDF -->
+        <div class="att-card">
+          <div class="att-thumb pdf-thumb">
+            <div class="att-type-pill pdf-pill">PDF</div>
+            <div class="att-thumb-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6M9 13h6M9 17h6"/>
+              </svg>
+            </div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">risk-assessment.pdf</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Rami Kilani</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 09:18</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">412 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachment 4 — PDF -->
+        <div class="att-card">
+          <div class="att-thumb pdf-thumb">
+            <div class="att-type-pill pdf-pill">PDF</div>
+            <div class="att-thumb-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6M9 13h6M9 17h6"/>
+              </svg>
+            </div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">method-statement.pdf</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Rami Kilani</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 09:20</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">658 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachment 5 — PDF (insurance) -->
+        <div class="att-card">
+          <div class="att-thumb pdf-thumb">
+            <div class="att-type-pill pdf-pill">PDF</div>
+            <div class="att-thumb-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-0.5 8-5 8-10V6l-8-4z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">insurance-certificate.pdf</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Rami Kilani</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 09:22</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">298 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachment 6 — Image (signed permit) -->
+        <div class="att-card">
+          <div class="att-thumb img-thumb-3">
+            <div class="att-type-pill img-pill">IMG</div>
+          </div>
+          <div class="att-meta">
+            <div class="att-name">worker-civil-ids.jpg</div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Uploaded by</span>
+              <span class="att-meta-val">Ahmed Al-Saleh</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Date</span>
+              <span class="att-meta-val">14 May 2026 · 10:04</span>
+            </div>
+            <div class="att-meta-row">
+              <span class="att-meta-key">Size</span>
+              <span class="att-meta-val">231 KB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mandatory">
+        <span class="mandatory-icon">Attachments form part of this permit. Verify integrity before work commences.</span>
+        <span class="ar">المرفقات جزء من هذا التصريح. يجب التحقق منها قبل بدء العمل.</span>
+      </div>
+    </div>
+
+    <!-- ===== SECTION D — ACTIVITY LOG ===== -->
+    <div class="section-bar">
+      <span>SECTION D — ACTIVITY LOG</span>
+      <span class="ar">القسم د — سجل النشاط</span>
+    </div>
+
+    <div class="section">
+      <div class="subsection-bar">
+        <span>5. ACTIVITY TIMELINE</span>
+        <span class="ar">الجدول الزمني للنشاط</span>
+      </div>
+      <div class="timeline">
+        <div class="timeline-row">
+          <div class="timeline-time">
+            <div class="timeline-date">14 May</div>
+            <div class="timeline-clock">09:24</div>
+          </div>
+          <div class="timeline-marker"></div>
+          <div class="timeline-body">
+            <div class="timeline-action">Permit Submitted</div>
+            <div class="timeline-actor">Rami Kilani · Tenant</div>
+          </div>
+        </div>
+        <div class="timeline-row">
+          <div class="timeline-time">
+            <div class="timeline-date">14 May</div>
+            <div class="timeline-clock">10:25</div>
+          </div>
+          <div class="timeline-marker ok"></div>
+          <div class="timeline-body">
+            <div class="timeline-action">Approved by Customer Service</div>
+            <div class="timeline-actor">Sara Al-Mutairi · Customer Service</div>
+          </div>
+        </div>
+        <div class="timeline-row">
+          <div class="timeline-time">
+            <div class="timeline-date">14 May</div>
+            <div class="timeline-clock">10:42</div>
+          </div>
+          <div class="timeline-marker"></div>
+          <div class="timeline-body">
+            <div class="timeline-action">Forwarded to CR Coordinator</div>
+            <div class="timeline-actor">Sara Al-Mutairi · Customer Service</div>
+          </div>
+        </div>
+        <div class="timeline-row">
+          <div class="timeline-time">
+            <div class="timeline-date">14 May</div>
+            <div class="timeline-clock">11:08</div>
+          </div>
+          <div class="timeline-marker ok"></div>
+          <div class="timeline-body">
+            <div class="timeline-action">Approved by CR Coordinator</div>
+            <div class="timeline-actor">Khalid Hassan · CR Coordinator</div>
+          </div>
+        </div>
+        <div class="timeline-row">
+          <div class="timeline-time">
+            <div class="timeline-date">14 May</div>
+            <div class="timeline-clock">11:15</div>
+          </div>
+          <div class="timeline-marker pending"></div>
+          <div class="timeline-body">
+            <div class="timeline-action">Awaiting Head of CR Review</div>
+            <div class="timeline-actor">Pending approval</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE 2 FOOTER ===== -->
+    <div class="page-footer">
+      HMWP / 2026 / 05 / 01 · Version 1
+      <span class="ar">إصدار 1</span>
+      · For Internal and External Use · Page 2 of 2
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
