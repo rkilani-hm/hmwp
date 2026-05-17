@@ -25,11 +25,18 @@ export function PdfPreviewDialog({
   pdfUrl,
   fileName,
   onDownload,
+  requireSection3Verification = false,
 }: PdfPreviewDialogProps) {
   const [zoom, setZoom] = useState(100);
   const [isLoading, setIsLoading] = useState(true);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [section3Verified, setSection3Verified] = useState(false);
+
+  // Reset verification when dialog re-opens with a fresh PDF.
+  useEffect(() => {
+    if (open) setSection3Verified(false);
+  }, [open, pdfUrl]);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
