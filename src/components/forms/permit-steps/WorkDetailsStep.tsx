@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
+import { useAuth } from '@/contexts/AuthContext';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
 import type { PermitFormData, UpdateField } from './types';
 
