@@ -7,6 +7,7 @@ import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { GatePassApprovalProgress } from '@/components/GatePassApprovalProgress';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
