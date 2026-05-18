@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
