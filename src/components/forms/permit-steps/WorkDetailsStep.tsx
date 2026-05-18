@@ -42,6 +42,10 @@ export function WorkDetailsStep({
   workLocationsLoading,
 }: Props) {
   const { t } = useTranslation();
+  const { hasRole } = useAuth();
+  // Tenants don't see the workflow steps panel — workflow routing is
+  // an internal concern. Approvers/admins continue to see it.
+  const showWorkflow = !hasRole('tenant');
 
   const selectedWorkType = workTypes?.find((wt) => wt.id === data.workTypeId);
   const selectedWorkLocation = workLocations?.find((loc) => loc.id === data.workLocationId);
