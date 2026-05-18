@@ -162,6 +162,8 @@ export default function GatePassFormWizard() {
 
   const renderWorkflowPreview = () => {
     if (!passType) return null;
+    // Hide workflow/approval steps from tenant-only users
+    if (isTenantOnly) return null;
 
     if (loadingWorkflow) {
       return (
