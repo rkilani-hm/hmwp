@@ -57,6 +57,7 @@ export default function GatePassDetail() {
   const restoreGP = useRestoreGatePass();
   const hardDeleteGP = useHardDeleteGatePass();
   const isAdmin = roles.includes('admin');
+  const isTenantOnly = useIsTenantOnly();
   const isGPArchived = (gp as any)?.is_archived;
 
   const [comments, setComments] = useState('');
