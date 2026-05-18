@@ -150,7 +150,7 @@ export function WorkDetailsStep({
         />
       </div>
 
-      {(data.workLocationId || data.workTypeId) && (
+      {showWorkflow && (data.workLocationId || data.workTypeId) && (
         <WorkflowPreview
           workType={selectedWorkType}
           workLocation={selectedWorkLocation}
