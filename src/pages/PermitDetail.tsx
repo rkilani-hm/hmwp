@@ -700,7 +700,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               everything from hardcoded per-role columns on work_permits.
               Same UX: workflow-aware with pending/upcoming placeholders,
               per-permit overrides, work-type config, progress bar. */}
-          {!roles.includes('tenant') && (
+          {!isTenantOnly && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-display">
