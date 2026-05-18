@@ -32,6 +32,8 @@ interface Props {
  */
 export function ReviewStep({ data, workTypes, workLocations }: Props) {
   const { t } = useTranslation();
+  const { hasRole } = useAuth();
+  const showWorkflow = !hasRole('tenant');
   const { generatePreview, isGenerating } = usePreviewPermitPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
