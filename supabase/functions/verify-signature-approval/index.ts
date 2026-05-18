@@ -605,64 +605,105 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (updatedPermit.requester_id) {
+      // Determine notification type. Tenants only receive notifications
+      // for submission, FINAL approval, and rejection — never for
+      // intermediate role approvals. We mark intermediate approvals with
+      // a distinct type ('permit_step_approved') so the
+      // filter_tenant_notifications DB trigger can suppress them for
+      // tenants while still delivering them to non-tenant requesters.
+      const isFinalApproval = approved && updatedPermit.status === "approved";
+      const notifType = !approved
+        ? "permit_rejected"
+        : isFinalApproval
+          ? "permit_approved"
+          : "permit_step_approved";
+
       await serviceClient.from("notifications").insert({
         user_id: updatedPermit.requester_id,
         permit_id: permitId,
-        type: approved ? "permit_approved" : "permit_rejected",
-        title: `Permit ${approved ? "Approved" : "Rejected"} by ${role.toUpperCase()}`,
+        type: notifType,
+        title: !approved
+          ? `Permit Rejected by ${role.toUpperCase()}`
+          : isFinalApproval
+            ? `Permit Approved`
+            : `Permit Approved by ${role.toUpperCase()}`,
         message: `Your permit ${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${userName}. ${comments ? `Comments: ${comments}` : ""}`,
       });
+
+      // Check if the requester is a tenant. If so, skip push and email
+      // for intermediate updates — they only get push/email for the
+      // three allowed events (submission, final approval, rejection).
+      let requesterIsTenant = false;
       try {
-        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: updatedPermit.requester_id,
-            title: `Permit ${approved ? "Approved" : "Rejected"}`,
-            message: `${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${role.toUpperCase()}`,
-            data: { url: `/permits/${permitId}`, permitId },
-          }),
-        });
-      } catch (e) { console.error("Push error:", e); }
+        const { data: tenantRoleRow } = await serviceClient
+          .from("roles").select("id").eq("name", "tenant").single();
+        if (tenantRoleRow?.id) {
+          const { data: roleMatch } = await serviceClient
+            .from("user_roles")
+            .select("user_id")
+            .eq("user_id", updatedPermit.requester_id)
+            .eq("role_id", tenantRoleRow.id)
+            .maybeSingle();
+          requesterIsTenant = !!roleMatch;
+        }
+      } catch (e) { console.error("Tenant role lookup error:", e); }
+
+      const allowPushAndEmail = !requesterIsTenant || isFinalApproval || !approved;
+
+      if (allowPushAndEmail) {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: updatedPermit.requester_id,
+              title: `Permit ${approved ? "Approved" : "Rejected"}`,
+              message: `${updatedPermit.permit_no} has been ${approved ? "approved" : "rejected"} by ${role.toUpperCase()}`,
+              data: { url: `/permits/${permitId}`, permitId },
+            }),
+          });
+        } catch (e) { console.error("Push error:", e); }
+      }
+
+      if (allowPushAndEmail && updatedPermit.requester_email) {
+        try {
+          let emailNotificationType: string;
+          let emailSubject: string;
+          let statusMessage = "";
+          if (!approved) {
+            emailNotificationType = "rejected";
+            emailSubject = `Work Permit Rejected: ${updatedPermit.permit_no}`;
+          } else if (isFinalApproval) {
+            emailNotificationType = "approved";
+            emailSubject = `Work Permit Approved: ${updatedPermit.permit_no}`;
+          } else {
+            emailNotificationType = "status_update";
+            const roleLabel = role.toUpperCase().replace("_", " ");
+            statusMessage = `It has been approved by ${roleLabel} and is now pending the next approval.`;
+            emailSubject = `Work Permit Progress Update: ${updatedPermit.permit_no}`;
+          }
+          await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: [updatedPermit.requester_email],
+              notificationType: emailNotificationType,
+              subject: emailSubject,
+              permitNo: updatedPermit.permit_no,
+              permitId,
+              details: {
+                permitId,
+                workType: currentPermit?.work_types?.name,
+                approverName: userName,
+                reason: comments,
+                statusMessage,
+              },
+            }),
+          });
+        } catch (e) { console.error("Email error:", e); }
+      }
     }
 
-    if (updatedPermit.requester_email) {
-      try {
-        let emailNotificationType: string;
-        let emailSubject: string;
-        let statusMessage = "";
-        if (!approved) {
-          emailNotificationType = "rejected";
-          emailSubject = `Work Permit Rejected: ${updatedPermit.permit_no}`;
-        } else if (updatedPermit.status === "approved") {
-          emailNotificationType = "approved";
-          emailSubject = `Work Permit Approved: ${updatedPermit.permit_no}`;
-        } else {
-          emailNotificationType = "status_update";
-          const roleLabel = role.toUpperCase().replace("_", " ");
-          statusMessage = `It has been approved by ${roleLabel} and is now pending the next approval.`;
-          emailSubject = `Work Permit Progress Update: ${updatedPermit.permit_no}`;
-        }
-        await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: [updatedPermit.requester_email],
-            notificationType: emailNotificationType,
-            subject: emailSubject,
-            permitNo: updatedPermit.permit_no,
-            permitId,
-            details: {
-              permitId,
-              workType: currentPermit?.work_types?.name,
-              approverName: userName,
-              reason: comments,
-              statusMessage,
-            },
-          }),
-        });
-      } catch (e) { console.error("Email error:", e); }
-    }
 
     if (approved && updatedPermit.status !== "approved") {
       const nextRole = updatedPermit.status?.startsWith("pending_")
