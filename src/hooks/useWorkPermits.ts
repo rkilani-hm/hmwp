@@ -720,6 +720,20 @@ export function useCreatePermit() {
         details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
       });
 
+      // Submission confirmation notification to the requester.
+      // This is one of the three notification events tenants are allowed
+      // to receive (see filter_tenant_notifications DB trigger). Message
+      // includes a tracking link to the permit detail page.
+      if (user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          permit_id: data.id,
+          type: 'permit_submitted',
+          title: 'Permit Submitted',
+          message: `Your work permit ${permitNo} has been submitted. Track its progress here: /permits/${data.id}`,
+        });
+      }
+
       // Notify all currently-active approvers for this permit.
       //
       // Runs server-side via the notify_permit_active_approvers RPC

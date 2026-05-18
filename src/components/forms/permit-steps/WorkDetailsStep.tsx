@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
+import { useAuth } from '@/contexts/AuthContext';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
 import type { PermitFormData, UpdateField } from './types';
 
@@ -41,6 +42,10 @@ export function WorkDetailsStep({
   workLocationsLoading,
 }: Props) {
   const { t } = useTranslation();
+  const { hasRole } = useAuth();
+  // Tenants don't see the workflow steps panel — workflow routing is
+  // an internal concern. Approvers/admins continue to see it.
+  const showWorkflow = !hasRole('tenant');
 
   const selectedWorkType = workTypes?.find((wt) => wt.id === data.workTypeId);
   const selectedWorkLocation = workLocations?.find((loc) => loc.id === data.workLocationId);
@@ -145,7 +150,7 @@ export function WorkDetailsStep({
         />
       </div>
 
-      {(data.workLocationId || data.workTypeId) && (
+      {showWorkflow && (data.workLocationId || data.workTypeId) && (
         <WorkflowPreview
           workType={selectedWorkType}
           workLocation={selectedWorkLocation}

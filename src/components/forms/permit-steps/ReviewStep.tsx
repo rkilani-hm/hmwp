@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
 import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
 import { usePreviewPermitPdf } from '@/hooks/usePreviewPermitPdf';
+import { useAuth } from '@/contexts/AuthContext';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
 import type { PermitFormData } from './types';
 
@@ -31,6 +32,8 @@ interface Props {
  */
 export function ReviewStep({ data, workTypes, workLocations }: Props) {
   const { t } = useTranslation();
+  const { hasRole } = useAuth();
+  const showWorkflow = !hasRole('tenant');
   const { generatePreview, isGenerating } = usePreviewPermitPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -191,7 +194,7 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
         </div>
       </div>
 
-      {data.workTypeId && (
+      {showWorkflow && data.workTypeId && (
         <WorkflowPreview
           workType={selectedWorkType}
           workLocation={selectedWorkLocation}
