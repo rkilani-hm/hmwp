@@ -26,6 +26,7 @@ export default function GatePassFormWizard() {
   const navigate = useNavigate();
   const createGatePass = useCreateGatePass();
   const { user, profile } = useAuth();
+  const isTenantOnly = useIsTenantOnly();
   const [step, setStep] = useState(0);
 
   // Form state
