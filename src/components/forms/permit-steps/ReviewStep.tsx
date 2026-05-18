@@ -194,7 +194,7 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
         </div>
       </div>
 
-      {data.workTypeId && (
+      {showWorkflow && data.workTypeId && (
         <WorkflowPreview
           workType={selectedWorkType}
           workLocation={selectedWorkLocation}
