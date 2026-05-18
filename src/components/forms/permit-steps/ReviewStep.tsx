@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
 import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
 import { usePreviewPermitPdf } from '@/hooks/usePreviewPermitPdf';
+import { useAuth } from '@/contexts/AuthContext';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
 import type { PermitFormData } from './types';
 
