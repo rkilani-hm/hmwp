@@ -430,6 +430,14 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               </Button>
             </>
           )}
+          {/* Friendly placeholder shown to tenant-only users while their
+              permit is still moving through approvals. We intentionally
+              do NOT reveal the current approver. */}
+          {isTenantOnly && permit.status !== 'approved' && (
+            <div className="text-xs text-muted-foreground italic px-2 py-1.5 border border-dashed rounded-md">
+              PDF will be available once your work permit is fully approved.
+            </div>
+          )}
           {isAdmin && !isPermitArchived && (
             <AdminDeleteDialog
               title="Archive Work Permit"
