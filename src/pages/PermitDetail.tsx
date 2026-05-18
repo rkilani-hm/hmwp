@@ -700,20 +700,22 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               everything from hardcoded per-role columns on work_permits.
               Same UX: workflow-aware with pending/upcoming placeholders,
               per-permit overrides, work-type config, progress bar. */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-display">
-                {t('permits.approvalProgress.title')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PermitApprovalProgress
-                permitId={permit.id}
-                workTypeId={permit.work_type_id}
-                permitStatus={permit.status}
-              />
-            </CardContent>
-          </Card>
+          {!roles.includes('tenant') && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-display">
+                  {t('permits.approvalProgress.title')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PermitApprovalProgress
+                  permitId={permit.id}
+                  workTypeId={permit.work_type_id}
+                  permitStatus={permit.status}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Version History */}
           <PermitVersionHistory 
