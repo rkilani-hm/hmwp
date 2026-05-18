@@ -268,19 +268,21 @@ export default function GatePassDetail() {
           </div>
         </div>
 
-        {/* Status Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('gatePasses.approvalProgress.title')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <GatePassApprovalProgress
-              gatePassId={gp.id}
-              expectedRoles={approvalRoles}
-              gatePassStatus={gp.status}
-            />
-          </CardContent>
-        </Card>
+        {/* Status Timeline — hidden for tenant-only users */}
+        {!isTenantOnly && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('gatePasses.approvalProgress.title')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GatePassApprovalProgress
+                gatePassId={gp.id}
+                expectedRoles={approvalRoles}
+                gatePassStatus={gp.status}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
