@@ -56,6 +56,7 @@ import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { usePermitAttachments } from '@/hooks/usePermitAttachments';
@@ -96,6 +97,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { roles, user } = useAuth();
+  const isTenantOnly = useIsTenantOnly();
   const [comments, setComments] = useState('');
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
