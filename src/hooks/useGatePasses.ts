@@ -155,6 +155,19 @@ export function useCreateGatePass() {
         if (itemsError) throw itemsError;
       }
 
+      // Submission confirmation notification to the requester.
+      // One of three notification events tenants are allowed to receive
+      // (see filter_tenant_notifications DB trigger). Includes a tracking
+      // link to the gate-pass detail page.
+      if (user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'gatepass_submitted',
+          title: 'Gate Pass Submitted',
+          message: `Your gate pass ${passNo} has been submitted. Track its progress here: /gate-passes/${data.id}`,
+        });
+      }
+
       return data;
     },
     onSuccess: () => {

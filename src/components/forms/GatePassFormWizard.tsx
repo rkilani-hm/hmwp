@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
@@ -25,6 +26,7 @@ export default function GatePassFormWizard() {
   const navigate = useNavigate();
   const createGatePass = useCreateGatePass();
   const { user, profile } = useAuth();
+  const isTenantOnly = useIsTenantOnly();
   const [step, setStep] = useState(0);
 
   // Form state
@@ -160,6 +162,8 @@ export default function GatePassFormWizard() {
 
   const renderWorkflowPreview = () => {
     if (!passType) return null;
+    // Hide workflow/approval steps from tenant-only users
+    if (isTenantOnly) return null;
 
     if (loadingWorkflow) {
       return (

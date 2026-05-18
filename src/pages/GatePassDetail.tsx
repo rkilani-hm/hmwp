@@ -7,6 +7,7 @@ import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { GatePassApprovalProgress } from '@/components/GatePassApprovalProgress';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
@@ -56,6 +57,7 @@ export default function GatePassDetail() {
   const restoreGP = useRestoreGatePass();
   const hardDeleteGP = useHardDeleteGatePass();
   const isAdmin = roles.includes('admin');
+  const isTenantOnly = useIsTenantOnly();
   const isGPArchived = (gp as any)?.is_archived;
 
   const [comments, setComments] = useState('');
@@ -266,19 +268,21 @@ export default function GatePassDetail() {
           </div>
         </div>
 
-        {/* Status Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('gatePasses.approvalProgress.title')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <GatePassApprovalProgress
-              gatePassId={gp.id}
-              expectedRoles={approvalRoles}
-              gatePassStatus={gp.status}
-            />
-          </CardContent>
-        </Card>
+        {/* Status Timeline — hidden for tenant-only users */}
+        {!isTenantOnly && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('gatePasses.approvalProgress.title')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GatePassApprovalProgress
+                gatePassId={gp.id}
+                expectedRoles={approvalRoles}
+                gatePassStatus={gp.status}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

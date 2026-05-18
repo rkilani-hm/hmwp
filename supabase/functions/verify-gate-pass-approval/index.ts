@@ -416,9 +416,26 @@ serve(async (req) => {
       extra,
     });
 
-    // Fire downstream notifications (best-effort)
+    // Fire downstream notifications (best-effort).
+    //
+    // Tenant requesters only receive emails for FINAL approval or
+    // rejection — intermediate step updates are suppressed to align
+    // with the three-event tenant notification rule.
     try {
-      if (updated.requester_email) {
+      const isFinal = !approved || updated.status === "approved" || updated.status === "rejected";
+      let requesterIsTenant = false;
+      if (updated.requester_id) {
+        const { data: tenantRow } = await adminClient
+          .from("user_roles")
+          .select("role_id, roles!inner(name)")
+          .eq("user_id", updated.requester_id)
+          .eq("roles.name", "tenant")
+          .maybeSingle();
+        requesterIsTenant = !!tenantRow;
+      }
+      const allowEmail = isFinal || !requesterIsTenant;
+
+      if (updated.requester_email && allowEmail) {
         await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
