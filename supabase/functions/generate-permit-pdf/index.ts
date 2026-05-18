@@ -170,6 +170,42 @@ const serve_handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Tenant-only restriction: a user whose ONLY role is `tenant` must not
+    // be able to view/download the permit PDF while it is still moving
+    // through the approval workflow — otherwise they could read who is
+    // currently holding the permit. They get access only once the permit
+    // is fully `approved`. Users with `tenant` + any other role (e.g.
+    // tenant + approver) are unaffected.
+    const { data: tenantRoleRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("roles!inner(name)")
+      .eq("user_id", user.id);
+    const roleNames: string[] = (tenantRoleRows ?? [])
+      .map((r: any) => (r.roles?.name ?? "").toLowerCase())
+      .filter(Boolean);
+    const isTenantOnly =
+      roleNames.length > 0 &&
+      roleNames.includes("tenant") &&
+      roleNames.every((n) => n === "tenant");
+
+    if (isTenantOnly && permit.status !== "approved") {
+      console.warn(
+        "Blocked tenant-only user from PDF on non-approved permit:",
+        user.id,
+        permit.permit_no,
+        permit.status,
+      );
+      return new Response(
+        JSON.stringify({
+          error: "PDF is available once the permit is fully approved.",
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
+    }
+
     console.log("Authorization check passed. User:", user.email, "isRequester:", isRequester, "isApprover:", isApprover, "isAdmin:", isAdmin);
     console.log("Permit found:", permit.permit_no, "Status:", permit.status);
 
