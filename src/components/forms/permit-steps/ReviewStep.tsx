@@ -110,20 +110,10 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-muted-foreground">
-          {t('permits.form.priorityLabel')}:
-        </span>
-        {data.urgency === 'urgent' ? (
-          <Badge variant="destructive" className="flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            {t('permits.form.urgencyUrgentSummary')}
-          </Badge>
-        ) : (
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {t('permits.form.urgencyNormalSummary')}
-          </Badge>
-        )}
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {t('permits.form.slaSummary')}
+        </Badge>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
