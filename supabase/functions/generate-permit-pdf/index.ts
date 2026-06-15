@@ -580,31 +580,35 @@ const serve_handler = async (req: Request): Promise<Response> => {
       console.error("Error generating QR code:", qrError);
     }
 
-    // ---- Top-right chrome: location checkboxes (template static chrome,
-    //      all unchecked — no permit field drives them) + smaller logo
-    //      stacked underneath. The Arabic+English title block lives in
-    //      the left column unaffected.
+    // ---- Top-right chrome: company logo FIRST (topmost), then zone
+    //      checkboxes lower down near the red brand line. The
+    //      Arabic+English title block lives in the left column unaffected.
     const chromeTopY = yPos;
     const chromeRightX = pageWidth - margin;
-    await drawZoneCheckboxes(page, chromeRightX, chromeTopY, (permit as any).building_zone ?? null);
+    // The brand line sits 52 pt below chromeTopY: 26 (Arabic) + 18 (title)
+    // + 8 (permit number). Position the checkbox row just above it.
+    const brandLineY = chromeTopY - 52;
 
-    // Logo sits below the horizontal checkbox row (~12pt tall).
-    let chromeBottomY = chromeTopY - 12;
+    // 1. Logo at the top, right-aligned
+    let chromeBottomY = chromeTopY;
     if (companyLogo) {
       const maxLogoHeight = 40;
       const maxLogoWidth = 100;
       const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
       const logoWidth = companyLogo.width * logoScale;
       const logoHeight = companyLogo.height * logoScale;
-      const logoTopY = chromeTopY - 16;
       page.drawImage(companyLogo, {
         x: pageWidth - margin - logoWidth,
-        y: logoTopY - logoHeight,
+        y: chromeTopY - logoHeight,
         width: logoWidth,
         height: logoHeight,
       });
-      chromeBottomY = logoTopY - logoHeight;
+      chromeBottomY = chromeTopY - logoHeight;
     }
+
+    // 2. Zone checkboxes row sits just above the brand line (4 pt gap)
+    await drawZoneCheckboxes(page, chromeRightX, brandLineY + 12, (permit as any).building_zone ?? null);
+    chromeBottomY = Math.min(chromeBottomY, brandLineY + 4);
 
     // ---- Bilingual title block (left column) ----
     if (arabicFonts) {
