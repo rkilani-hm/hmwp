@@ -942,20 +942,20 @@ const serve_handler = async (req: Request): Promise<Response> => {
       // but the explicit pass keeps the intent obvious).
       const englishRoleName = String(approval.name || '')
         .replace(/[\u2010-\u2015\u2212]/g, '-');
-      drawText(page, englishRoleName, roleX, rowMid + 2.5, 7.5, helveticaBold, BRAND_DARK);
+      drawText(page, englishRoleName, roleX, rowMid + 2.5, 7, helveticaBold, BRAND_DARK);
 
       // Arabic role name (below, smaller, RTL anchored)
       if (approval.nameAr && arabicFonts) {
         await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 5, {
           font: arabicFonts.regular,
-          size: 6.5,
+          size: 6,
           color: rgb(0.302, 0.302, 0.302),
         });
       }
 
       // Signer name (top)
       const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
-      drawText(page, signerName, signerX, rowMid + 2.5, 7, helvetica, BRAND_DARK);
+      drawText(page, signerName, signerX, rowMid + 2.5, 6.5, helvetica, BRAND_DARK);
 
       // Date or Pending
       const dateLabel = (isApproved || isRejected) && approval.date
@@ -965,7 +965,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
       // ---- Cell 3: status pill (colored text — plain word, no glyphs) ----
       const pillX = pageWidth * 0.62;
-      drawText(page, pillLabel, pillX, rowMid - 1, 7, helveticaBold, pillColor);
+      drawText(page, pillLabel, pillX, rowMid - 1, 6.5, helveticaBold, pillColor);
 
       // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
       const sigX = pageWidth * 0.78;
