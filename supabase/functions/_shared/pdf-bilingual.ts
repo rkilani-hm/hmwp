@@ -100,7 +100,11 @@ export async function loadArabicFont(
     let fontkit: unknown = null;
     try {
       console.log("[pdf-bilingual] importing fontkit via npm:");
-      const mod = await import("npm:@pdf-lib/fontkit@1.1.1");
+      // Hide the npm: specifier from `deno check` (which can't resolve
+      // npm: without a node_modules dir locally). Supabase Edge runtime
+      // resolves npm: natively at runtime.
+      const npmSpec = "npm:" + "@pdf-lib/fontkit@1.1.1";
+      const mod = await import(npmSpec);
       fontkit = (mod as { default?: unknown }).default ?? mod;
     } catch (npmErr) {
       console.warn("[pdf-bilingual] npm:@pdf-lib/fontkit failed, falling back to esm.sh:", npmErr);
