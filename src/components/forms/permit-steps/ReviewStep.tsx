@@ -82,7 +82,16 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
           </p>
           <p className="text-sm" dir="auto">{selectedWorkType?.name}</p>
         </div>
-      </div>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">
+            {t('permits.form.buildingZone')}
+          </p>
+          <p className="text-sm" dir="auto">
+            {data.buildingZone ? t(`permits.form.zone${
+              { business_tower: 'BusinessTower', shopping_center: 'ShoppingCenter', carpark: 'Carpark', outdoor: 'Outdoor' }[data.buildingZone]
+            }`) : '—'}
+          </p>
+        </div>
       <div>
         <p className="text-sm font-medium text-muted-foreground">
           {t('permits.form.workDescription')}
