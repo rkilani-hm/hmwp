@@ -89,6 +89,7 @@ export function canProceedFromStep(step: number, data: PermitFormData): boolean 
           : data.workLocationId !== '';
       const hasUnit = data.backOfHouse || !!data.unit;
       return !!(
+        data.buildingZone &&
         hasUnit &&
         data.floor &&
         hasLocation &&
