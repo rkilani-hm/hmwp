@@ -141,7 +141,9 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
           </p>
           <p className="text-sm" dir="auto">{workLocationDisplayName}</p>
           <p className="text-sm text-muted-foreground">
-            {t('permits.form.unit')} {data.unit}, {t('permits.form.floor')} {data.floor}
+            {data.backOfHouse
+              ? t('permits.form.backOfHouse')
+              : `${t('permits.form.unit')} ${data.unit}, ${t('permits.form.floor')} ${data.floor}`}
           </p>
         </div>
         <div>
