@@ -1376,29 +1376,26 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // Add page numbers, company logo, watermark, and QR code to all pages
     const pages = pdfDoc.getPages();
     const totalPages = pages.length;
+    const generatedOnText = 'Generated on ' + formatDateTime(new Date().toISOString());
     for (let i = 0; i < totalPages; i++) {
       const currentPage = pages[i];
-      
 
+      // Footer divider + left-aligned text (every page)
+      currentPage.drawLine({
+        start: { x: margin, y: margin + 28 },
+        end:   { x: pageWidth - margin, y: margin + 28 },
+        thickness: 0.5,
+        color: rgb(0.8, 0.8, 0.8),
+      });
+      currentPage.drawText('This is an official work permit document.', {
+        x: margin, y: margin + 13, size: 8, font: helvetica, color: rgb(0.5, 0.5, 0.5),
+      });
+      currentPage.drawText(generatedOnText, {
+        x: margin, y: margin + 3, size: 8, font: helvetica, color: rgb(0.5, 0.5, 0.5),
+      });
 
-      
-      // Add company logo to header (skip first page as it already has it)
-      if (companyLogo && i > 0) {
-        const maxLogoHeight = 50;
-        const maxLogoWidth = 120;
-        const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
-        const logoWidth = companyLogo.width * logoScale;
-        const logoHeight = companyLogo.height * logoScale;
-        
-        currentPage.drawImage(companyLogo, {
-          x: pageWidth - margin - logoWidth,
-          y: pageHeight - margin - logoHeight + 10,
-          width: logoWidth,
-          height: logoHeight,
-        });
-      }
-      
       // Add QR code to footer (right side) on all pages
+
       if (qrCode) {
         const qrSize = 45;
         const qrX = pageWidth - margin - qrSize;
