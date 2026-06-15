@@ -758,17 +758,17 @@ const serve_handler = async (req: Request): Promise<Response> => {
       statusText = 'PENDING';
       statusColor = rgb(0.95, 0.6, 0.07);
     }
-    drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
-    yPos -= 22;
+    drawText(page, 'Status: ' + statusText, margin, yPos, 9, helveticaBold, statusColor);
+    yPos -= 18;
 
     // ====================================================================
-    // SECTION A — PERMIT DETAILS  (1. Client/Contractor + 2. Work Desc)
+    // SECTION A — PERMIT DETAILS  (1. Client + 2. Contractor + 3. Work Desc)
     // ====================================================================
     await drawSectionHeader(page, 'SECTION A — PERMIT DETAILS', yPos, 11);
     yPos -= 26;
 
-    // ---- Subsection 1: CLIENT / CONTRACTOR DETAILS (field-grid) ----
-    await drawSubsectionHeader(page, '1. CLIENT / CONTRACTOR DETAILS', yPos, 10);
+    // ---- Subsection 1: Client Details (field-grid) ----
+    await drawSubsectionHeader(page, '1. Client Details', yPos, 10);
     yPos -= 22;
 
     const contentW = pageWidth - margin * 2;
@@ -777,19 +777,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const c1x = margin;
     const c2x = margin + col3W + gridGap;
     const c3x = margin + (col3W + gridGap) * 2;
+    const halfW2 = (contentW - gridGap) / 2;
 
-    // Row 1: Name | Company | Mobile
-    await drawField(page, { labelEn: 'Name',    value: permit.requester_name || 'N/A',  x: c1x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Company', value: permit.contractor_name || 'N/A', x: c2x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile || 'N/A',  x: c3x, y: yPos, width: col3W });
+    // Row 1: Name | Email
+    await drawField(page, { labelEn: 'Name',  value: permit.requester_name  || 'N/A', x: c1x,                   y: yPos, width: halfW2 });
+    await drawField(page, { labelEn: 'Email', value: permit.requester_email || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // Row 2: Email (full width)
-    await drawField(page, { labelEn: 'Email', value: permit.requester_email || 'N/A', x: c1x, y: yPos, width: contentW });
+    // ---- Subsection 2: Contractor Details ----
+    await drawSubsectionHeader(page, '2. Contractor Details', yPos, 10);
+    yPos -= 22;
+    await drawField(page, { labelEn: 'Company', value: permit.contractor_name || 'N/A', x: c1x,                   y: yPos, width: halfW2 });
+    await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile  || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // ---- Subsection 2: WORK DESCRIPTION ----
-    await drawSubsectionHeader(page, '2. WORK DESCRIPTION', yPos, 10);
+    // ---- Subsection 3: WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '3. Work Description', yPos, 10);
     yPos -= 22;
     const description = String(permit.work_description || '').substring(0, 400);
     const words = description.split(' ');
