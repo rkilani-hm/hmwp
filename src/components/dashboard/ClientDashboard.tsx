@@ -293,8 +293,16 @@ export function ClientDashboard() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Total Submitted</span>
+                  <span className="text-sm text-muted-foreground">Total</span>
                   <span className="text-sm font-medium">{stats.total}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Draft</span>
+                  <span className="text-sm font-medium">{stats.draft}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Pending</span>
+                  <span className="text-sm font-medium text-warning">{stats.pending}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Approved</span>
@@ -307,6 +315,10 @@ export function ClientDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Closed</span>
                   <span className="text-sm font-medium">{stats.closed}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Cancelled</span>
+                  <span className="text-sm font-medium">{stats.cancelled}</span>
                 </div>
                 <div className="h-px bg-border my-2" />
                 <div className="flex items-center justify-between">

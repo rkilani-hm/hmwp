@@ -1725,6 +1725,8 @@ export function usePermitStats() {
       approved: 0,
       rejected: 0,
       closed: 0,
+      draft: 0,
+      cancelled: 0,
       slaBreached: 0,
       urgent: 0,
     };
@@ -1732,15 +1734,17 @@ export function usePermitStats() {
 
   return {
     total: permits.length,
-    pending: permits.filter(p => 
-      p.status.startsWith('pending') || 
-      p.status === 'submitted' || 
+    pending: permits.filter(p =>
+      p.status.startsWith('pending') ||
+      p.status === 'submitted' ||
       p.status === 'under_review' ||
       p.status === 'rework_needed'
     ).length,
     approved: permits.filter(p => p.status === 'approved').length,
     rejected: permits.filter(p => p.status === 'rejected').length,
     closed: permits.filter(p => p.status === 'closed').length,
+    draft: permits.filter(p => p.status === 'draft').length,
+    cancelled: permits.filter(p => p.status === 'cancelled' || p.status === 'superseded').length,
     slaBreached: permits.filter(p => p.sla_breached).length,
     urgent: permits.filter(p => p.urgency === 'urgent').length,
   };
