@@ -76,6 +76,7 @@ export function PermitFormWizard() {
     // or works on behalf of a different company occasionally.
     contractorName: profile?.company_name || '',
     contactMobile: profile?.phone || '',
+    backOfHouse: false,
     unit: profile?.unit || '',
     floor: profile?.floor || '',
     workLocationId: '',
