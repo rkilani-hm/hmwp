@@ -76,6 +76,7 @@ export function PermitFormWizard() {
     // or works on behalf of a different company occasionally.
     contractorName: profile?.company_name || '',
     contactMobile: profile?.phone || '',
+    backOfHouse: false,
     unit: profile?.unit || '',
     floor: profile?.floor || '',
     workLocationId: '',
@@ -154,8 +155,9 @@ export function PermitFormWizard() {
       {
         contractor_name: formData.contractorName.trim(),
         contact_mobile: formData.contactMobile.trim(),
-        unit: formData.unit.trim(),
-        floor: formData.floor.trim(),
+        back_of_house: formData.backOfHouse,
+        unit: formData.backOfHouse ? '' : formData.unit.trim(),
+        floor: formData.backOfHouse ? '' : formData.floor.trim(),
         work_location: workLocationText,
         work_location_id:
           formData.workLocationId === 'other' ? null : formData.workLocationId || null,

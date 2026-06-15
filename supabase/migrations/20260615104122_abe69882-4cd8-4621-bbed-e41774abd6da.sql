@@ -1,0 +1,1 @@
+ALTER TABLE public.work_permits ADD COLUMN IF NOT EXISTS back_of_house boolean NOT NULL DEFAULT false;

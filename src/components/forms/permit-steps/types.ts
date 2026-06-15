@@ -47,6 +47,7 @@ export interface PermitFormData {
   requesterEmail: string;
   contractorName: string;
   contactMobile: string;
+  backOfHouse: boolean;
   unit: string;
   floor: string;
   workLocationId: string;
@@ -85,9 +86,9 @@ export function canProceedFromStep(step: number, data: PermitFormData): boolean 
         data.workLocationId === 'other'
           ? data.workLocationOther.trim() !== ''
           : data.workLocationId !== '';
+      const hasUnitFloor = data.backOfHouse || !!(data.unit && data.floor);
       return !!(
-        data.unit &&
-        data.floor &&
+        hasUnitFloor &&
         hasLocation &&
         data.workTypeId &&
         data.workDescription

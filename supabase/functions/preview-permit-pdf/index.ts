@@ -94,9 +94,27 @@ interface WorkflowStepPreview {
 }
 
 // Small helpers — same drawing primitives as generate-permit-pdf
+
+// pdf-lib's standard Helvetica is WinAnsi-encoded, which cannot draw
+// characters outside that codepage (e.g. U+2192 arrow, em/en dashes,
+// curly quotes, ellipsis). Sanitize EVERY drawn string so a stray
+// unicode char never crashes PDF generation again.
+function sanitizeWinAnsi(text: string): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/\u2192/g, '->')   // →
+    .replace(/\u2190/g, '<-')   // ←
+    .replace(/[\u2013\u2014]/g, '-') // – —
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'") // curly singles
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"') // curly doubles
+    .replace(/\u2026/g, '...')  // …
+    .replace(/\u00A0/g, ' ')    // nbsp
+    .replace(/[^\x00-\xFF]/g, '?'); // any remaining non-WinAnsi char
+}
+
 function drawText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, color = BRAND_DARK) {
   if (!text) return;
-  page.drawText(text, { x, y, size, font, color });
+  page.drawText(sanitizeWinAnsi(text), { x, y, size, font, color });
 }
 
 function drawBrandLine(page: PDFPage, y: number) {

@@ -1292,6 +1292,7 @@ export type Database = {
           archived_at: string | null
           archived_by: string | null
           attachments: string[] | null
+          back_of_house: boolean
           bdcr_approver_email: string | null
           bdcr_approver_name: string | null
           bdcr_comments: string | null
@@ -1415,6 +1416,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           attachments?: string[] | null
+          back_of_house?: boolean
           bdcr_approver_email?: string | null
           bdcr_approver_name?: string | null
           bdcr_comments?: string | null
@@ -1538,6 +1540,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           attachments?: string[] | null
+          back_of_house?: boolean
           bdcr_approver_email?: string | null
           bdcr_approver_name?: string | null
           bdcr_comments?: string | null

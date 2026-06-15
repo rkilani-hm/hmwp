@@ -256,8 +256,24 @@ const serve_handler = async (req: Request): Promise<Response> => {
       return safe.slice(0, lo) + ellipsis;
     };
 
+    // pdf-lib's standard Helvetica is WinAnsi-encoded — it cannot draw
+    // chars outside that codepage (→, em/en dashes, curly quotes, …).
+    // Sanitize every string we draw with the Latin font.
+    const sanitizeWinAnsi = (text: string): string => {
+      if (!text) return '';
+      return String(text)
+        .replace(/\u2192/g, '->')
+        .replace(/\u2190/g, '<-')
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+        .replace(/\u2026/g, '...')
+        .replace(/\u00A0/g, ' ')
+        .replace(/[^\x00-\xFF]/g, '?');
+    };
+
     const drawText = (page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont = helvetica, color = rgb(0, 0, 0)) => {
-      const safeText = String(text || '').replace(/[^\x00-\x7F]/g, '');
+      const safeText = sanitizeWinAnsi(String(text || ''));
       if (safeText && y > 30) {
         page.drawText(safeText, { x, y, size, font, color });
       }

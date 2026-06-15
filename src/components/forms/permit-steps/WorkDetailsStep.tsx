@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -53,27 +54,42 @@ export function WorkDetailsStep({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="backOfHouse"
+          checked={data.backOfHouse}
+          onCheckedChange={(checked) => updateField('backOfHouse', checked === true)}
+        />
+        <Label htmlFor="backOfHouse" className="cursor-pointer">
+          {t('permits.form.backOfHouse')}
+        </Label>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="unit">{t('permits.form.unit')} *</Label>
-          <Input
-            id="unit"
-            value={data.unit}
-            onChange={(e) => updateField('unit', e.target.value)}
-            placeholder={t('permits.form.unitPlaceholder') ?? ''}
-            dir="ltr"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="floor">{t('permits.form.floor')} *</Label>
-          <Input
-            id="floor"
-            value={data.floor}
-            onChange={(e) => updateField('floor', e.target.value)}
-            placeholder={t('permits.form.floorPlaceholder') ?? ''}
-            dir="ltr"
-          />
-        </div>
+        {!data.backOfHouse && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="unit">{t('permits.form.unit')} *</Label>
+              <Input
+                id="unit"
+                value={data.unit}
+                onChange={(e) => updateField('unit', e.target.value)}
+                placeholder={t('permits.form.unitPlaceholder') ?? ''}
+                dir="ltr"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="floor">{t('permits.form.floor')} *</Label>
+              <Input
+                id="floor"
+                value={data.floor}
+                onChange={(e) => updateField('floor', e.target.value)}
+                placeholder={t('permits.form.floorPlaceholder') ?? ''}
+                dir="ltr"
+              />
+            </div>
+          </>
+        )}
         <div className="space-y-2 sm:col-span-3">
           <Label htmlFor="workLocation">{t('permits.form.workLocation')} *</Label>
           <Select

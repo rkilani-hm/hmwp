@@ -453,6 +453,7 @@ export function useCreatePermit() {
     mutationFn: async (permitData: {
       contractor_name: string;
       contact_mobile: string;
+      back_of_house?: boolean;
       unit: string;
       floor: string;
       work_location: string;
@@ -497,10 +498,10 @@ export function useCreatePermit() {
       }
       const permitNo = rpcPermitNo as string;
 
-      // Calculate SLA deadline based on urgency
+      // Fixed 24h SLA for all permits (priority/urgency UI removed).
       const urgency = permitData.urgency || 'normal';
-      const hoursToAdd = urgency === 'urgent' ? 4 : 48;
-      const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000).toISOString();
+      const SLA_HOURS = 24;
+      const slaDeadline = new Date(Date.now() + SLA_HOURS * 60 * 60 * 1000).toISOString();
 
       // Generate a temporary ID for file uploads
       const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -717,7 +718,7 @@ export function useCreatePermit() {
         action: 'Permit Created',
         performed_by: profile?.full_name || user?.email || 'Unknown',
         performed_by_id: user?.id,
-        details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
+        details: `Permit ${permitNo} submitted for review (24h SLA)`,
       });
 
       // Submission confirmation notification to the requester.
@@ -1575,7 +1576,8 @@ export function useUpdateAndResubmitPermit() {
       const newPermitNo = `${basePermitNo}_V${newVersion}`;
 
       // Calculate new SLA deadline
-      const slaHours = updates.urgency === 'urgent' ? 4 : 48;
+      // Fixed 24h SLA for all permits (rework version).
+      const slaHours = 24;
       const slaDeadline = new Date();
       slaDeadline.setHours(slaDeadline.getHours() + slaHours);
 
