@@ -92,6 +92,7 @@ export function ReviewStep({ data, workTypes, workLocations }: Props) {
             }`) : '—'}
           </p>
         </div>
+      </div>
       <div>
         <p className="text-sm font-medium text-muted-foreground">
           {t('permits.form.workDescription')}
