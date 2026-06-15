@@ -77,6 +77,7 @@ export function PermitFormWizard() {
     contractorName: profile?.company_name || '',
     contactMobile: profile?.phone || '',
     backOfHouse: false,
+    buildingZone: '',
     unit: profile?.unit || '',
     floor: profile?.floor || '',
     workLocationId: '',
