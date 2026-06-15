@@ -916,7 +916,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       } else {
         dotColor = STATUS_AWAITING;
         pillColor = STATUS_AWAITING;
-        pillLabel = 'AWAITING';
+        pillLabel = 'PENDING';
       }
 
       // ---- Cell 1: number badge (colored dot + step number) ----
