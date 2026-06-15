@@ -220,9 +220,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // English-only — better than crashing the whole PDF.
     const arabicFonts = await loadArabicFont(pdfDoc);
     
-    const pageWidth = 612;
-    const pageHeight = 792;
-    const margin = 50;
+    // A4 page size (595.28 x 841.89 pt) per docs/design/README.md
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 22;
     
     // Helper functions
     const createPage = () => {
