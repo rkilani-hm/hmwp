@@ -370,6 +370,115 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     };
 
+    // ---- Hot Works template helpers (field-grid, doc-id strip, checkboxes) ----
+    const FIELD_LABEL_GREY = rgb(0.541, 0.541, 0.541);
+    const FIELD_UNDERLINE  = rgb(0.847, 0.847, 0.847); // --line #d8d8d8
+    const CELL_DIVIDER     = rgb(0.925, 0.925, 0.925); // --line-soft #ececec
+
+    /** Underlined field — small grey EN label (+ optional AR) above a
+     *  value with a thin underline. Mirrors `.field-grid` in the
+     *  reference template. */
+    const drawField = async (
+      page: PDFPage,
+      opts: { labelEn: string; labelAr?: string | null; value: string;
+              x: number; y: number; width: number; valueBold?: boolean },
+    ) => {
+      // EN label (uppercase tracked feel via plain helveticaBold @ 7pt)
+      drawText(page, opts.labelEn.toUpperCase(), opts.x, opts.y, 7, helveticaBold, FIELD_LABEL_GREY);
+      // AR label right-aligned on the same line, if available
+      const ar = opts.labelAr ?? arabicLabel(opts.labelEn);
+      if (arabicFonts && ar) {
+        await drawArabic(page, ar, opts.x + opts.width, opts.y, {
+          font: arabicFonts.regular, size: 7, color: FIELD_LABEL_GREY,
+        });
+      }
+      // Value below
+      const valueY = opts.y - 12;
+      drawText(
+        page, opts.value || '—', opts.x, valueY, 10,
+        opts.valueBold ? helveticaBold : helvetica, BRAND_DARK,
+      );
+      // Underline
+      page.drawLine({
+        start: { x: opts.x, y: valueY - 3 },
+        end:   { x: opts.x + opts.width, y: valueY - 3 },
+        thickness: 0.5, color: FIELD_UNDERLINE,
+      });
+    };
+
+    /** Doc-ID strip — four equal cells with EN/AR label + value. */
+    const drawDocIdStrip = async (
+      page: PDFPage,
+      y: number,
+      cells: Array<{ labelEn: string; value: string; mono?: boolean }>,
+    ) => {
+      const stripH = 44;
+      const stripW = pageWidth - margin * 2;
+      const cellW = stripW / cells.length;
+      // Outer border
+      page.drawRectangle({
+        x: margin, y: y - stripH, width: stripW, height: stripH,
+        borderColor: FIELD_UNDERLINE, borderWidth: 0.6,
+      });
+      for (let i = 0; i < cells.length; i++) {
+        const cx = margin + i * cellW;
+        // Vertical divider between cells (not after last)
+        if (i > 0) {
+          page.drawLine({
+            start: { x: cx, y: y - stripH + 4 },
+            end:   { x: cx, y: y - 4 },
+            thickness: 0.4, color: CELL_DIVIDER,
+          });
+        }
+        // EN label
+        drawText(page, cells[i].labelEn.toUpperCase(), cx + 6, y - 11, 7, helveticaBold, FIELD_LABEL_GREY);
+        // AR label right-aligned
+        const ar = arabicLabel(cells[i].labelEn);
+        if (arabicFonts && ar) {
+          await drawArabic(page, ar, cx + cellW - 6, y - 11, {
+            font: arabicFonts.regular, size: 7, color: FIELD_LABEL_GREY,
+          });
+        }
+        // Value (bold dark)
+        drawText(page, cells[i].value || '—', cx + 6, y - 30, 11, helveticaBold, BRAND_DARK);
+      }
+    };
+
+    /** Four bilingual location checkboxes (Business Tower / Shopping
+     *  Center / Carpark / Outdoor) stacked top-right. All unchecked —
+     *  static template chrome; no permit field drives them. */
+    const drawLocationCheckboxes = async (
+      page: PDFPage,
+      rightX: number,
+      topY: number,
+    ) => {
+      const items = ['Business Tower', 'Shopping Center', 'Carpark', 'Outdoor'];
+      const rowH = 14;
+      const boxSize = 8;
+      // Compute max EN label width to right-align consistently
+      const labelWidths = items.map((it) => helvetica.widthOfTextAtSize(it, 7));
+      const maxLabelW = Math.max(...labelWidths);
+      for (let i = 0; i < items.length; i++) {
+        const en = items[i];
+        const ar = arabicLabel(en);
+        const y = topY - i * rowH;
+        // Box at the left of the row, then label to the right.
+        // Row width = box + 3pt gap + max label
+        const rowLeft = rightX - (boxSize + 3 + maxLabelW);
+        page.drawRectangle({
+          x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
+          borderColor: BRAND_DARK, borderWidth: 0.6,
+        });
+        drawText(page, en, rowLeft + boxSize + 3, y - boxSize + 1, 7, helvetica, BRAND_DARK);
+        if (arabicFonts && ar) {
+          // AR right-anchored under the EN label (small)
+          await drawArabic(page, ar, rightX, y - boxSize - 7, {
+            font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
+          });
+        }
+      }
+    };
+
     const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
     const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
