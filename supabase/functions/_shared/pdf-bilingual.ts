@@ -224,8 +224,14 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
 
   // Numbered subsection banners
   "1. CLIENT / CONTRACTOR DETAILS": { en: "1. CLIENT / CONTRACTOR DETAILS", ar: "١. بيانات العميل / المقاول" },
+  "1. Client Details":              { en: "1. Client Details",              ar: "١. بيانات العميل" },
+  "2. Contractor Details":          { en: "2. Contractor Details",          ar: "٢. بيانات المقاول" },
+  "3. Work Description":            { en: "3. Work Description",            ar: "٣. وصف العمل" },
   "2. WORK DESCRIPTION":            { en: "2. WORK DESCRIPTION",            ar: "٢. وصف العمل" },
+  "1. Approval Chain":              { en: "1. Approval Chain",              ar: "١. سلسلة الاعتمادات" },
+  "1. Approval Chain (continued)":  { en: "1. Approval Chain (continued)",  ar: "١. سلسلة الاعتمادات (تابع)" },
   "3. APPROVAL CHAIN":              { en: "3. APPROVAL CHAIN",              ar: "٣. سلسلة الاعتمادات" },
+  "1. Attached Documents":          { en: "1. Attached Documents",          ar: "١. المستندات المرفقة" },
   "4. ATTACHED DOCUMENTS":          { en: "4. ATTACHED DOCUMENTS",          ar: "٤. المستندات المرفقة" },
 
   // Doc-ID strip
