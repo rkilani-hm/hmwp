@@ -892,7 +892,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         const np = createPage();
         page = np.page;
         yPos = np.yPos;
-        await drawSubsectionHeader(page, '3. APPROVAL CHAIN (continued)', yPos, 10);
+        await drawSubsectionHeader(page, '1. Approval Chain (continued)', yPos, 10);
         yPos -= 18;
       }
 
