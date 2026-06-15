@@ -859,7 +859,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     //   4. Signature (rest) — embedded signature image, or
     //      'PENDING SIGNATURE' placeholder for pending rows
 
-    await drawSubsectionHeader(page, '3. APPROVAL CHAIN', yPos, 10);
+    await drawSubsectionHeader(page, '1. Approval Chain', yPos, 10);
     yPos -= 18;
 
     // Status colors. APPROVED = success green, REJECTED = brand red,
