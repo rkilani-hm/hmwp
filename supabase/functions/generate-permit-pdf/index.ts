@@ -800,8 +800,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile  || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // ---- Subsection 3: WORK DESCRIPTION ----
-    await drawSubsectionHeader(page, '3. Work Description', yPos, 10);
+    // ---- Subsection 3: LOCATION AND WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '3. Location and Work Description', yPos, 10);
     yPos -= 22;
     const description = String(permit.work_description || '').substring(0, 400);
     const words = description.split(' ');
@@ -820,16 +820,32 @@ const serve_handler = async (req: Request): Promise<Response> => {
       drawText(page, line.trim(), margin, yPos, 10, helvetica);
       yPos -= 14;
     }
-    yPos -= 14;
+    yPos -= 10;
+
+    // Location / Schedule (field-grid). Respect back_of_house:
+    // when true, Unit displays "Back of House"; Floor still shows real value.
+    const isBOH = !!(permit as any).back_of_house;
+    const unitDisplay = isBOH ? 'Back of House' : (permit.unit || 'N/A');
+
+    // Row: Location | Unit | Floor
+    await drawField(page, { labelEn: 'Location', value: permit.work_location || 'N/A', x: c1x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Unit',     value: unitDisplay,                   x: c2x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Floor',    value: permit.floor || 'N/A',         x: c3x, y: yPos, width: col3W });
+    yPos -= 32;
+
+    // Row: Date | Time
+    const dateValue = `${formatDate(permit.work_date_from)}  -  ${formatDate(permit.work_date_to)}`;
+    const timeValue = `${permit.work_time_from || 'N/A'}  -  ${permit.work_time_to || 'N/A'}`;
+    const halfW = (contentW - gridGap) / 2;
+    await drawField(page, { labelEn: 'Date', value: dateValue, x: c1x,                    y: yPos, width: halfW });
+    await drawField(page, { labelEn: 'Time', value: timeValue, x: c1x + halfW + gridGap,  y: yPos, width: halfW });
+    yPos -= 36;
 
     // ---- Subsection 4: NOTES (static bilingual boilerplate) ----
     await drawSubsectionHeader(page, '4. Notes', yPos, 10);
     yPos -= 18;
 
-    // Fixed boilerplate notes — identical on every permit. Edit here
-    // to change wording. English left-aligned, Arabic right-aligned,
-    // both occupying ~half the content width per row. ASCII hyphen
-    // in "24-48" (not en-dash) so the English side stays WinAnsi-safe.
+    // Fixed boilerplate notes — identical on every permit.
     const NOTES: Array<{ en: string; ar: string }> = [
       {
         en: '1. Please contact Helpdesk at 22233043 prior to commencing works and after completion of works.',
@@ -851,7 +867,6 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const enColX = margin;
     const arColRightX = pageWidth - margin;
 
-    // Greedy word-wrap by measured width.
     const wrapByWidth = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
       const ws = text.split(/\s+/);
       const lines: string[] = [];
@@ -889,26 +904,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
       yPos -= rowLines * noteLineH + 6;
     }
-    yPos -= 4;
-
-    // Location / Schedule (field-grid). Respect back_of_house:
-    // when true, Unit displays "Back of House"; Floor still shows real value.
-    const isBOH = !!(permit as any).back_of_house;
-    const unitDisplay = isBOH ? 'Back of House' : (permit.unit || 'N/A');
-
-    // Row 3: Location | Unit | Floor
-    await drawField(page, { labelEn: 'Location', value: permit.work_location || 'N/A', x: c1x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Unit',     value: unitDisplay,                   x: c2x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Floor',    value: permit.floor || 'N/A',         x: c3x, y: yPos, width: col3W });
-    yPos -= 32;
-
-    // Row 4: Date | Time
-    const dateValue = `${formatDate(permit.work_date_from)}  -  ${formatDate(permit.work_date_to)}`;
-    const timeValue = `${permit.work_time_from || 'N/A'}  -  ${permit.work_time_to || 'N/A'}`;
-    const halfW = (contentW - gridGap) / 2;
-    await drawField(page, { labelEn: 'Date', value: dateValue, x: c1x,                    y: yPos, width: halfW });
-    await drawField(page, { labelEn: 'Time', value: timeValue, x: c1x + halfW + gridGap,  y: yPos, width: halfW });
-    yPos -= 36;
+    yPos -= 8;
 
     // ====================================================================
     // SECTION B — APPROVAL CHAIN
