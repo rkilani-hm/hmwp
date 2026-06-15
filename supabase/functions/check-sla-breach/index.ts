@@ -99,7 +99,7 @@ const handler = async (req: Request): Promise<Response> => {
           permit_id: permit.id,
           type: "sla_breach",
           title: "SLA Breach Alert",
-          message: `Permit ${permit.permit_no} (${permit.urgency === "urgent" ? "URGENT" : "Normal"}) has breached its SLA deadline. Current status: ${permit.status}`,
+          message: `Permit ${permit.permit_no} has breached its 24-hour SLA deadline. Current status: ${permit.status}`,
         });
       }
 
