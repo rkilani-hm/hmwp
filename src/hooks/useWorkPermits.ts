@@ -498,10 +498,10 @@ export function useCreatePermit() {
       }
       const permitNo = rpcPermitNo as string;
 
-      // Calculate SLA deadline based on urgency
+      // Fixed 24h SLA for all permits (priority/urgency UI removed).
       const urgency = permitData.urgency || 'normal';
-      const hoursToAdd = urgency === 'urgent' ? 4 : 48;
-      const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000).toISOString();
+      const SLA_HOURS = 24;
+      const slaDeadline = new Date(Date.now() + SLA_HOURS * 60 * 60 * 1000).toISOString();
 
       // Generate a temporary ID for file uploads
       const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
