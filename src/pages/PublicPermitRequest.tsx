@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,9 @@ export default function PublicPermitRequest() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [submittedPermitNo, setSubmittedPermitNo] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
   const [formData, setFormData] = useState<FormData>({
     externalCompanyName: '',
     externalContactPerson: '',
@@ -105,9 +109,14 @@ export default function PublicPermitRequest() {
       return;
     }
 
+    if (!turnstileToken) {
+      toast.error('Please complete the CAPTCHA challenge.');
+      return;
+    }
+
     // Determine work location text
     const selectedLocation = workLocations?.find(loc => loc.id === formData.workLocationId);
-    const workLocationText = formData.workLocationId === 'other' 
+    const workLocationText = formData.workLocationId === 'other'
       ? formData.workLocationOther.trim()
       : selectedLocation?.name || '';
 
@@ -128,10 +137,16 @@ export default function PublicPermitRequest() {
       work_time_from: formData.workTimeFrom,
       work_time_to: formData.workTimeTo,
       urgency: formData.urgency,
+      turnstileToken,
     }, {
       onSuccess: (data) => {
         setSubmittedPermitNo(data.permit_no);
-      }
+      },
+      onError: () => {
+        // Token is single-use; force a fresh one for the next attempt.
+        setTurnstileToken(null);
+        turnstileRef.current?.reset();
+      },
     });
   };
 
@@ -664,6 +679,27 @@ export default function PublicPermitRequest() {
                   </div>
                 )}
 
+                {/* CAPTCHA — only on the final review step */}
+                {currentStep === steps.length && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    {turnstileSiteKey ? (
+                      <Turnstile
+                        ref={turnstileRef}
+                        siteKey={turnstileSiteKey}
+                        onSuccess={(token) => setTurnstileToken(token)}
+                        onExpire={() => setTurnstileToken(null)}
+                        onError={() => setTurnstileToken(null)}
+                        options={{ theme: 'light' }}
+                      />
+                    ) : (
+                      <p className="text-xs text-destructive text-center">
+                        CAPTCHA is not configured. Set VITE_TURNSTILE_SITE_KEY.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+
                 {/* Navigation Buttons */}
                 <div className="flex justify-between pt-4 border-t">
                   <Button
@@ -686,7 +722,7 @@ export default function PublicPermitRequest() {
                   ) : (
                     <Button
                       onClick={handleSubmit}
-                      disabled={createPermit.isPending}
+                      disabled={createPermit.isPending || !turnstileToken}
                       className="bg-success hover:bg-success/90"
                     >
                       {createPermit.isPending ? (
