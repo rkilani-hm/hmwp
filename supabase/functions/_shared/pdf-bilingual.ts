@@ -104,72 +104,22 @@ export async function loadArabicFont(
 }
 
 /**
- * Lazily-imported shapers. Imports are cached per cold start.
- * arabic-reshaper handles contextual letterform substitution.
- * bidi-js handles right-to-left reordering and embedded LTR runs.
- * If either fails, drawArabic still renders the RAW (unshaped) text —
- * disconnected glyphs are ugly but at least confirm the font works.
+ * Inline Arabic shaper — zero runtime network deps. The previous
+ * implementation tried to lazy-import `arabic-reshaper` and `bidi-js`
+ * from esm.sh; both consistently failed in the Supabase Edge (Deno)
+ * runtime, producing disconnected glyphs in logical (LTR) order.
+ * `shapeArabicInline` does presentation-form selection + LAM/ALEF
+ * ligatures + simple base-RTL bidi reversal in pure TS.
  */
-let _reshaper: ((text: string) => string) | null = null;
-let _bidiReorder: ((text: string) => string) | null = null;
-let _shapersTried = false;
+import { shapeArabicInline } from "./arabic-shaper.ts";
 
-async function getShapers(): Promise<void> {
-  if (_shapersTried) return;
-  _shapersTried = true;
-
-  // arabic-reshaper@1.x exports `convertArabic` (the actual function name);
-  // some shims expose `reshape` or `default`. Try them all.
-  try {
-    console.log("[pdf-bilingual] importing arabic-reshaper");
-    const mod = await import("https://esm.sh/arabic-reshaper@1.1.0?target=deno");
-    const m = mod as { default?: unknown; reshape?: unknown; convertArabic?: unknown };
-    const fn = m.convertArabic ?? m.reshape ?? m.default;
-    if (typeof fn === "function") {
-      _reshaper = fn as (text: string) => string;
-      console.log("[pdf-bilingual] arabic-reshaper loaded");
-    } else {
-      console.warn("[pdf-bilingual] arabic-reshaper imported but no callable export found; keys =", Object.keys(m));
-    }
-  } catch (err) {
-    console.error("[pdf-bilingual] arabic-reshaper import failed:", err);
-  }
-
-  try {
-    console.log("[pdf-bilingual] importing bidi-js");
-    const bidiMod = await import("https://esm.sh/bidi-js@1.0.3");
-    type BidiModule = {
-      default?: () => { getReorderedString?: (text: string, e?: unknown) => string };
-    };
-    const factory = (bidiMod as BidiModule).default;
-    if (typeof factory === "function") {
-      const inst = factory();
-      if (typeof inst.getReorderedString === "function") {
-        const f = inst.getReorderedString.bind(inst);
-        _bidiReorder = (text: string) => f(text);
-        console.log("[pdf-bilingual] bidi-js loaded");
-      }
-    }
-  } catch (err) {
-    console.error("[pdf-bilingual] bidi-js import failed:", err);
-  }
-}
-
-/**
- * Shape an Arabic string for PDF rendering. Returns the input unchanged
- * if the shaper isn't available (graceful degradation — letters will
- * appear disconnected but at least visible).
- */
 export async function shapeArabic(text: string): Promise<string> {
-  await getShapers();
-  let out = text;
-  if (_reshaper) {
-    try { out = _reshaper(out); } catch (err) { console.error("reshape err:", err); }
+  try {
+    return shapeArabicInline(text);
+  } catch (err) {
+    console.error("[pdf-bilingual] shapeArabicInline failed:", err);
+    return text;
   }
-  if (_bidiReorder) {
-    try { out = _bidiReorder(out); } catch (err) { console.error("bidi err:", err); }
-  }
-  return out;
 }
 
 export interface DrawArabicOptions {
