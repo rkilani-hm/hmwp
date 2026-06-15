@@ -48,6 +48,7 @@ export interface PermitFormData {
   contractorName: string;
   contactMobile: string;
   backOfHouse: boolean;
+  buildingZone: '' | 'business_tower' | 'shopping_center' | 'carpark' | 'outdoor';
   unit: string;
   floor: string;
   workLocationId: string;
@@ -88,6 +89,7 @@ export function canProceedFromStep(step: number, data: PermitFormData): boolean 
           : data.workLocationId !== '';
       const hasUnit = data.backOfHouse || !!data.unit;
       return !!(
+        data.buildingZone &&
         hasUnit &&
         data.floor &&
         hasLocation &&

@@ -444,35 +444,57 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    /** Four bilingual location checkboxes (Business Tower / Shopping
-     *  Center / Carpark / Outdoor) stacked top-right. All unchecked —
-     *  static template chrome; no permit field drives them. */
-    const drawLocationCheckboxes = async (
+    /** Four bilingual zone checkboxes (Business Tower / Shopping
+     *  Center / Carpark / Outdoor) stacked vertically top-right.
+     *  The one matching permit.building_zone is ticked. */
+    const ZONE_ITEMS: Array<{ key: string; label: string }> = [
+      { key: 'business_tower',  label: 'Business Tower'  },
+      { key: 'shopping_center', label: 'Shopping Center' },
+      { key: 'carpark',         label: 'Carpark'         },
+      { key: 'outdoor',         label: 'Outdoor'         },
+    ];
+    const drawZoneCheckboxes = async (
       page: PDFPage,
       rightX: number,
       topY: number,
+      selectedKey: string | null,
     ) => {
-      const items = ['Business Tower', 'Shopping Center', 'Carpark', 'Outdoor'];
-      const rowH = 14;
-      const boxSize = 8;
-      // Compute max EN label width to right-align consistently
-      const labelWidths = items.map((it) => helvetica.widthOfTextAtSize(it, 7));
+      const rowH = 15;
+      const boxSize = 9;
+      const labelWidths = ZONE_ITEMS.map((it) => helvetica.widthOfTextAtSize(it.label, 7));
       const maxLabelW = Math.max(...labelWidths);
-      for (let i = 0; i < items.length; i++) {
-        const en = items[i];
-        const ar = arabicLabel(en);
+      for (let i = 0; i < ZONE_ITEMS.length; i++) {
+        const { key, label } = ZONE_ITEMS[i];
+        const ar = arabicLabel(label);
         const y = topY - i * rowH;
-        // Box at the left of the row, then label to the right.
-        // Row width = box + 3pt gap + max label
-        const rowLeft = rightX - (boxSize + 3 + maxLabelW);
+        const rowLeft = rightX - (boxSize + 4 + maxLabelW);
+        const isTicked = selectedKey === key;
         page.drawRectangle({
           x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
-          borderColor: BRAND_DARK, borderWidth: 0.6,
+          borderColor: BRAND_DARK, borderWidth: 0.7,
+          color: isTicked ? BRAND_DARK : undefined,
         });
-        drawText(page, en, rowLeft + boxSize + 3, y - boxSize + 1, 7, helvetica, BRAND_DARK);
+        if (isTicked) {
+          // Draw a white check mark inside the filled box
+          const cx = rowLeft;
+          const cy = y - boxSize;
+          page.drawLine({
+            start: { x: cx + 1.5, y: cy + boxSize / 2 },
+            end:   { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            thickness: 1.1, color: WHITE,
+          });
+          page.drawLine({
+            start: { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            end:   { x: cx + boxSize - 1, y: cy + boxSize - 1 },
+            thickness: 1.1, color: WHITE,
+          });
+        }
+        drawText(
+          page, label, rowLeft + boxSize + 4, y - boxSize + 1, 7,
+          isTicked ? helveticaBold : helvetica, BRAND_DARK,
+        );
         if (arabicFonts && ar) {
-          // AR right-anchored under the EN label (small)
-          await drawArabic(page, ar, rightX, y - boxSize - 7, {
+          await drawArabic(page, ar, rightX, y - boxSize + 1, {
             font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
           });
         }
@@ -544,7 +566,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     //      the left column unaffected.
     const chromeTopY = yPos;
     const chromeRightX = pageWidth - margin;
-    await drawLocationCheckboxes(page, chromeRightX, chromeTopY);
+    await drawZoneCheckboxes(page, chromeRightX, chromeTopY, (permit as any).building_zone ?? null);
 
     // Smaller logo (40h × 100w max) tucked below the checkbox stack.
     if (companyLogo) {
@@ -849,7 +871,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (approvals[i].status === 'pending') { firstPendingIdx = i; break; }
     }
 
-    const ROW_HEIGHT = 38;
+    const ROW_HEIGHT = 26;
     const CONTENT_RIGHT = pageWidth - margin;
 
     for (let i = 0; i < approvals.length; i++) {
@@ -901,40 +923,40 @@ const serve_handler = async (req: Request): Promise<Response> => {
       const dotX = margin + 8;
       const dotY = rowMid;
       if (drawHalo) {
-        page.drawCircle({ x: dotX, y: dotY, size: 7, color: rgb(0.95, 0.85, 0.85) });
+        page.drawCircle({ x: dotX, y: dotY, size: 6, color: rgb(0.95, 0.85, 0.85) });
       }
-      page.drawCircle({ x: dotX, y: dotY, size: 3.5, color: dotColor });
+      page.drawCircle({ x: dotX, y: dotY, size: 3, color: dotColor });
       drawText(
         page,
         String(i + 1).padStart(2, '0'),
-        dotX + 8, dotY - 3, 10, helveticaBold, BRAND_DARK,
+        dotX + 7, dotY - 2.5, 8, helveticaBold, BRAND_DARK,
       );
 
       // ---- Cell 2: role name (English bold + Arabic below) + signer/date ----
-      const roleX = margin + 40;
-      const signerX = margin + 220;
+      const roleX = margin + 36;
+      const signerX = margin + 200;
 
       // English role name (top, bold)
-      drawText(page, approval.name, roleX, rowMid + 5, 10, helveticaBold, BRAND_DARK);
+      drawText(page, approval.name, roleX, rowMid + 3, 8, helveticaBold, BRAND_DARK);
 
       // Arabic role name (below, smaller, RTL anchored)
       if (approval.nameAr && arabicFonts) {
-        await drawArabic(page, approval.nameAr, roleX + 175, rowMid - 9, {
+        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 6, {
           font: arabicFonts.regular,
-          size: 9,
+          size: 7,
           color: rgb(0.302, 0.302, 0.302),
         });
       }
 
       // Signer name (top)
       const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
-      drawText(page, signerName, signerX, rowMid + 5, 9.5, helvetica, BRAND_DARK);
+      drawText(page, signerName, signerX, rowMid + 3, 7.5, helvetica, BRAND_DARK);
 
       // Date or Pending
       const dateLabel = (isApproved || isRejected) && approval.date
         ? formatDateTime(approval.date)
         : 'Pending';
-      drawText(page, dateLabel, signerX, rowMid - 7, 8, helvetica, rgb(0.541, 0.541, 0.541));
+      drawText(page, dateLabel, signerX, rowMid - 5, 6.5, helvetica, rgb(0.541, 0.541, 0.541));
 
       // ---- Cell 3: status pill (colored text) ----
       const pillX = pageWidth * 0.62;
@@ -942,7 +964,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
                     : isRejected ? '\u2717 '
                     : isFirstPending ? '\u25CF '
                     : '\u25CB ';
-      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 9, helveticaBold, pillColor);
+      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 7.5, helveticaBold, pillColor);
 
       // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
       const sigX = pageWidth * 0.78;
@@ -958,7 +980,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
               : await pdfDoc.embedJpg(sigBytes);
 
             const maxW = sigW;
-            const maxH = ROW_HEIGHT - 10;
+            const maxH = ROW_HEIGHT - 8;
             const scale = Math.min(maxW / sigImg.width, maxH / sigImg.height, 1);
             const drawW = sigImg.width * scale;
             const drawH = sigImg.height * scale;
@@ -986,7 +1008,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         drawText(
           page,
           'AWAITING SIGNATURE',
-          sigX + 4, rowMid - 1, 8, helvetica, STATUS_AWAITING,
+          sigX + 4, rowMid - 1, 6.5, helvetica, STATUS_AWAITING,
         );
         // Dashed line (pdf-lib doesn't natively support dashes here;
         // draw a sequence of short segments).

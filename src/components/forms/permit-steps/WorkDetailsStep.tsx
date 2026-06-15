@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -54,6 +55,33 @@ export function WorkDetailsStep({
 
   return (
     <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>{t('permits.form.buildingZone')} *</Label>
+        <RadioGroup
+          value={data.buildingZone}
+          onValueChange={(v) => updateField('buildingZone', v as PermitFormData['buildingZone'])}
+          className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+        >
+          {([
+            ['business_tower', 'permits.form.zoneBusinessTower'],
+            ['shopping_center', 'permits.form.zoneShoppingCenter'],
+            ['carpark', 'permits.form.zoneCarpark'],
+            ['outdoor', 'permits.form.zoneOutdoor'],
+          ] as const).map(([val, key]) => (
+            <Label
+              key={val}
+              htmlFor={`zone-${val}`}
+              className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                data.buildingZone === val ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
+              }`}
+            >
+              <RadioGroupItem id={`zone-${val}`} value={val} />
+              <span className="text-sm">{t(key)}</span>
+            </Label>
+          ))}
+        </RadioGroup>
+      </div>
+
       <div className="flex items-center gap-2">
         <Checkbox
           id="backOfHouse"

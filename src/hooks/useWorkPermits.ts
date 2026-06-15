@@ -454,6 +454,7 @@ export function useCreatePermit() {
       contractor_name: string;
       contact_mobile: string;
       back_of_house?: boolean;
+      building_zone?: string | null;
       unit: string;
       floor: string;
       work_location: string;
