@@ -157,7 +157,7 @@ export function PermitFormWizard() {
         contact_mobile: formData.contactMobile.trim(),
         back_of_house: formData.backOfHouse,
         unit: formData.backOfHouse ? '' : formData.unit.trim(),
-        floor: formData.backOfHouse ? '' : formData.floor.trim(),
+        floor: formData.floor.trim(),
         work_location: workLocationText,
         work_location_id:
           formData.workLocationId === 'other' ? null : formData.workLocationId || null,
