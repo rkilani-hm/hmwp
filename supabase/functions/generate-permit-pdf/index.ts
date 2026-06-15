@@ -1009,7 +1009,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         drawText(
           page,
           'AWAITING SIGNATURE',
-          sigX + 4, rowMid - 1, 6.5, helvetica, STATUS_AWAITING,
+          sigX + 4, rowMid - 1, 6, helvetica, STATUS_AWAITING,
         );
         // Dashed line (pdf-lib doesn't natively support dashes here;
         // draw a sequence of short segments).
