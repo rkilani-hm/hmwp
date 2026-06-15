@@ -929,42 +929,43 @@ const serve_handler = async (req: Request): Promise<Response> => {
       drawText(
         page,
         String(i + 1).padStart(2, '0'),
-        dotX + 7, dotY - 2.5, 8, helveticaBold, BRAND_DARK,
+        dotX + 7, dotY - 2, 7, helveticaBold, BRAND_DARK,
       );
 
       // ---- Cell 2: role name (English bold + Arabic below) + signer/date ----
       const roleX = margin + 36;
       const signerX = margin + 200;
 
-      // English role name (top, bold)
-      drawText(page, approval.name, roleX, rowMid + 3, 8, helveticaBold, BRAND_DARK);
+      // English role name (top, bold). Pre-normalize dash characters so
+      // names like "Coordinator – Client Relations" render as
+      // "Coordinator - Client Relations" (sanitizeWinAnsi covers this,
+      // but the explicit pass keeps the intent obvious).
+      const englishRoleName = String(approval.name || '')
+        .replace(/[\u2010-\u2015\u2212]/g, '-');
+      drawText(page, englishRoleName, roleX, rowMid + 2.5, 7.5, helveticaBold, BRAND_DARK);
 
       // Arabic role name (below, smaller, RTL anchored)
       if (approval.nameAr && arabicFonts) {
-        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 6, {
+        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 5, {
           font: arabicFonts.regular,
-          size: 7,
+          size: 6.5,
           color: rgb(0.302, 0.302, 0.302),
         });
       }
 
       // Signer name (top)
       const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
-      drawText(page, signerName, signerX, rowMid + 3, 7.5, helvetica, BRAND_DARK);
+      drawText(page, signerName, signerX, rowMid + 2.5, 7, helvetica, BRAND_DARK);
 
       // Date or Pending
       const dateLabel = (isApproved || isRejected) && approval.date
         ? formatDateTime(approval.date)
         : 'Pending';
-      drawText(page, dateLabel, signerX, rowMid - 5, 6.5, helvetica, rgb(0.541, 0.541, 0.541));
+      drawText(page, dateLabel, signerX, rowMid - 4.5, 6, helvetica, rgb(0.541, 0.541, 0.541));
 
-      // ---- Cell 3: status pill (colored text) ----
+      // ---- Cell 3: status pill (colored text — plain word, no glyphs) ----
       const pillX = pageWidth * 0.62;
-      const prefix = isApproved ? '\u2713 '
-                    : isRejected ? '\u2717 '
-                    : isFirstPending ? '\u25CF '
-                    : '\u25CB ';
-      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 7.5, helveticaBold, pillColor);
+      drawText(page, pillLabel, pillX, rowMid - 1, 7, helveticaBold, pillColor);
 
       // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
       const sigX = pageWidth * 0.78;
