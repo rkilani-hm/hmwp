@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
 import {
   loadArabicFont,
@@ -265,7 +265,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
       return String(text)
         .replace(/\u2192/g, '->')
         .replace(/\u2190/g, '<-')
-        .replace(/[\u2013\u2014]/g, '-')
+        // Broad dash family: hyphen, non-breaking hyphen, figure dash,
+        // en-dash, em-dash, horizontal bar, minus sign → ASCII '-'
+        .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-')
         .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
         .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
         .replace(/\u2026/g, '...')
@@ -459,49 +461,62 @@ const serve_handler = async (req: Request): Promise<Response> => {
       topY: number,
       selectedKey: string | null,
     ) => {
-      const rowH = 15;
-      const boxSize = 9;
-      const labelWidths = ZONE_ITEMS.map((it) => helvetica.widthOfTextAtSize(it.label, 7));
-      const maxLabelW = Math.max(...labelWidths);
-      for (let i = 0; i < ZONE_ITEMS.length; i++) {
-        const { key, label } = ZONE_ITEMS[i];
-        const ar = arabicLabel(label);
-        const y = topY - i * rowH;
-        const rowLeft = rightX - (boxSize + 4 + maxLabelW);
+      // Horizontal row: [box] label   [box] label   ...
+      // Laid out RIGHT-to-LEFT from rightX so the row hugs the right edge.
+      const boxSize = 8;
+      const labelSize = 7;
+      const boxLabelGap = 3;
+      const itemGap = 10;
+      const y = topY - boxSize; // baseline of the row
+
+      // Measure each item width (box + gap + label)
+      const items = ZONE_ITEMS.map((it) => {
+        const w = boxSize + boxLabelGap +
+          helvetica.widthOfTextAtSize(it.label, labelSize);
+        return { ...it, w };
+      });
+
+      // Walk left-to-right starting from the leftmost x so order reads
+      // Business Tower → Shopping Center → Carpark → Outdoor.
+      const totalW = items.reduce((s, it) => s + it.w, 0) +
+        itemGap * (items.length - 1);
+      let cursorX = rightX - totalW;
+
+      for (const { key, label, w } of items) {
         const isTicked = selectedKey === key;
         page.drawRectangle({
-          x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
+          x: cursorX, y, width: boxSize, height: boxSize,
           borderColor: BRAND_DARK, borderWidth: 0.7,
           color: isTicked ? BRAND_DARK : undefined,
         });
         if (isTicked) {
-          // Draw a white check mark inside the filled box
-          const cx = rowLeft;
-          const cy = y - boxSize;
           page.drawLine({
-            start: { x: cx + 1.5, y: cy + boxSize / 2 },
-            end:   { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            start: { x: cursorX + 1.5, y: y + boxSize / 2 },
+            end:   { x: cursorX + boxSize / 2 - 0.5, y: y + 1.5 },
             thickness: 1.1, color: WHITE,
           });
           page.drawLine({
-            start: { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
-            end:   { x: cx + boxSize - 1, y: cy + boxSize - 1 },
+            start: { x: cursorX + boxSize / 2 - 0.5, y: y + 1.5 },
+            end:   { x: cursorX + boxSize - 1, y: y + boxSize - 1 },
             thickness: 1.1, color: WHITE,
           });
         }
         drawText(
-          page, label, rowLeft + boxSize + 4, y - boxSize + 1, 7,
+          page, label,
+          cursorX + boxSize + boxLabelGap, y + 1, labelSize,
           isTicked ? helveticaBold : helvetica, BRAND_DARK,
         );
-        if (arabicFonts && ar) {
-          await drawArabic(page, ar, rightX, y - boxSize + 1, {
-            font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
-          });
-        }
+        cursorX += w + itemGap;
       }
     };
 
-    const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
+    const pad2 = (n: number) => n.toString().padStart(2, '0');
+    const formatDate = (date: string) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    };
     const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
 
@@ -568,21 +583,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const chromeRightX = pageWidth - margin;
     await drawZoneCheckboxes(page, chromeRightX, chromeTopY, (permit as any).building_zone ?? null);
 
-    // Smaller logo (40h × 100w max) tucked below the checkbox stack.
+    // Logo sits below the horizontal checkbox row (~12pt tall).
+    let chromeBottomY = chromeTopY - 12;
     if (companyLogo) {
       const maxLogoHeight = 40;
       const maxLogoWidth = 100;
       const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
       const logoWidth = companyLogo.width * logoScale;
       const logoHeight = companyLogo.height * logoScale;
-      // Checkbox stack is 4 rows × 14pt + AR descender = ~70pt
-      const logoTopY = chromeTopY - 70;
+      const logoTopY = chromeTopY - 16;
       page.drawImage(companyLogo, {
         x: pageWidth - margin - logoWidth,
         y: logoTopY - logoHeight,
         width: logoWidth,
         height: logoHeight,
       });
+      chromeBottomY = logoTopY - logoHeight;
     }
 
     // ---- Bilingual title block (left column) ----
@@ -601,9 +617,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawBrandLine(page, yPos);
     yPos -= 16;
 
-    // Reserve any leftover vertical room consumed by the right-column
-    // chrome (checkboxes + logo) so the doc-ID strip doesn't collide.
-    const chromeBottomY = chromeTopY - 70 - 40;
+    // Don't let doc-ID strip collide with the right-column chrome.
     if (yPos > chromeBottomY) yPos = chromeBottomY;
     yPos -= 8;
 
@@ -718,17 +732,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
-    // Status badge — derived from permit_approvals.
-    const humanizeRole = (r: string): string =>
-      (ROLE_DISPLAY_NAMES[r] ?? r)
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const pendingRoles = approvals
-      .filter((a) => a.status === 'pending')
-      .map((a) => humanizeRole(a.roleKey));
+    // Status badge — one-word summary derived from permit_approvals.
     const anyRejected = approvals.some((a) => a.status === 'rejected');
     const anyApproved = approvals.some((a) => a.status === 'approved');
+    const anyPending = approvals.some((a) => a.status === 'pending');
 
     let statusText: string;
     let statusColor: ReturnType<typeof rgb>;
@@ -739,19 +746,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
     } else if (anyRejected || permit.status === 'rejected') {
       statusText = 'REJECTED';
       statusColor = BRAND_RED;
-    } else if (pendingRoles.length === 0 && anyApproved) {
+    } else if (!anyPending && anyApproved) {
       statusText = 'APPROVED';
       statusColor = rgb(0.13, 0.77, 0.37);
-    } else if (pendingRoles.length > 0) {
-      const shown = pendingRoles.slice(0, 2).join(', ');
-      const extra = pendingRoles.length > 2
-        ? ` (+${pendingRoles.length - 2} more)`
-        : '';
-      statusText = `AWAITING ${shown}${extra}`;
-      statusColor = rgb(0.95, 0.6, 0.07);
     } else {
-      statusText = (permit.status || 'unknown').toUpperCase();
-      statusColor = rgb(0.42, 0.45, 0.5);
+      statusText = 'PENDING';
+      statusColor = rgb(0.95, 0.6, 0.07);
     }
     drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
     yPos -= 22;
@@ -871,7 +871,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (approvals[i].status === 'pending') { firstPendingIdx = i; break; }
     }
 
-    const ROW_HEIGHT = 26;
+    const ROW_HEIGHT = 22;
     const CONTENT_RIGHT = pageWidth - margin;
 
     for (let i = 0; i < approvals.length; i++) {
@@ -916,7 +916,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       } else {
         dotColor = STATUS_AWAITING;
         pillColor = STATUS_AWAITING;
-        pillLabel = 'AWAITING';
+        pillLabel = 'PENDING';
       }
 
       // ---- Cell 1: number badge (colored dot + step number) ----
@@ -929,42 +929,43 @@ const serve_handler = async (req: Request): Promise<Response> => {
       drawText(
         page,
         String(i + 1).padStart(2, '0'),
-        dotX + 7, dotY - 2.5, 8, helveticaBold, BRAND_DARK,
+        dotX + 7, dotY - 2, 7, helveticaBold, BRAND_DARK,
       );
 
       // ---- Cell 2: role name (English bold + Arabic below) + signer/date ----
       const roleX = margin + 36;
       const signerX = margin + 200;
 
-      // English role name (top, bold)
-      drawText(page, approval.name, roleX, rowMid + 3, 8, helveticaBold, BRAND_DARK);
+      // English role name (top, bold). Pre-normalize dash characters so
+      // names like "Coordinator – Client Relations" render as
+      // "Coordinator - Client Relations" (sanitizeWinAnsi covers this,
+      // but the explicit pass keeps the intent obvious).
+      const englishRoleName = String(approval.name || '')
+        .replace(/[\u2010-\u2015\u2212]/g, '-');
+      drawText(page, englishRoleName, roleX, rowMid + 2.5, 7.5, helveticaBold, BRAND_DARK);
 
       // Arabic role name (below, smaller, RTL anchored)
       if (approval.nameAr && arabicFonts) {
-        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 6, {
+        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 5, {
           font: arabicFonts.regular,
-          size: 7,
+          size: 6.5,
           color: rgb(0.302, 0.302, 0.302),
         });
       }
 
       // Signer name (top)
       const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
-      drawText(page, signerName, signerX, rowMid + 3, 7.5, helvetica, BRAND_DARK);
+      drawText(page, signerName, signerX, rowMid + 2.5, 7, helvetica, BRAND_DARK);
 
       // Date or Pending
       const dateLabel = (isApproved || isRejected) && approval.date
         ? formatDateTime(approval.date)
         : 'Pending';
-      drawText(page, dateLabel, signerX, rowMid - 5, 6.5, helvetica, rgb(0.541, 0.541, 0.541));
+      drawText(page, dateLabel, signerX, rowMid - 4.5, 6, helvetica, rgb(0.541, 0.541, 0.541));
 
-      // ---- Cell 3: status pill (colored text) ----
+      // ---- Cell 3: status pill (colored text — plain word, no glyphs) ----
       const pillX = pageWidth * 0.62;
-      const prefix = isApproved ? '\u2713 '
-                    : isRejected ? '\u2717 '
-                    : isFirstPending ? '\u25CF '
-                    : '\u25CB ';
-      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 7.5, helveticaBold, pillColor);
+      drawText(page, pillLabel, pillX, rowMid - 1, 7, helveticaBold, pillColor);
 
       // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
       const sigX = pageWidth * 0.78;
@@ -1008,7 +1009,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         drawText(
           page,
           'AWAITING SIGNATURE',
-          sigX + 4, rowMid - 1, 6.5, helvetica, STATUS_AWAITING,
+          sigX + 4, rowMid - 1, 6, helvetica, STATUS_AWAITING,
         );
         // Dashed line (pdf-lib doesn't natively support dashes here;
         // draw a sequence of short segments).
@@ -1368,16 +1369,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     for (let i = 0; i < totalPages; i++) {
       const currentPage = pages[i];
       
-      // Add CONFIDENTIAL watermark (diagonal across page)
-      currentPage.drawText('CONFIDENTIAL', {
-        x: pageWidth / 2 - 150,
-        y: pageHeight / 2 - 20,
-        size: 60,
-        font: helveticaBold,
-        color: rgb(0.9, 0.9, 0.9),
-        rotate: degrees(45),
-        opacity: 0.3,
-      });
+
+
       
       // Add company logo to header (skip first page as it already has it)
       if (companyLogo && i > 0) {
