@@ -108,7 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
         permit_id: permit.id,
         action: "SLA Breached",
         performed_by: "System",
-        details: `Permit exceeded ${permit.urgency === "urgent" ? "4-hour" : "48-hour"} SLA deadline`,
+        details: `Permit exceeded 24-hour SLA deadline`,
       });
     }
 
