@@ -219,6 +219,11 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // failure (network, invalid font, library missing) we fall back to
     // English-only — better than crashing the whole PDF.
     const arabicFonts = await loadArabicFont(pdfDoc);
+    if (!arabicFonts) {
+      console.warn("[generate-permit-pdf] ARABIC FONT UNAVAILABLE — rendering English-only. See loadArabicFont logs above for the underlying cause (font fetch, fontkit import, or embed failure).");
+    } else {
+      console.log("[generate-permit-pdf] Arabic fonts loaded OK (regular+bold embedded).");
+    }
     
     // A4 page size (595.28 x 841.89 pt) per docs/design/README.md
     const pageWidth = 595.28;
@@ -795,13 +800,36 @@ const serve_handler = async (req: Request): Promise<Response> => {
     await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile  || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // ---- Subsection 3: NOTES (static bilingual boilerplate) ----
-    await drawSubsectionHeader(page, '3. Notes', yPos, 10);
+    // ---- Subsection 3: WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '3. Work Description', yPos, 10);
+    yPos -= 22;
+    const description = String(permit.work_description || '').substring(0, 400);
+    const words = description.split(' ');
+    let line = '';
+    for (const word of words) {
+      const testLine = line + word + ' ';
+      if (testLine.length > 90) {
+        drawText(page, line.trim(), margin, yPos, 10, helvetica);
+        yPos -= 14;
+        line = word + ' ';
+      } else {
+        line = testLine;
+      }
+    }
+    if (line.trim()) {
+      drawText(page, line.trim(), margin, yPos, 10, helvetica);
+      yPos -= 14;
+    }
+    yPos -= 14;
+
+    // ---- Subsection 4: NOTES (static bilingual boilerplate) ----
+    await drawSubsectionHeader(page, '4. Notes', yPos, 10);
     yPos -= 18;
 
     // Fixed boilerplate notes — identical on every permit. Edit here
     // to change wording. English left-aligned, Arabic right-aligned,
-    // both occupying ~half the content width per row.
+    // both occupying ~half the content width per row. ASCII hyphen
+    // in "24-48" (not en-dash) so the English side stays WinAnsi-safe.
     const NOTES: Array<{ en: string; ar: string }> = [
       {
         en: '1. Please contact Helpdesk at 22233043 prior to commencing works and after completion of works.',
@@ -825,10 +853,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     // Greedy word-wrap by measured width.
     const wrapByWidth = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
-      const words = text.split(/\s+/);
+      const ws = text.split(/\s+/);
       const lines: string[] = [];
       let cur = '';
-      for (const w of words) {
+      for (const w of ws) {
         const test = cur ? cur + ' ' + w : w;
         if (font.widthOfTextAtSize(test, size) > maxWidth && cur) {
           lines.push(cur);
@@ -862,28 +890,6 @@ const serve_handler = async (req: Request): Promise<Response> => {
       yPos -= rowLines * noteLineH + 6;
     }
     yPos -= 4;
-
-    // ---- Subsection 4: WORK DESCRIPTION ----
-    await drawSubsectionHeader(page, '4. Work Description', yPos, 10);
-    yPos -= 22;
-    const description = String(permit.work_description || '').substring(0, 400);
-    const words = description.split(' ');
-    let line = '';
-    for (const word of words) {
-      const testLine = line + word + ' ';
-      if (testLine.length > 90) {
-        drawText(page, line.trim(), margin, yPos, 10, helvetica);
-        yPos -= 14;
-        line = word + ' ';
-      } else {
-        line = testLine;
-      }
-    }
-    if (line.trim()) {
-      drawText(page, line.trim(), margin, yPos, 10, helvetica);
-      yPos -= 14;
-    }
-    yPos -= 14;
 
     // Location / Schedule (field-grid). Respect back_of_house:
     // when true, Unit displays "Back of House"; Floor still shows real value.
