@@ -216,6 +216,34 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   "APPROVALS & SIGNATURES": { en: "APPROVALS & SIGNATURES", ar: "الاعتمادات والتواقيع" },
   "ATTACHMENTS":          { en: "ATTACHMENTS",          ar: "المرفقات" },
 
+  // Section A/B/C/D top-level banners (Hot Works template)
+  "SECTION A — PERMIT DETAILS":  { en: "SECTION A — PERMIT DETAILS",  ar: "القسم أ — تفاصيل التصريح" },
+  "SECTION B — APPROVAL CHAIN":  { en: "SECTION B — APPROVAL CHAIN",  ar: "القسم ب — سلسلة الاعتمادات" },
+  "SECTION C — ATTACHMENTS":     { en: "SECTION C — ATTACHMENTS",     ar: "القسم ج — المرفقات" },
+  "SECTION D — ACTIVITY LOG":    { en: "SECTION D — ACTIVITY LOG",    ar: "القسم د — سجل النشاط" },
+
+  // Numbered subsection banners
+  "1. CLIENT / CONTRACTOR DETAILS": { en: "1. CLIENT / CONTRACTOR DETAILS", ar: "١. بيانات العميل / المقاول" },
+  "2. WORK DESCRIPTION":            { en: "2. WORK DESCRIPTION",            ar: "٢. وصف العمل" },
+  "3. APPROVAL CHAIN":              { en: "3. APPROVAL CHAIN",              ar: "٣. سلسلة الاعتمادات" },
+  "4. ATTACHED DOCUMENTS":          { en: "4. ATTACHED DOCUMENTS",          ar: "٤. المستندات المرفقة" },
+
+  // Doc-ID strip
+  "Permit No.":           { en: "Permit No.",           ar: "رقم التصريح" },
+  "Urgency":              { en: "Urgency",              ar: "الأولوية" },
+  "Issued":               { en: "Issued",               ar: "تاريخ الإصدار" },
+
+  // Top-right location checkboxes
+  "Business Tower":       { en: "Business Tower",       ar: "البرج التجاري" },
+  "Shopping Center":      { en: "Shopping Center",      ar: "المركز التجاري" },
+  "Carpark":              { en: "Carpark",              ar: "موقف السيارات" },
+  "Outdoor":              { en: "Outdoor",              ar: "الساحات الخارجية" },
+
+  // Field-grid labels
+  "Company":              { en: "Company",              ar: "الشركة" },
+  "Contact":              { en: "Contact",              ar: "للتواصل" },
+  "Time":                 { en: "Time",                 ar: "الوقت" },
+
   // Approvers
   "Customer Service":     { en: "Customer Service",     ar: "خدمة العملاء" },
   "CR Coordinator":       { en: "CR Coordinator",       ar: "منسّق علاقات العملاء" },
