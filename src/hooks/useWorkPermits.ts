@@ -1576,7 +1576,8 @@ export function useUpdateAndResubmitPermit() {
       const newPermitNo = `${basePermitNo}_V${newVersion}`;
 
       // Calculate new SLA deadline
-      const slaHours = updates.urgency === 'urgent' ? 4 : 48;
+      // Fixed 24h SLA for all permits (rework version).
+      const slaHours = 24;
       const slaDeadline = new Date();
       slaDeadline.setHours(slaDeadline.getHours() + slaHours);
 
