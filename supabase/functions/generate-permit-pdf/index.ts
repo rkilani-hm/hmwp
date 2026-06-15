@@ -583,21 +583,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const chromeRightX = pageWidth - margin;
     await drawZoneCheckboxes(page, chromeRightX, chromeTopY, (permit as any).building_zone ?? null);
 
-    // Smaller logo (40h × 100w max) tucked below the checkbox stack.
+    // Logo sits below the horizontal checkbox row (~12pt tall).
+    let chromeBottomY = chromeTopY - 12;
     if (companyLogo) {
       const maxLogoHeight = 40;
       const maxLogoWidth = 100;
       const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
       const logoWidth = companyLogo.width * logoScale;
       const logoHeight = companyLogo.height * logoScale;
-      // Checkbox stack is 4 rows × 14pt + AR descender = ~70pt
-      const logoTopY = chromeTopY - 70;
+      const logoTopY = chromeTopY - 16;
       page.drawImage(companyLogo, {
         x: pageWidth - margin - logoWidth,
         y: logoTopY - logoHeight,
         width: logoWidth,
         height: logoHeight,
       });
+      chromeBottomY = logoTopY - logoHeight;
     }
 
     // ---- Bilingual title block (left column) ----
@@ -616,9 +617,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawBrandLine(page, yPos);
     yPos -= 16;
 
-    // Reserve any leftover vertical room consumed by the right-column
-    // chrome (checkboxes + logo) so the doc-ID strip doesn't collide.
-    const chromeBottomY = chromeTopY - 70 - 40;
+    // Don't let doc-ID strip collide with the right-column chrome.
     if (yPos > chromeBottomY) yPos = chromeBottomY;
     yPos -= 8;
 
