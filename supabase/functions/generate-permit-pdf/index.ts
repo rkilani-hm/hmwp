@@ -566,7 +566,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     //      the left column unaffected.
     const chromeTopY = yPos;
     const chromeRightX = pageWidth - margin;
-    await drawLocationCheckboxes(page, chromeRightX, chromeTopY);
+    await drawZoneCheckboxes(page, chromeRightX, chromeTopY, (permit as any).building_zone ?? null);
 
     // Smaller logo (40h × 100w max) tucked below the checkbox stack.
     if (companyLogo) {
