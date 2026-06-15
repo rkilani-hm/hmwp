@@ -560,7 +560,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
-                      Unit {permit.unit}, Floor {permit.floor}
+                      {(permit as any).back_of_house
+                        ? t('permits.form.backOfHouse')
+                        : `Unit ${permit.unit}, Floor ${permit.floor}`}
                     </div>
                   </CardContent>
                 </Card>
