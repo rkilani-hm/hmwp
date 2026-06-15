@@ -25,72 +25,43 @@
 
 import type { PDFDocument, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
 import { rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import { NOTO_KUFI_ARABIC_REGULAR_B64 } from "./fonts/noto-kufi-arabic-base64.ts";
 
-// Noto Kufi Arabic Regular TTF. Primary URL is jsdelivr; we keep a
-// list of mirrors and try them in order so a single CDN outage or
-// regional block doesn't kill bilingual rendering.
-const NOTO_KUFI_REGULAR_URLS = [
-  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-400-normal.ttf",
-  "https://unpkg.com/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-400-normal.ttf",
-  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-all-400-normal.woff",
-];
-const NOTO_KUFI_BOLD_URLS = [
-  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-700-normal.ttf",
-  "https://unpkg.com/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-700-normal.ttf",
-];
-
-// Cache the fetched TTF bytes between cold starts within the same
-// function instance. Saves ~400KB per invocation after the first.
+// Cache the decoded TTF bytes between calls within the same function instance.
 let _cachedRegularTtf: Uint8Array | null = null;
-let _cachedBoldTtf: Uint8Array | null = null;
 
 export interface ArabicFontPair {
   regular: PDFFont;
   bold: PDFFont;
 }
 
-/** Try a list of URLs in order, returning the bytes of the first that
- *  responds 2xx. Logs each attempt so failures are visible in function logs. */
-async function fetchFirstOk(urls: string[], label: string): Promise<Uint8Array> {
-  let lastErr: unknown = null;
-  for (const url of urls) {
-    try {
-      console.log(`[pdf-bilingual] fetching ${label} from ${url}`);
-      const r = await fetch(url);
-      if (r.ok) {
-        const buf = new Uint8Array(await r.arrayBuffer());
-        console.log(`[pdf-bilingual] ${label} OK (${buf.byteLength} bytes) from ${url}`);
-        return buf;
-      }
-      console.warn(`[pdf-bilingual] ${label} ${r.status} from ${url}`);
-      lastErr = new Error(`HTTP ${r.status}`);
-    } catch (err) {
-      console.warn(`[pdf-bilingual] ${label} threw from ${url}:`, err);
-      lastErr = err;
-    }
-  }
-  throw new Error(`all ${label} URLs failed: ${String(lastErr)}`);
+/** Decode the vendored base64 font into bytes. Synchronous, no network. */
+function decodeVendoredFont(): Uint8Array {
+  if (_cachedRegularTtf) return _cachedRegularTtf;
+  const bin = atob(NOTO_KUFI_ARABIC_REGULAR_B64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  _cachedRegularTtf = bytes;
+  console.log(`[pdf-bilingual] vendored font decoded (${bytes.byteLength} bytes)`);
+  return bytes;
 }
 
 /**
- * Loads and embeds Noto Kufi Arabic (regular + bold) into the given
- * PDFDocument. Returns null on any failure — caller should fall back
- * to English-only rendering when null. Each step is logged separately
- * so the function logs make it obvious which step failed.
+ * Loads and embeds Noto Kufi Arabic into the given PDFDocument from the
+ * vendored base64 module — NO runtime network dependency for font bytes.
+ * Returns null on any failure — caller falls back to English-only rendering.
+ * Bold reuses the same regular font (we only vendor one weight to keep size down).
  */
 export async function loadArabicFont(
   pdfDoc: PDFDocument,
 ): Promise<ArabicFontPair | null> {
-  // Step 1: fetch the TTF bytes (with CDN fallback)
+  // Step 1: decode the vendored TTF bytes
+  let ttf: Uint8Array;
   try {
-    if (!_cachedRegularTtf) {
-      _cachedRegularTtf = await fetchFirstOk(NOTO_KUFI_REGULAR_URLS, "noto-kufi-regular");
-    }
-    if (!_cachedBoldTtf) {
-      _cachedBoldTtf = await fetchFirstOk(NOTO_KUFI_BOLD_URLS, "noto-kufi-bold");
-    }
+    ttf = decodeVendoredFont();
+    if (!ttf.byteLength) throw new Error("decoded font is empty");
   } catch (err) {
-    console.error("[pdf-bilingual] font fetch FAILED, Arabic disabled:", err);
+    console.error("[pdf-bilingual] vendored font decode FAILED, Arabic disabled:", err);
     return null;
   }
 
@@ -119,11 +90,12 @@ export async function loadArabicFont(
     return null;
   }
 
-  // Step 3: embed the fonts
+  // Step 3: embed the font (bold reuses regular — visual difference is minor
+  // for short bilingual labels and saves ~250KB of bundle size).
   try {
-    const regular = await pdfDoc.embedFont(_cachedRegularTtf, { subset: true });
-    const bold    = await pdfDoc.embedFont(_cachedBoldTtf,    { subset: true });
-    console.log("[pdf-bilingual] embedFont OK (regular+bold)");
+    const regular = await pdfDoc.embedFont(ttf, { subset: true });
+    const bold    = await pdfDoc.embedFont(ttf, { subset: true });
+    console.log("[pdf-bilingual] embedFont OK (regular+bold from vendored bytes)");
     return { regular, bold };
   } catch (err) {
     console.error("[pdf-bilingual] embedFont FAILED, Arabic disabled:", err);
