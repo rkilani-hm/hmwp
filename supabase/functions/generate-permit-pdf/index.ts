@@ -461,45 +461,52 @@ const serve_handler = async (req: Request): Promise<Response> => {
       topY: number,
       selectedKey: string | null,
     ) => {
-      const rowH = 15;
-      const boxSize = 9;
-      const labelWidths = ZONE_ITEMS.map((it) => helvetica.widthOfTextAtSize(it.label, 7));
-      const maxLabelW = Math.max(...labelWidths);
-      for (let i = 0; i < ZONE_ITEMS.length; i++) {
-        const { key, label } = ZONE_ITEMS[i];
-        const ar = arabicLabel(label);
-        const y = topY - i * rowH;
-        const rowLeft = rightX - (boxSize + 4 + maxLabelW);
+      // Horizontal row: [box] label   [box] label   ...
+      // Laid out RIGHT-to-LEFT from rightX so the row hugs the right edge.
+      const boxSize = 8;
+      const labelSize = 7;
+      const boxLabelGap = 3;
+      const itemGap = 10;
+      const y = topY - boxSize; // baseline of the row
+
+      // Measure each item width (box + gap + label)
+      const items = ZONE_ITEMS.map((it) => {
+        const w = boxSize + boxLabelGap +
+          helvetica.widthOfTextAtSize(it.label, labelSize);
+        return { ...it, w };
+      });
+
+      // Walk left-to-right starting from the leftmost x so order reads
+      // Business Tower → Shopping Center → Carpark → Outdoor.
+      const totalW = items.reduce((s, it) => s + it.w, 0) +
+        itemGap * (items.length - 1);
+      let cursorX = rightX - totalW;
+
+      for (const { key, label, w } of items) {
         const isTicked = selectedKey === key;
         page.drawRectangle({
-          x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
+          x: cursorX, y, width: boxSize, height: boxSize,
           borderColor: BRAND_DARK, borderWidth: 0.7,
           color: isTicked ? BRAND_DARK : undefined,
         });
         if (isTicked) {
-          // Draw a white check mark inside the filled box
-          const cx = rowLeft;
-          const cy = y - boxSize;
           page.drawLine({
-            start: { x: cx + 1.5, y: cy + boxSize / 2 },
-            end:   { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            start: { x: cursorX + 1.5, y: y + boxSize / 2 },
+            end:   { x: cursorX + boxSize / 2 - 0.5, y: y + 1.5 },
             thickness: 1.1, color: WHITE,
           });
           page.drawLine({
-            start: { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
-            end:   { x: cx + boxSize - 1, y: cy + boxSize - 1 },
+            start: { x: cursorX + boxSize / 2 - 0.5, y: y + 1.5 },
+            end:   { x: cursorX + boxSize - 1, y: y + boxSize - 1 },
             thickness: 1.1, color: WHITE,
           });
         }
         drawText(
-          page, label, rowLeft + boxSize + 4, y - boxSize + 1, 7,
+          page, label,
+          cursorX + boxSize + boxLabelGap, y + 1, labelSize,
           isTicked ? helveticaBold : helvetica, BRAND_DARK,
         );
-        if (arabicFonts && ar) {
-          await drawArabic(page, ar, rightX, y - boxSize + 1, {
-            font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
-          });
-        }
+        cursorX += w + itemGap;
       }
     };
 
