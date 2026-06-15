@@ -1208,7 +1208,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         // Subsection bar — burgundy "4. ATTACHED DOCUMENTS" (canonical
         // key so the AR translation resolves). The grid-specific title
         // and page indicator render as a smaller caption below.
-        await drawSubsectionHeader(gridPage, '4. ATTACHED DOCUMENTS', headerY, 10);
+        await drawSubsectionHeader(gridPage, '1. Attached Documents', headerY, 10);
         headerY -= 22;
         const caption = totalGridPages > 1
           ? `${cfg.sectionTitle}  (${pg + 1} of ${totalGridPages})`
