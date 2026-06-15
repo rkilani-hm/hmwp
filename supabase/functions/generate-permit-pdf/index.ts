@@ -1057,10 +1057,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // to approved/rejected anymore — the chain shows all rows so
     // viewers see the full audit trail including pending steps.
     
-    // Footer on first page (sits above the QR/page-number band at y=20)
-    drawLine(page, margin + 28);
-    drawText(page, 'Generated on ' + formatDateTime(new Date().toISOString()), margin, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
-    drawText(page, 'This is an official work permit document.', pageWidth - margin - 180, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
+    // Footer (divider + "official" line + "Generated on") is drawn uniformly
+    // on EVERY page inside the per-page loop below, so nothing to draw here.
+
 
     // ===== PAGE 2+: Attachment grids =====
     //
