@@ -1168,32 +1168,23 @@ const serve_handler = async (req: Request): Promise<Response> => {
         const { page: gridPage } = createPage();
         let headerY = pageHeight - margin;
 
-        // Section header — bilingual title + page indicator
-        const title = totalGridPages > 1
-          ? `${cfg.sectionTitle} (${pg + 1} of ${totalGridPages})`
-          : cfg.sectionTitle;
-        drawText(gridPage, title, margin, headerY, 16, helveticaBold, BRAND_RED);
-        if (arabicFonts && cfg.sectionTitleArabic) {
-          try {
-            await drawArabic(
-              gridPage,
-              cfg.sectionTitleArabic,
-              pageWidth - margin,
-              headerY,
-              { font: arabicFonts.bold, size: 16, color: BRAND_RED },
-            );
-          } catch {
-            // Arabic font issue is non-fatal
-          }
-        }
-        headerY -= 8;
-        gridPage.drawLine({
-          start: { x: margin, y: headerY },
-          end: { x: pageWidth - margin, y: headerY },
-          thickness: 1,
-          color: BRAND_RED,
-        });
-        headerY -= 20;
+        // SECTION C — ATTACHMENTS black banner (only on the first page
+        // of the very first grid section; subsequent grid pages get
+        // just the subsection bar). cfg.sectionTitle differentiates.
+        await drawSectionHeader(gridPage, 'SECTION C — ATTACHMENTS', headerY, 11);
+        headerY -= 28;
+
+        // Subsection bar — burgundy "4. ATTACHED DOCUMENTS · <grid title>"
+        const subTitle = totalGridPages > 1
+          ? `4. ATTACHED DOCUMENTS — ${cfg.sectionTitle} (${pg + 1} of ${totalGridPages})`
+          : `4. ATTACHED DOCUMENTS — ${cfg.sectionTitle}`;
+        // Use drawSubsectionHeader so the burgundy bar matches the
+        // other subsections. arabicLabel('4. ATTACHED DOCUMENTS')
+        // covers the AR side; the EN-side gets the appended grid title
+        // verbatim for context.
+        await drawSubsectionHeader(gridPage, subTitle, headerY, 10);
+        headerY -= 24;
+
 
         // The grid starts below the header. We center horizontally.
         const gridWidth = cfg.cols * cfg.cellW + (cfg.cols - 1) * cfg.gap;
