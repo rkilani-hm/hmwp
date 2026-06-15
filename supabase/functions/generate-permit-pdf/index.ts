@@ -980,7 +980,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
               : await pdfDoc.embedJpg(sigBytes);
 
             const maxW = sigW;
-            const maxH = ROW_HEIGHT - 10;
+            const maxH = ROW_HEIGHT - 8;
             const scale = Math.min(maxW / sigImg.width, maxH / sigImg.height, 1);
             const drawW = sigImg.width * scale;
             const drawH = sigImg.height * scale;
