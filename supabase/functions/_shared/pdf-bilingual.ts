@@ -311,7 +311,22 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   },
 };
 
-/** Look up the AR translation for a key, or null if not in the table. */
+// Pre-built lowercase index for case-insensitive fallback lookups.
+const _LOWERCASE_LABEL_INDEX: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(BILINGUAL_LABELS)) {
+    out[k.toLowerCase()] = BILINGUAL_LABELS[k].ar;
+  }
+  return out;
+})();
+
+/** Look up the AR translation for a key, or null if not in the table.
+ *  Tries exact match first, then case-insensitive fallback so callers
+ *  passing 'Location' resolve against a 'LOCATION' map entry, etc. */
 export function arabicLabel(key: string): string | null {
-  return BILINGUAL_LABELS[key]?.ar ?? null;
+  if (!key) return null;
+  const exact = BILINGUAL_LABELS[key]?.ar;
+  if (exact) return exact;
+  return _LOWERCASE_LABEL_INDEX[key.toLowerCase()] ?? null;
 }
+
