@@ -67,29 +67,27 @@ export function WorkDetailsStep({
 
       <div className="grid gap-4 sm:grid-cols-3">
         {!data.backOfHouse && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="unit">{t('permits.form.unit')} *</Label>
-              <Input
-                id="unit"
-                value={data.unit}
-                onChange={(e) => updateField('unit', e.target.value)}
-                placeholder={t('permits.form.unitPlaceholder') ?? ''}
-                dir="ltr"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="floor">{t('permits.form.floor')} *</Label>
-              <Input
-                id="floor"
-                value={data.floor}
-                onChange={(e) => updateField('floor', e.target.value)}
-                placeholder={t('permits.form.floorPlaceholder') ?? ''}
-                dir="ltr"
-              />
-            </div>
-          </>
+          <div className="space-y-2">
+            <Label htmlFor="unit">{t('permits.form.unit')} *</Label>
+            <Input
+              id="unit"
+              value={data.unit}
+              onChange={(e) => updateField('unit', e.target.value)}
+              placeholder={t('permits.form.unitPlaceholder') ?? ''}
+              dir="ltr"
+            />
+          </div>
         )}
+        <div className="space-y-2">
+          <Label htmlFor="floor">{t('permits.form.floor')} *</Label>
+          <Input
+            id="floor"
+            value={data.floor}
+            onChange={(e) => updateField('floor', e.target.value)}
+            placeholder={t('permits.form.floorPlaceholder') ?? ''}
+            dir="ltr"
+          />
+        </div>
         <div className="space-y-2 sm:col-span-3">
           <Label htmlFor="workLocation">{t('permits.form.workLocation')} *</Label>
           <Select
