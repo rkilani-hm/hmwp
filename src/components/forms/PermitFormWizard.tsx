@@ -157,6 +157,7 @@ export function PermitFormWizard() {
         contractor_name: formData.contractorName.trim(),
         contact_mobile: formData.contactMobile.trim(),
         back_of_house: formData.backOfHouse,
+        building_zone: formData.buildingZone || null,
         unit: formData.backOfHouse ? '' : formData.unit.trim(),
         floor: formData.floor.trim(),
         work_location: workLocationText,
