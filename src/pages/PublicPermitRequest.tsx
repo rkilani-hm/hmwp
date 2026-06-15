@@ -679,6 +679,27 @@ export default function PublicPermitRequest() {
                   </div>
                 )}
 
+                {/* CAPTCHA — only on the final review step */}
+                {currentStep === steps.length && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    {turnstileSiteKey ? (
+                      <Turnstile
+                        ref={turnstileRef}
+                        siteKey={turnstileSiteKey}
+                        onSuccess={(token) => setTurnstileToken(token)}
+                        onExpire={() => setTurnstileToken(null)}
+                        onError={() => setTurnstileToken(null)}
+                        options={{ theme: 'light' }}
+                      />
+                    ) : (
+                      <p className="text-xs text-destructive text-center">
+                        CAPTCHA is not configured. Set VITE_TURNSTILE_SITE_KEY.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+
                 {/* Navigation Buttons */}
                 <div className="flex justify-between pt-4 border-t">
                   <Button
@@ -701,7 +722,7 @@ export default function PublicPermitRequest() {
                   ) : (
                     <Button
                       onClick={handleSubmit}
-                      disabled={createPermit.isPending}
+                      disabled={createPermit.isPending || !turnstileToken}
                       className="bg-success hover:bg-success/90"
                     >
                       {createPermit.isPending ? (
