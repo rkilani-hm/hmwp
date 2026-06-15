@@ -17,6 +17,8 @@ import {
   TrendingUp,
   RotateCcw,
   Settings2,
+  FileEdit,
+  Ban,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
