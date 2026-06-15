@@ -510,7 +510,13 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
+    const pad2 = (n: number) => n.toString().padStart(2, '0');
+    const formatDate = (date: string) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    };
     const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
 
