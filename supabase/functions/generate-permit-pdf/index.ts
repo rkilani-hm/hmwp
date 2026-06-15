@@ -732,17 +732,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
-    // Status badge — derived from permit_approvals.
-    const humanizeRole = (r: string): string =>
-      (ROLE_DISPLAY_NAMES[r] ?? r)
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const pendingRoles = approvals
-      .filter((a) => a.status === 'pending')
-      .map((a) => humanizeRole(a.roleKey));
+    // Status badge — one-word summary derived from permit_approvals.
     const anyRejected = approvals.some((a) => a.status === 'rejected');
     const anyApproved = approvals.some((a) => a.status === 'approved');
+    const anyPending = approvals.some((a) => a.status === 'pending');
 
     let statusText: string;
     let statusColor: ReturnType<typeof rgb>;
@@ -753,19 +746,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
     } else if (anyRejected || permit.status === 'rejected') {
       statusText = 'REJECTED';
       statusColor = BRAND_RED;
-    } else if (pendingRoles.length === 0 && anyApproved) {
+    } else if (!anyPending && anyApproved) {
       statusText = 'APPROVED';
       statusColor = rgb(0.13, 0.77, 0.37);
-    } else if (pendingRoles.length > 0) {
-      const shown = pendingRoles.slice(0, 2).join(', ');
-      const extra = pendingRoles.length > 2
-        ? ` (+${pendingRoles.length - 2} more)`
-        : '';
-      statusText = `AWAITING ${shown}${extra}`;
-      statusColor = rgb(0.95, 0.6, 0.07);
     } else {
-      statusText = (permit.status || 'unknown').toUpperCase();
-      statusColor = rgb(0.42, 0.45, 0.5);
+      statusText = 'PENDING';
+      statusColor = rgb(0.95, 0.6, 0.07);
     }
     drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
     yPos -= 22;
