@@ -447,8 +447,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     };
 
     /** Four bilingual zone checkboxes (Business Tower / Shopping
-     *  Center / Carpark / Outdoor) stacked vertically top-right.
-     *  The one matching permit.building_zone is ticked. */
+     *  Center / Carpark / Outdoor) laid out horizontally in a single
+     *  row, right-aligned. The one matching permit.building_zone is ticked. */
     const ZONE_ITEMS: Array<{ key: string; label: string }> = [
       { key: 'business_tower',  label: 'Business Tower'  },
       { key: 'shopping_center', label: 'Shopping Center' },
