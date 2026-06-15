@@ -173,13 +173,20 @@ export default function Dashboard({ currentRole }: DashboardProps) {
       </motion.div>
 
       {/* Stats Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <StatsCard
           title="Total Permits"
           value={stats.total}
           icon={FileText}
           variant="primary"
           href="/permits"
+        />
+        <StatsCard
+          title="Draft"
+          value={stats.draft}
+          icon={FileEdit}
+          variant="default"
+          href="/permits?status=draft"
         />
         <StatsCard
           title="Pending"
@@ -208,6 +215,13 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={Archive}
           variant="default"
           href="/permits?status=closed"
+        />
+        <StatsCard
+          title="Cancelled"
+          value={stats.cancelled}
+          icon={Ban}
+          variant="default"
+          href="/permits?status=cancelled"
         />
       </motion.div>
 
