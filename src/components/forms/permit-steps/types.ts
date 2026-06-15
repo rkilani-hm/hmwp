@@ -48,6 +48,7 @@ export interface PermitFormData {
   contractorName: string;
   contactMobile: string;
   backOfHouse: boolean;
+  buildingZone: '' | 'business_tower' | 'shopping_center' | 'carpark' | 'outdoor';
   unit: string;
   floor: string;
   workLocationId: string;
