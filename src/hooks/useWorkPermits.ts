@@ -453,6 +453,7 @@ export function useCreatePermit() {
     mutationFn: async (permitData: {
       contractor_name: string;
       contact_mobile: string;
+      back_of_house?: boolean;
       unit: string;
       floor: string;
       work_location: string;
