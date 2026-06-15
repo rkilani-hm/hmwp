@@ -47,6 +47,7 @@ export interface PermitFormData {
   requesterEmail: string;
   contractorName: string;
   contactMobile: string;
+  backOfHouse: boolean;
   unit: string;
   floor: string;
   workLocationId: string;
