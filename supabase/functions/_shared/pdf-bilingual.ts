@@ -248,7 +248,16 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   // Field-grid labels
   "Company":              { en: "Company",              ar: "الشركة" },
   "Contact":              { en: "Contact",              ar: "للتواصل" },
+  "Contact Name":         { en: "Contact Name",         ar: "اسم جهة الاتصال" },
+  "Client Name":          { en: "Client Name",          ar: "اسم العميل" },
+  "Contractor Company Name": { en: "Contractor Company Name", ar: "اسم شركة المقاول" },
+  "Client Details":       { en: "Client Details",       ar: "بيانات العميل" },
+  "Contractor Details":   { en: "Contractor Details",   ar: "بيانات المقاول" },
+  "Work Description":     { en: "Work Description",     ar: "وصف العمل" },
+  "Location":             { en: "Location",             ar: "الموقع" },
+  "Phone":                { en: "Phone",                ar: "الهاتف" },
   "Time":                 { en: "Time",                 ar: "الوقت" },
+
 
   // Approvers
   "Customer Service":     { en: "Customer Service",     ar: "خدمة العملاء" },
@@ -302,7 +311,22 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   },
 };
 
-/** Look up the AR translation for a key, or null if not in the table. */
+// Pre-built lowercase index for case-insensitive fallback lookups.
+const _LOWERCASE_LABEL_INDEX: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(BILINGUAL_LABELS)) {
+    out[k.toLowerCase()] = BILINGUAL_LABELS[k].ar;
+  }
+  return out;
+})();
+
+/** Look up the AR translation for a key, or null if not in the table.
+ *  Tries exact match first, then case-insensitive fallback so callers
+ *  passing 'Location' resolve against a 'LOCATION' map entry, etc. */
 export function arabicLabel(key: string): string | null {
-  return BILINGUAL_LABELS[key]?.ar ?? null;
+  if (!key) return null;
+  const exact = BILINGUAL_LABELS[key]?.ar;
+  if (exact) return exact;
+  return _LOWERCASE_LABEL_INDEX[key.toLowerCase()] ?? null;
 }
+
