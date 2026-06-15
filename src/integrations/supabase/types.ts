@@ -2172,6 +2172,7 @@ export type Database = {
       }
       is_approver: { Args: { _user_id: string }; Returns: boolean }
       is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
+      is_tenant_user: { Args: { _user_id: string }; Returns: boolean }
       next_gate_pass_number: { Args: { target_date: string }; Returns: string }
       next_gate_pass_number_today: { Args: never; Returns: string }
       next_permit_number: { Args: { target_date: string }; Returns: string }
