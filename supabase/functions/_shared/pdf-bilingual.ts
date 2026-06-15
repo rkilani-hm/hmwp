@@ -26,13 +26,18 @@
 import type { PDFDocument, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
 import { rgb } from "https://esm.sh/pdf-lib@1.17.1";
 
-// Noto Kufi Arabic Regular TTF, served by jsdelivr from the @fontsource
-// package (a canonical, mirrored source for Google Fonts as TTF).
-const NOTO_KUFI_ARABIC_TTF_URL =
-  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-400-normal.ttf";
-
-const NOTO_KUFI_ARABIC_BOLD_TTF_URL =
-  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-700-normal.ttf";
+// Noto Kufi Arabic Regular TTF. Primary URL is jsdelivr; we keep a
+// list of mirrors and try them in order so a single CDN outage or
+// regional block doesn't kill bilingual rendering.
+const NOTO_KUFI_REGULAR_URLS = [
+  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-400-normal.ttf",
+  "https://unpkg.com/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-400-normal.ttf",
+  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-all-400-normal.woff",
+];
+const NOTO_KUFI_BOLD_URLS = [
+  "https://cdn.jsdelivr.net/npm/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-700-normal.ttf",
+  "https://unpkg.com/@fontsource/noto-kufi-arabic@5.0.13/files/noto-kufi-arabic-arabic-700-normal.ttf",
+];
 
 // Cache the fetched TTF bytes between cold starts within the same
 // function instance. Saves ~400KB per invocation after the first.
@@ -44,36 +49,80 @@ export interface ArabicFontPair {
   bold: PDFFont;
 }
 
+/** Try a list of URLs in order, returning the bytes of the first that
+ *  responds 2xx. Logs each attempt so failures are visible in function logs. */
+async function fetchFirstOk(urls: string[], label: string): Promise<Uint8Array> {
+  let lastErr: unknown = null;
+  for (const url of urls) {
+    try {
+      console.log(`[pdf-bilingual] fetching ${label} from ${url}`);
+      const r = await fetch(url);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        console.log(`[pdf-bilingual] ${label} OK (${buf.byteLength} bytes) from ${url}`);
+        return buf;
+      }
+      console.warn(`[pdf-bilingual] ${label} ${r.status} from ${url}`);
+      lastErr = new Error(`HTTP ${r.status}`);
+    } catch (err) {
+      console.warn(`[pdf-bilingual] ${label} threw from ${url}:`, err);
+      lastErr = err;
+    }
+  }
+  throw new Error(`all ${label} URLs failed: ${String(lastErr)}`);
+}
+
 /**
  * Loads and embeds Noto Kufi Arabic (regular + bold) into the given
  * PDFDocument. Returns null on any failure — caller should fall back
- * to English-only rendering when null.
+ * to English-only rendering when null. Each step is logged separately
+ * so the function logs make it obvious which step failed.
  */
 export async function loadArabicFont(
   pdfDoc: PDFDocument,
 ): Promise<ArabicFontPair | null> {
+  // Step 1: fetch the TTF bytes (with CDN fallback)
   try {
     if (!_cachedRegularTtf) {
-      const r = await fetch(NOTO_KUFI_ARABIC_TTF_URL);
-      if (!r.ok) throw new Error(`font fetch ${r.status}`);
-      _cachedRegularTtf = new Uint8Array(await r.arrayBuffer());
+      _cachedRegularTtf = await fetchFirstOk(NOTO_KUFI_REGULAR_URLS, "noto-kufi-regular");
     }
     if (!_cachedBoldTtf) {
-      const r = await fetch(NOTO_KUFI_ARABIC_BOLD_TTF_URL);
-      if (!r.ok) throw new Error(`bold font fetch ${r.status}`);
-      _cachedBoldTtf = new Uint8Array(await r.arrayBuffer());
+      _cachedBoldTtf = await fetchFirstOk(NOTO_KUFI_BOLD_URLS, "noto-kufi-bold");
     }
+  } catch (err) {
+    console.error("[pdf-bilingual] font fetch FAILED, Arabic disabled:", err);
+    return null;
+  }
 
-    // pdf-lib needs fontkit to embed custom TTFs; register it on the doc.
-    // Lazily imported because not every PDF function will need it.
-    const { default: fontkit } = await import("https://esm.sh/@pdf-lib/fontkit@1.1.1");
-    pdfDoc.registerFontkit(fontkit);
+  // Step 2: register fontkit (needed by pdf-lib to embed custom TTFs).
+  // Try npm: specifier first (Deno-native, no CDN), fall back to esm.sh.
+  try {
+    let fontkit: unknown = null;
+    try {
+      console.log("[pdf-bilingual] importing fontkit via npm:");
+      const mod = await import("npm:@pdf-lib/fontkit@1.1.1");
+      fontkit = (mod as { default?: unknown }).default ?? mod;
+    } catch (npmErr) {
+      console.warn("[pdf-bilingual] npm:@pdf-lib/fontkit failed, falling back to esm.sh:", npmErr);
+      const mod = await import("https://esm.sh/@pdf-lib/fontkit@1.1.1");
+      fontkit = (mod as { default?: unknown }).default ?? mod;
+    }
+    // deno-lint-ignore no-explicit-any
+    pdfDoc.registerFontkit(fontkit as any);
+    console.log("[pdf-bilingual] fontkit registered");
+  } catch (err) {
+    console.error("[pdf-bilingual] fontkit register FAILED, Arabic disabled:", err);
+    return null;
+  }
 
+  // Step 3: embed the fonts
+  try {
     const regular = await pdfDoc.embedFont(_cachedRegularTtf, { subset: true });
     const bold    = await pdfDoc.embedFont(_cachedBoldTtf,    { subset: true });
+    console.log("[pdf-bilingual] embedFont OK (regular+bold)");
     return { regular, bold };
   } catch (err) {
-    console.error("loadArabicFont failed:", err);
+    console.error("[pdf-bilingual] embedFont FAILED, Arabic disabled:", err);
     return null;
   }
 }
@@ -82,30 +131,36 @@ export async function loadArabicFont(
  * Lazily-imported shapers. Imports are cached per cold start.
  * arabic-reshaper handles contextual letterform substitution.
  * bidi-js handles right-to-left reordering and embedded LTR runs.
+ * If either fails, drawArabic still renders the RAW (unshaped) text —
+ * disconnected glyphs are ugly but at least confirm the font works.
  */
 let _reshaper: ((text: string) => string) | null = null;
 let _bidiReorder: ((text: string) => string) | null = null;
+let _shapersTried = false;
 
 async function getShapers(): Promise<void> {
-  if (_reshaper && _bidiReorder) return;
+  if (_shapersTried) return;
+  _shapersTried = true;
 
-  // arabic-reshaper exports a function that converts cluster Unicode
-  // (e.g. U+0644 LAM + U+0627 ALEF) to presentation forms.
-  // The package is CommonJS; esm.sh wraps it as ESM.
+  // arabic-reshaper@1.x exports `convertArabic` (the actual function name);
+  // some shims expose `reshape` or `default`. Try them all.
   try {
+    console.log("[pdf-bilingual] importing arabic-reshaper");
     const mod = await import("https://esm.sh/arabic-reshaper@1.1.0?target=deno");
-    // Different esm.sh shims expose this either as default or named.
-    // Tolerate both.
-    const reshape = (mod as { default?: unknown; reshape?: unknown }).reshape ??
-                    (mod as { default?: unknown }).default;
-    if (typeof reshape === "function") {
-      _reshaper = reshape as (text: string) => string;
+    const m = mod as { default?: unknown; reshape?: unknown; convertArabic?: unknown };
+    const fn = m.convertArabic ?? m.reshape ?? m.default;
+    if (typeof fn === "function") {
+      _reshaper = fn as (text: string) => string;
+      console.log("[pdf-bilingual] arabic-reshaper loaded");
+    } else {
+      console.warn("[pdf-bilingual] arabic-reshaper imported but no callable export found; keys =", Object.keys(m));
     }
   } catch (err) {
-    console.error("arabic-reshaper import failed:", err);
+    console.error("[pdf-bilingual] arabic-reshaper import failed:", err);
   }
 
   try {
+    console.log("[pdf-bilingual] importing bidi-js");
     const bidiMod = await import("https://esm.sh/bidi-js@1.0.3");
     type BidiModule = {
       default?: () => { getReorderedString?: (text: string, e?: unknown) => string };
@@ -116,16 +171,18 @@ async function getShapers(): Promise<void> {
       if (typeof inst.getReorderedString === "function") {
         const f = inst.getReorderedString.bind(inst);
         _bidiReorder = (text: string) => f(text);
+        console.log("[pdf-bilingual] bidi-js loaded");
       }
     }
   } catch (err) {
-    console.error("bidi-js import failed:", err);
+    console.error("[pdf-bilingual] bidi-js import failed:", err);
   }
 }
 
 /**
  * Shape an Arabic string for PDF rendering. Returns the input unchanged
- * if the shaper isn't available (graceful degradation).
+ * if the shaper isn't available (graceful degradation — letters will
+ * appear disconnected but at least visible).
  */
 export async function shapeArabic(text: string): Promise<string> {
   await getShapers();
