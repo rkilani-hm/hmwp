@@ -1299,6 +1299,7 @@ export type Database = {
           bdcr_date: string | null
           bdcr_signature: string | null
           bdcr_status: string | null
+          building_zone: string | null
           closed_by: string | null
           closed_date: string | null
           closing_clean_confirmed: boolean | null
@@ -1423,6 +1424,7 @@ export type Database = {
           bdcr_date?: string | null
           bdcr_signature?: string | null
           bdcr_status?: string | null
+          building_zone?: string | null
           closed_by?: string | null
           closed_date?: string | null
           closing_clean_confirmed?: boolean | null
@@ -1547,6 +1549,7 @@ export type Database = {
           bdcr_date?: string | null
           bdcr_signature?: string | null
           bdcr_status?: string | null
+          building_zone?: string | null
           closed_by?: string | null
           closed_date?: string | null
           closing_clean_confirmed?: boolean | null
