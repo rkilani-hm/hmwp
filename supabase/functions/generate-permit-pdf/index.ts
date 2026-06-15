@@ -517,7 +517,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (isNaN(d.getTime())) return 'N/A';
       return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
     };
-    const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
+    const formatDateTime = (date: string | null | undefined) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    };
     const workType = permit.work_types?.name || 'General Work';
 
     // Try to fetch company logo from storage
@@ -753,17 +758,17 @@ const serve_handler = async (req: Request): Promise<Response> => {
       statusText = 'PENDING';
       statusColor = rgb(0.95, 0.6, 0.07);
     }
-    drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
-    yPos -= 22;
+    drawText(page, 'Status: ' + statusText, margin, yPos, 9, helveticaBold, statusColor);
+    yPos -= 18;
 
     // ====================================================================
-    // SECTION A — PERMIT DETAILS  (1. Client/Contractor + 2. Work Desc)
+    // SECTION A — PERMIT DETAILS  (1. Client + 2. Contractor + 3. Work Desc)
     // ====================================================================
     await drawSectionHeader(page, 'SECTION A — PERMIT DETAILS', yPos, 11);
     yPos -= 26;
 
-    // ---- Subsection 1: CLIENT / CONTRACTOR DETAILS (field-grid) ----
-    await drawSubsectionHeader(page, '1. CLIENT / CONTRACTOR DETAILS', yPos, 10);
+    // ---- Subsection 1: Client Details (field-grid) ----
+    await drawSubsectionHeader(page, '1. Client Details', yPos, 10);
     yPos -= 22;
 
     const contentW = pageWidth - margin * 2;
@@ -772,19 +777,22 @@ const serve_handler = async (req: Request): Promise<Response> => {
     const c1x = margin;
     const c2x = margin + col3W + gridGap;
     const c3x = margin + (col3W + gridGap) * 2;
+    const halfW2 = (contentW - gridGap) / 2;
 
-    // Row 1: Name | Company | Mobile
-    await drawField(page, { labelEn: 'Name',    value: permit.requester_name || 'N/A',  x: c1x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Company', value: permit.contractor_name || 'N/A', x: c2x, y: yPos, width: col3W });
-    await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile || 'N/A',  x: c3x, y: yPos, width: col3W });
+    // Row 1: Name | Email
+    await drawField(page, { labelEn: 'Name',  value: permit.requester_name  || 'N/A', x: c1x,                   y: yPos, width: halfW2 });
+    await drawField(page, { labelEn: 'Email', value: permit.requester_email || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // Row 2: Email (full width)
-    await drawField(page, { labelEn: 'Email', value: permit.requester_email || 'N/A', x: c1x, y: yPos, width: contentW });
+    // ---- Subsection 2: Contractor Details ----
+    await drawSubsectionHeader(page, '2. Contractor Details', yPos, 10);
+    yPos -= 22;
+    await drawField(page, { labelEn: 'Company', value: permit.contractor_name || 'N/A', x: c1x,                   y: yPos, width: halfW2 });
+    await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile  || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // ---- Subsection 2: WORK DESCRIPTION ----
-    await drawSubsectionHeader(page, '2. WORK DESCRIPTION', yPos, 10);
+    // ---- Subsection 3: WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '3. Work Description', yPos, 10);
     yPos -= 22;
     const description = String(permit.work_description || '').substring(0, 400);
     const words = description.split(' ');
@@ -851,7 +859,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     //   4. Signature (rest) — embedded signature image, or
     //      'PENDING SIGNATURE' placeholder for pending rows
 
-    await drawSubsectionHeader(page, '3. APPROVAL CHAIN', yPos, 10);
+    await drawSubsectionHeader(page, '1. Approval Chain', yPos, 10);
     yPos -= 18;
 
     // Status colors. APPROVED = success green, REJECTED = brand red,
@@ -884,7 +892,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         const np = createPage();
         page = np.page;
         yPos = np.yPos;
-        await drawSubsectionHeader(page, '3. APPROVAL CHAIN (continued)', yPos, 10);
+        await drawSubsectionHeader(page, '1. Approval Chain (continued)', yPos, 10);
         yPos -= 18;
       }
 
@@ -1047,7 +1055,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
     
     // Footer on first page (sits above the QR/page-number band at y=20)
     drawLine(page, margin + 28);
-    drawText(page, 'Generated on ' + new Date().toLocaleString(), margin, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
+    drawText(page, 'Generated on ' + formatDateTime(new Date().toISOString()), margin, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
     drawText(page, 'This is an official work permit document.', pageWidth - margin - 180, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
 
     // ===== PAGE 2+: Attachment grids =====
@@ -1200,7 +1208,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
         // Subsection bar — burgundy "4. ATTACHED DOCUMENTS" (canonical
         // key so the AR translation resolves). The grid-specific title
         // and page indicator render as a smaller caption below.
-        await drawSubsectionHeader(gridPage, '4. ATTACHED DOCUMENTS', headerY, 10);
+        await drawSubsectionHeader(gridPage, '1. Attached Documents', headerY, 10);
         headerY -= 22;
         const caption = totalGridPages > 1
           ? `${cfg.sectionTitle}  (${pg + 1} of ${totalGridPages})`
