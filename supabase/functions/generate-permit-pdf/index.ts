@@ -847,9 +847,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
     //   1. Number badge (32pt) — colored status dot + step number "01"
     //   2. Role + signer (260pt) — English role name (bold) over
     //      Arabic role name; signer name + date next to it
-    //   3. Status pill (95pt) — colored text like '✓ APPROVED'
+    //   3. Status pill (95pt) — colored text like 'APPROVED'
     //   4. Signature (rest) — embedded signature image, or
-    //      'AWAITING SIGNATURE' placeholder for pending rows
+    //      'PENDING SIGNATURE' placeholder for pending rows
 
     await drawSubsectionHeader(page, '3. APPROVAL CHAIN', yPos, 10);
     yPos -= 18;
@@ -1005,10 +1005,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
           color: rgb(0.6, 0.6, 0.6),
         });
       } else {
-        // Pending / awaiting — dashed underline + "AWAITING SIGNATURE" placeholder
+        // Pending — dashed underline + "PENDING SIGNATURE" placeholder
         drawText(
           page,
-          'AWAITING SIGNATURE',
+          'PENDING SIGNATURE',
           sigX + 4, rowMid - 1, 6, helvetica, STATUS_AWAITING,
         );
         // Dashed line (pdf-lib doesn't natively support dashes here;
@@ -1331,10 +1331,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
     };
 
     // 3×3 IDs grid
-    // 3×3 IDs grid
     //
-    // Layout math: page (792pt) - top margin (50) - section header
-    // (~28) - bottom QR/footer area (~70) = ~644pt usable. Three rows
+    // Layout math: page (841.89pt) - top margin (22) - section/subsection
+    // header (~66) - bottom QR/footer area (~70) = ~684pt usable. Three rows
     // of cellH=200 + 2 gaps of 8 = 616pt total grid height. Comfortably
     // fits with safe margin above the footer. (Previous cellH=220
     // pushed the third row's bottom to y=38, overlapping the QR/footer
