@@ -1369,16 +1369,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
     for (let i = 0; i < totalPages; i++) {
       const currentPage = pages[i];
       
-      // Add CONFIDENTIAL watermark (diagonal across page)
-      currentPage.drawText('CONFIDENTIAL', {
-        x: pageWidth / 2 - 150,
-        y: pageHeight / 2 - 20,
-        size: 60,
-        font: helveticaBold,
-        color: rgb(0.9, 0.9, 0.9),
-        rotate: degrees(45),
-        opacity: 0.3,
-      });
+
+
       
       // Add company logo to header (skip first page as it already has it)
       if (companyLogo && i > 0) {
