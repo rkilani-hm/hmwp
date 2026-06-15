@@ -70,6 +70,9 @@ export default function PublicPermitRequest() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [submittedPermitNo, setSubmittedPermitNo] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
   const [formData, setFormData] = useState<FormData>({
     externalCompanyName: '',
     externalContactPerson: '',
@@ -106,9 +109,14 @@ export default function PublicPermitRequest() {
       return;
     }
 
+    if (!turnstileToken) {
+      toast.error('Please complete the CAPTCHA challenge.');
+      return;
+    }
+
     // Determine work location text
     const selectedLocation = workLocations?.find(loc => loc.id === formData.workLocationId);
-    const workLocationText = formData.workLocationId === 'other' 
+    const workLocationText = formData.workLocationId === 'other'
       ? formData.workLocationOther.trim()
       : selectedLocation?.name || '';
 
@@ -129,10 +137,16 @@ export default function PublicPermitRequest() {
       work_time_from: formData.workTimeFrom,
       work_time_to: formData.workTimeTo,
       urgency: formData.urgency,
+      turnstileToken,
     }, {
       onSuccess: (data) => {
         setSubmittedPermitNo(data.permit_no);
-      }
+      },
+      onError: () => {
+        // Token is single-use; force a fresh one for the next attempt.
+        setTurnstileToken(null);
+        turnstileRef.current?.reset();
+      },
     });
   };
 
