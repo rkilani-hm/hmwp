@@ -871,7 +871,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (approvals[i].status === 'pending') { firstPendingIdx = i; break; }
     }
 
-    const ROW_HEIGHT = 38;
+    const ROW_HEIGHT = 26;
     const CONTENT_RIGHT = pageWidth - margin;
 
     for (let i = 0; i < approvals.length; i++) {
