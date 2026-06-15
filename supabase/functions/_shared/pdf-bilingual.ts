@@ -248,7 +248,16 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   // Field-grid labels
   "Company":              { en: "Company",              ar: "الشركة" },
   "Contact":              { en: "Contact",              ar: "للتواصل" },
+  "Contact Name":         { en: "Contact Name",         ar: "اسم جهة الاتصال" },
+  "Client Name":          { en: "Client Name",          ar: "اسم العميل" },
+  "Contractor Company Name": { en: "Contractor Company Name", ar: "اسم شركة المقاول" },
+  "Client Details":       { en: "Client Details",       ar: "بيانات العميل" },
+  "Contractor Details":   { en: "Contractor Details",   ar: "بيانات المقاول" },
+  "Work Description":     { en: "Work Description",     ar: "وصف العمل" },
+  "Location":             { en: "Location",             ar: "الموقع" },
+  "Phone":                { en: "Phone",                ar: "الهاتف" },
   "Time":                 { en: "Time",                 ar: "الوقت" },
+
 
   // Approvers
   "Customer Service":     { en: "Customer Service",     ar: "خدمة العملاء" },
