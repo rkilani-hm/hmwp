@@ -517,7 +517,12 @@ const serve_handler = async (req: Request): Promise<Response> => {
       if (isNaN(d.getTime())) return 'N/A';
       return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
     };
-    const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
+    const formatDateTime = (date: string | null | undefined) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    };
     const workType = permit.work_types?.name || 'General Work';
 
     // Try to fetch company logo from storage
