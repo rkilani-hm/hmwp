@@ -928,6 +928,24 @@ export type Database = {
           },
         ]
       }
+      public_submission_log: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
