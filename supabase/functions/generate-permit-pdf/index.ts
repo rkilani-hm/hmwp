@@ -1174,16 +1174,24 @@ const serve_handler = async (req: Request): Promise<Response> => {
         await drawSectionHeader(gridPage, 'SECTION C — ATTACHMENTS', headerY, 11);
         headerY -= 28;
 
-        // Subsection bar — burgundy "4. ATTACHED DOCUMENTS · <grid title>"
-        const subTitle = totalGridPages > 1
-          ? `4. ATTACHED DOCUMENTS — ${cfg.sectionTitle} (${pg + 1} of ${totalGridPages})`
-          : `4. ATTACHED DOCUMENTS — ${cfg.sectionTitle}`;
-        // Use drawSubsectionHeader so the burgundy bar matches the
-        // other subsections. arabicLabel('4. ATTACHED DOCUMENTS')
-        // covers the AR side; the EN-side gets the appended grid title
-        // verbatim for context.
-        await drawSubsectionHeader(gridPage, subTitle, headerY, 10);
-        headerY -= 24;
+        // Subsection bar — burgundy "4. ATTACHED DOCUMENTS" (canonical
+        // key so the AR translation resolves). The grid-specific title
+        // and page indicator render as a smaller caption below.
+        await drawSubsectionHeader(gridPage, '4. ATTACHED DOCUMENTS', headerY, 10);
+        headerY -= 22;
+        const caption = totalGridPages > 1
+          ? `${cfg.sectionTitle}  (${pg + 1} of ${totalGridPages})`
+          : cfg.sectionTitle;
+        drawText(gridPage, caption, margin, headerY, 9, helveticaBold, BRAND_DARK);
+        if (arabicFonts && cfg.sectionTitleArabic) {
+          try {
+            await drawArabic(gridPage, cfg.sectionTitleArabic, pageWidth - margin, headerY, {
+              font: arabicFonts.regular, size: 9, color: BRAND_DARK,
+            });
+          } catch { /* non-fatal */ }
+        }
+        headerY -= 16;
+
 
 
         // The grid starts below the header. We center horizontally.
