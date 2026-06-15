@@ -88,7 +88,7 @@ const handler = async (req: Request): Promise<Response> => {
           permit_id: permit.id,
           type: "sla_breach",
           title: "SLA Deadline Exceeded",
-          message: `Your ${permit.urgency === "urgent" ? "urgent " : ""}permit ${permit.permit_no} has exceeded its SLA deadline. The expected completion time has passed.`,
+          message: `Your permit ${permit.permit_no} has exceeded its 24-hour SLA deadline.`,
         });
       }
 
