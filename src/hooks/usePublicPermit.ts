@@ -56,7 +56,11 @@ export function usePublicWorkLocations() {
   });
 }
 
-// Public hook to create internal permits (no auth required)
+// Public hook to create internal permits via the secure
+// `submit-public-permit` edge function. The function verifies a
+// Cloudflare Turnstile token and enforces a per-IP rate limit before
+// inserting the permit with the service role. Anonymous clients no
+// longer have direct insert access to work_permits.
 export function useCreatePublicPermit() {
   return useMutation({
     mutationFn: async (permitData: {
@@ -76,106 +80,52 @@ export function useCreatePublicPermit() {
       work_time_from: string;
       work_time_to: string;
       urgency?: 'normal' | 'urgent';
+      turnstileToken: string;
     }) => {
-      // Generate permit number via Postgres RPC.
-      // Public-portal permits now share the same WP-YYMMDD-NN scheme as
-      // internal permits (no separate INT- prefix). The is_internal flag
-      // on the row still distinguishes external from internal — the
-      // permit_no doesn't need to encode it.
-      const { data: rpcPermitNo, error: rpcErr } = await supabase
-        .rpc('next_permit_number_today');
-      if (rpcErr || !rpcPermitNo) {
-        throw new Error(rpcErr?.message || 'Failed to allocate permit number');
-      }
-      const permitNo = rpcPermitNo as string;
+      const { data, error } = await supabase.functions.invoke(
+        'submit-public-permit',
+        { body: permitData },
+      );
 
-      // Calculate SLA deadline based on urgency
-      const urgency = permitData.urgency || 'normal';
-      const hoursToAdd = urgency === 'urgent' ? 4 : 48;
-      const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000).toISOString();
-
-      // Create the permit with is_internal flag
-      const { data, error } = await supabase
-        .from('work_permits')
-        .insert({
-          permit_no: permitNo,
-          requester_id: null, // No authenticated user
-          requester_name: permitData.external_contact_person,
-          requester_email: permitData.requester_email,
-          contractor_name: permitData.external_company_name,
-          external_company_name: permitData.external_company_name,
-          external_contact_person: permitData.external_contact_person,
-          contact_mobile: permitData.contact_mobile,
-          unit: permitData.unit,
-          floor: permitData.floor,
-          work_location: permitData.work_location,
-          work_location_id: permitData.work_location_id || null,
-          work_location_other: permitData.work_location_other || null,
-          work_type_id: permitData.work_type_id,
-          work_description: permitData.work_description,
-          work_date_from: permitData.work_date_from,
-          work_date_to: permitData.work_date_to,
-          work_time_from: permitData.work_time_from,
-          work_time_to: permitData.work_time_to,
-          status: 'submitted',
-          urgency,
-          sla_deadline: slaDeadline,
-          is_internal: true, // Mark as internal permit
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Send email notification to helpdesk about new internal permit
-      try {
-        const helpdeskEmails = await getEmailsForRole('helpdesk');
-        if (helpdeskEmails.length > 0) {
-          await sendEmailNotification(
-            helpdeskEmails,
-            'new_permit',
-            `New INTERNAL ${urgency === 'urgent' ? 'URGENT ' : ''}Work Permit: ${permitNo}`,
-            {
-              permitId: data.id,
-              permitNo,
-              workType: permitData.work_description,
-              requesterName: `${permitData.external_contact_person} (${permitData.external_company_name})`,
-              urgency,
-              isInternal: true,
-            }
-          );
-        }
-      } catch (emailError) {
-        console.error('Failed to send email notification:', emailError);
-        // Don't fail the permit creation if email fails
-      }
-
-      // Send confirmation email to the requester
-      try {
-        await sendEmailNotification(
-          [permitData.requester_email],
-          'permit_submitted',
-          `Work Permit Request Received: ${permitNo}`,
-          {
-            permitId: data.id,
-            permitNo,
-            workDescription: permitData.work_description,
-            workLocation: permitData.work_location,
-            workDates: `${permitData.work_date_from} to ${permitData.work_date_to}`,
+      if (error) {
+        // supabase.functions.invoke wraps non-2xx responses in a
+        // FunctionsHttpError. Try to surface the server's JSON error.
+        let serverMessage: string | undefined;
+        let status: number | undefined;
+        try {
+          const ctx = (error as any).context;
+          status = ctx?.status;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            serverMessage = body?.error;
           }
-        );
-      } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
+        } catch {
+          /* ignore */
+        }
+        const message =
+          serverMessage ||
+          (status === 429
+            ? 'Too many requests, please try again later.'
+            : status === 403
+            ? 'CAPTCHA verification failed. Please refresh and try again.'
+            : error.message) ||
+          'Failed to submit permit request.';
+        throw new Error(message);
       }
 
-      return data;
+      if (!data?.permitNo) {
+        throw new Error('Unexpected server response.');
+      }
+
+      return { id: data.id, permit_no: data.permitNo };
     },
     onSuccess: () => {
       toast.success('Work permit request submitted successfully!');
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Permit creation error:', error);
-      toast.error('Failed to submit permit request. Please try again.');
+      toast.error(error.message || 'Failed to submit permit request.');
     },
   });
 }
+
