@@ -125,11 +125,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Cannot create profile: missing auth user email');
           setProfile(null);
         } else {
-          const fullName =
-            (typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name.trim())
-              ? authUser.user_metadata.full_name.trim()
-              : email;
+          const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+          const pickStr = (k: string): string | null => {
+            const v = meta[k];
+            if (typeof v !== 'string') return null;
+            const t = v.trim();
+            return t === '' ? null : t;
+          };
+          const fullName = pickStr('full_name') ?? email;
 
+          // IMPORTANT: include phone/company_name/unit/floor from
+          // raw_user_meta_data so a fallback profile create here
+          // doesn't silently drop signup form values if the auth
+          // trigger ever fails to fire. The DB trigger is the
+          // primary path; this is the safety net.
           const { data: createdProfile, error: createError } = await supabase
             .from('profiles')
             .upsert(
@@ -137,6 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 id: userId,
                 email,
                 full_name: fullName,
+                phone: pickStr('phone'),
+                company_name: pickStr('company_name'),
+                unit: pickStr('unit'),
+                floor: pickStr('floor'),
               },
               { onConflict: 'id' }
             )
