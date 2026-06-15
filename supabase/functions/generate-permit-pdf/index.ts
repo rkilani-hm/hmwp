@@ -219,6 +219,11 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // failure (network, invalid font, library missing) we fall back to
     // English-only — better than crashing the whole PDF.
     const arabicFonts = await loadArabicFont(pdfDoc);
+    if (!arabicFonts) {
+      console.warn("[generate-permit-pdf] ARABIC FONT UNAVAILABLE — rendering English-only. See loadArabicFont logs above for the underlying cause (font fetch, fontkit import, or embed failure).");
+    } else {
+      console.log("[generate-permit-pdf] Arabic fonts loaded OK (regular+bold embedded).");
+    }
     
     // A4 page size (595.28 x 841.89 pt) per docs/design/README.md
     const pageWidth = 595.28;
