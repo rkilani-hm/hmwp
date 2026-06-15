@@ -444,35 +444,57 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    /** Four bilingual location checkboxes (Business Tower / Shopping
-     *  Center / Carpark / Outdoor) stacked top-right. All unchecked —
-     *  static template chrome; no permit field drives them. */
-    const drawLocationCheckboxes = async (
+    /** Four bilingual zone checkboxes (Business Tower / Shopping
+     *  Center / Carpark / Outdoor) stacked vertically top-right.
+     *  The one matching permit.building_zone is ticked. */
+    const ZONE_ITEMS: Array<{ key: string; label: string }> = [
+      { key: 'business_tower',  label: 'Business Tower'  },
+      { key: 'shopping_center', label: 'Shopping Center' },
+      { key: 'carpark',         label: 'Carpark'         },
+      { key: 'outdoor',         label: 'Outdoor'         },
+    ];
+    const drawZoneCheckboxes = async (
       page: PDFPage,
       rightX: number,
       topY: number,
+      selectedKey: string | null,
     ) => {
-      const items = ['Business Tower', 'Shopping Center', 'Carpark', 'Outdoor'];
-      const rowH = 14;
-      const boxSize = 8;
-      // Compute max EN label width to right-align consistently
-      const labelWidths = items.map((it) => helvetica.widthOfTextAtSize(it, 7));
+      const rowH = 15;
+      const boxSize = 9;
+      const labelWidths = ZONE_ITEMS.map((it) => helvetica.widthOfTextAtSize(it.label, 7));
       const maxLabelW = Math.max(...labelWidths);
-      for (let i = 0; i < items.length; i++) {
-        const en = items[i];
-        const ar = arabicLabel(en);
+      for (let i = 0; i < ZONE_ITEMS.length; i++) {
+        const { key, label } = ZONE_ITEMS[i];
+        const ar = arabicLabel(label);
         const y = topY - i * rowH;
-        // Box at the left of the row, then label to the right.
-        // Row width = box + 3pt gap + max label
-        const rowLeft = rightX - (boxSize + 3 + maxLabelW);
+        const rowLeft = rightX - (boxSize + 4 + maxLabelW);
+        const isTicked = selectedKey === key;
         page.drawRectangle({
           x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
-          borderColor: BRAND_DARK, borderWidth: 0.6,
+          borderColor: BRAND_DARK, borderWidth: 0.7,
+          color: isTicked ? BRAND_DARK : undefined,
         });
-        drawText(page, en, rowLeft + boxSize + 3, y - boxSize + 1, 7, helvetica, BRAND_DARK);
+        if (isTicked) {
+          // Draw a white check mark inside the filled box
+          const cx = rowLeft;
+          const cy = y - boxSize;
+          page.drawLine({
+            start: { x: cx + 1.5, y: cy + boxSize / 2 },
+            end:   { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            thickness: 1.1, color: WHITE,
+          });
+          page.drawLine({
+            start: { x: cx + boxSize / 2 - 0.5, y: cy + 1.5 },
+            end:   { x: cx + boxSize - 1, y: cy + boxSize - 1 },
+            thickness: 1.1, color: WHITE,
+          });
+        }
+        drawText(
+          page, label, rowLeft + boxSize + 4, y - boxSize + 1, 7,
+          isTicked ? helveticaBold : helvetica, BRAND_DARK,
+        );
         if (arabicFonts && ar) {
-          // AR right-anchored under the EN label (small)
-          await drawArabic(page, ar, rightX, y - boxSize - 7, {
+          await drawArabic(page, ar, rightX, y - boxSize + 1, {
             font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
           });
         }
