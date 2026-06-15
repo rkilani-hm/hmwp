@@ -220,9 +220,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // English-only — better than crashing the whole PDF.
     const arabicFonts = await loadArabicFont(pdfDoc);
     
-    const pageWidth = 612;
-    const pageHeight = 792;
-    const margin = 50;
+    // A4 page size (595.28 x 841.89 pt) per docs/design/README.md
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 22;
     
     // Helper functions
     const createPage = () => {
@@ -369,6 +370,115 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     };
 
+    // ---- Hot Works template helpers (field-grid, doc-id strip, checkboxes) ----
+    const FIELD_LABEL_GREY = rgb(0.541, 0.541, 0.541);
+    const FIELD_UNDERLINE  = rgb(0.847, 0.847, 0.847); // --line #d8d8d8
+    const CELL_DIVIDER     = rgb(0.925, 0.925, 0.925); // --line-soft #ececec
+
+    /** Underlined field — small grey EN label (+ optional AR) above a
+     *  value with a thin underline. Mirrors `.field-grid` in the
+     *  reference template. */
+    const drawField = async (
+      page: PDFPage,
+      opts: { labelEn: string; labelAr?: string | null; value: string;
+              x: number; y: number; width: number; valueBold?: boolean },
+    ) => {
+      // EN label (uppercase tracked feel via plain helveticaBold @ 7pt)
+      drawText(page, opts.labelEn.toUpperCase(), opts.x, opts.y, 7, helveticaBold, FIELD_LABEL_GREY);
+      // AR label right-aligned on the same line, if available
+      const ar = opts.labelAr ?? arabicLabel(opts.labelEn);
+      if (arabicFonts && ar) {
+        await drawArabic(page, ar, opts.x + opts.width, opts.y, {
+          font: arabicFonts.regular, size: 7, color: FIELD_LABEL_GREY,
+        });
+      }
+      // Value below
+      const valueY = opts.y - 12;
+      drawText(
+        page, opts.value || '—', opts.x, valueY, 10,
+        opts.valueBold ? helveticaBold : helvetica, BRAND_DARK,
+      );
+      // Underline
+      page.drawLine({
+        start: { x: opts.x, y: valueY - 3 },
+        end:   { x: opts.x + opts.width, y: valueY - 3 },
+        thickness: 0.5, color: FIELD_UNDERLINE,
+      });
+    };
+
+    /** Doc-ID strip — four equal cells with EN/AR label + value. */
+    const drawDocIdStrip = async (
+      page: PDFPage,
+      y: number,
+      cells: Array<{ labelEn: string; value: string; mono?: boolean }>,
+    ) => {
+      const stripH = 44;
+      const stripW = pageWidth - margin * 2;
+      const cellW = stripW / cells.length;
+      // Outer border
+      page.drawRectangle({
+        x: margin, y: y - stripH, width: stripW, height: stripH,
+        borderColor: FIELD_UNDERLINE, borderWidth: 0.6,
+      });
+      for (let i = 0; i < cells.length; i++) {
+        const cx = margin + i * cellW;
+        // Vertical divider between cells (not after last)
+        if (i > 0) {
+          page.drawLine({
+            start: { x: cx, y: y - stripH + 4 },
+            end:   { x: cx, y: y - 4 },
+            thickness: 0.4, color: CELL_DIVIDER,
+          });
+        }
+        // EN label
+        drawText(page, cells[i].labelEn.toUpperCase(), cx + 6, y - 11, 7, helveticaBold, FIELD_LABEL_GREY);
+        // AR label right-aligned
+        const ar = arabicLabel(cells[i].labelEn);
+        if (arabicFonts && ar) {
+          await drawArabic(page, ar, cx + cellW - 6, y - 11, {
+            font: arabicFonts.regular, size: 7, color: FIELD_LABEL_GREY,
+          });
+        }
+        // Value (bold dark)
+        drawText(page, cells[i].value || '—', cx + 6, y - 30, 11, helveticaBold, BRAND_DARK);
+      }
+    };
+
+    /** Four bilingual location checkboxes (Business Tower / Shopping
+     *  Center / Carpark / Outdoor) stacked top-right. All unchecked —
+     *  static template chrome; no permit field drives them. */
+    const drawLocationCheckboxes = async (
+      page: PDFPage,
+      rightX: number,
+      topY: number,
+    ) => {
+      const items = ['Business Tower', 'Shopping Center', 'Carpark', 'Outdoor'];
+      const rowH = 14;
+      const boxSize = 8;
+      // Compute max EN label width to right-align consistently
+      const labelWidths = items.map((it) => helvetica.widthOfTextAtSize(it, 7));
+      const maxLabelW = Math.max(...labelWidths);
+      for (let i = 0; i < items.length; i++) {
+        const en = items[i];
+        const ar = arabicLabel(en);
+        const y = topY - i * rowH;
+        // Box at the left of the row, then label to the right.
+        // Row width = box + 3pt gap + max label
+        const rowLeft = rightX - (boxSize + 3 + maxLabelW);
+        page.drawRectangle({
+          x: rowLeft, y: y - boxSize, width: boxSize, height: boxSize,
+          borderColor: BRAND_DARK, borderWidth: 0.6,
+        });
+        drawText(page, en, rowLeft + boxSize + 3, y - boxSize + 1, 7, helvetica, BRAND_DARK);
+        if (arabicFonts && ar) {
+          // AR right-anchored under the EN label (small)
+          await drawArabic(page, ar, rightX, y - boxSize - 7, {
+            font: arabicFonts.regular, size: 6, color: FIELD_LABEL_GREY,
+          });
+        }
+      }
+    };
+
     const formatDate = (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A';
     const formatDateTime = (date: string | null | undefined) => date ? new Date(date).toLocaleString() : 'N/A';
     const workType = permit.work_types?.name || 'General Work';
@@ -428,30 +538,32 @@ const serve_handler = async (req: Request): Promise<Response> => {
       console.error("Error generating QR code:", qrError);
     }
 
-    // Header with logo
+    // ---- Top-right chrome: location checkboxes (template static chrome,
+    //      all unchecked — no permit field drives them) + smaller logo
+    //      stacked underneath. The Arabic+English title block lives in
+    //      the left column unaffected.
+    const chromeTopY = yPos;
+    const chromeRightX = pageWidth - margin;
+    await drawLocationCheckboxes(page, chromeRightX, chromeTopY);
+
+    // Smaller logo (40h × 100w max) tucked below the checkbox stack.
     if (companyLogo) {
-      // Scale logo to fit header (max height 50px)
-      const maxLogoHeight = 50;
-      const maxLogoWidth = 120;
+      const maxLogoHeight = 40;
+      const maxLogoWidth = 100;
       const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
       const logoWidth = companyLogo.width * logoScale;
       const logoHeight = companyLogo.height * logoScale;
-      
-      // Draw logo on the right side of header
+      // Checkbox stack is 4 rows × 14pt + AR descender = ~70pt
+      const logoTopY = chromeTopY - 70;
       page.drawImage(companyLogo, {
         x: pageWidth - margin - logoWidth,
-        y: yPos - logoHeight + 10,
+        y: logoTopY - logoHeight,
         width: logoWidth,
         height: logoHeight,
       });
     }
-    
-    // ---- Bilingual title block (v3 design) ----
-    // Layout: Arabic title large at top-left, English title directly
-    // beneath at smaller size. Matches docs/design/work-permit-pdf-template.html.
-    // The previous look (English left + Arabic right on the same baseline)
-    // is replaced because the Hot Works form reference establishes
-    // Arabic-primary stacked-bilingual as the official Al Hamra layout.
+
+    // ---- Bilingual title block (left column) ----
     if (arabicFonts) {
       await drawArabic(page, arabicLabel('WORK PERMIT') ?? '', margin + 180, yPos, {
         font: arabicFonts.bold,
@@ -465,12 +577,24 @@ const serve_handler = async (req: Request): Promise<Response> => {
     drawText(page, permit.permit_no || '', margin, yPos, 14, helveticaBold, BRAND_RED);
     yPos -= 8;
     drawBrandLine(page, yPos);
-    yPos -= 20;
+    yPos -= 16;
 
-    // ---- Phase 2c-3: approvals sourced from the permit_approvals table ----
-    // Moved above the status badge so the badge logic (which derives
-    // 'APPROVED / AWAITING X' from the approvals array) can read it
-    // without hitting a temporal-dead-zone ReferenceError.
+    // Reserve any leftover vertical room consumed by the right-column
+    // chrome (checkboxes + logo) so the doc-ID strip doesn't collide.
+    const chromeBottomY = chromeTopY - 70 - 40;
+    if (yPos > chromeBottomY) yPos = chromeBottomY;
+    yPos -= 8;
+
+    // ---- Doc-ID strip (Permit No. / Work Type / Urgency / Issued) ----
+    await drawDocIdStrip(page, yPos, [
+      { labelEn: 'Permit No.', value: permit.permit_no || '—' },
+      { labelEn: 'Work Type', value: workType },
+      { labelEn: 'Urgency',   value: (permit as any).urgency || 'Normal' },
+      { labelEn: 'Issued',    value: formatDate(permit.created_at) },
+    ]);
+    yPos -= 50;
+
+    // ---- Approvals data fetch (kept above status badge logic) ----
     const ROLE_DISPLAY_NAMES: Record<string, string> = {
       customer_service: 'Customer Service',
       cr_coordinator: 'CR Coordinator',
@@ -487,12 +611,6 @@ const serve_handler = async (req: Request): Promise<Response> => {
       fmsp_approval: 'FMSP Approval',
     };
 
-    // Arabic translations for known role names. Fallback for unknown
-    // (custom) roles: humanize the key (snake_case → Title Case) and
-    // render in the English column only (no Arabic line). This keeps
-    // the layout dynamic — custom roles still render correctly, they
-    // just don't get an Arabic translation until admin adds one to
-    // this map (or, later, a roles.label_ar column).
     const ROLE_DISPLAY_NAMES_AR: Record<string, string> = {
       customer_service: 'خدمة العملاء',
       cr_coordinator: 'منسق علاقات العملاء',
@@ -553,14 +671,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
         date: r.approved_at,
         signature: r.signature,
         comments: r.comments,
-        // step_order comes from the joined workflow_steps row; if the
-        // approval row has no workflow_step_id (very old data) fall
-        // back to the legacy hardcoded order via ROLE_ORDER_INDEX so
-        // the chain still sorts deterministically.
         stepOrder: (r.workflow_steps?.step_order ?? null)
           ?? ROLE_ORDER_INDEX[r.role_name] ?? 999,
       }));
-      // Sort by step order so the chain renders in workflow sequence.
       approvals.sort((a, b) => a.stepOrder - b.stepOrder);
     } else {
       const p = permit as Record<string, unknown>;
@@ -583,22 +696,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
-    // Status badge.
-    //
-    // Don't trust permit.status blindly: in workflows where multiple
-    // approvers must act, the work_permits.status enum can briefly
-    // read as the role-specific 'pending_X' even when several
-    // approvals are already in. Showing the raw value as the headline
-    // status is confusing — and showing 'APPROVED' before EVERY
-    // required approver acted is incorrect.
-    //
-    // Derived from permit_approvals (the canonical source — same
-    // table the inbox + progress sidebar read from):
-    //
-    //   - any rejected row  -> REJECTED
-    //   - all approved/none pending -> APPROVED
-    //   - some pending      -> AWAITING <role(s)>
-    //   - terminal but no rows (draft / cancelled) -> use permit.status
+    // Status badge — derived from permit_approvals.
     const humanizeRole = (r: string): string =>
       (ROLE_DISPLAY_NAMES[r] ?? r)
         .replace(/_/g, ' ')
@@ -614,47 +712,64 @@ const serve_handler = async (req: Request): Promise<Response> => {
     let statusColor: ReturnType<typeof rgb>;
 
     if (permit.status === 'draft' || permit.status === 'cancelled') {
-      // Pre-workflow or withdrawn — show raw status, neutral color.
       statusText = (permit.status || 'unknown').toUpperCase();
       statusColor = rgb(0.42, 0.45, 0.5);
     } else if (anyRejected || permit.status === 'rejected') {
       statusText = 'REJECTED';
       statusColor = BRAND_RED;
     } else if (pendingRoles.length === 0 && anyApproved) {
-      // No pending rows AND at least one approved -> fully approved.
       statusText = 'APPROVED';
       statusColor = rgb(0.13, 0.77, 0.37);
     } else if (pendingRoles.length > 0) {
-      // In progress — list who's holding it now (max 2 named, then "+N more")
       const shown = pendingRoles.slice(0, 2).join(', ');
       const extra = pendingRoles.length > 2
         ? ` (+${pendingRoles.length - 2} more)`
         : '';
       statusText = `AWAITING ${shown}${extra}`;
-      statusColor = rgb(0.95, 0.6, 0.07); // amber — work-in-progress
+      statusColor = rgb(0.95, 0.6, 0.07);
     } else {
-      // Fallback (rare: workflow_steps exist but no permit_approvals
-      // rows — shouldn't happen post-Phase-2c-5a, but guard anyway).
       statusText = (permit.status || 'unknown').toUpperCase();
       statusColor = rgb(0.42, 0.45, 0.5);
     }
     drawText(page, 'Status: ' + statusText, margin, yPos, 12, helveticaBold, statusColor);
-    yPos -= 20;
-    drawText(page, 'Work Type: ' + workType, margin, yPos, 11, helvetica, BRAND_DARK);
-    yPos -= 30;
-    
-    drawLine(page, yPos);
-    yPos -= 25;
-    
-    // Work Description
-    await drawSectionHeader(page, 'WORK DESCRIPTION', yPos, 11);
-    yPos -= 24;
-    const description = String(permit.work_description || '').substring(0, 200);
+    yPos -= 22;
+
+    // ====================================================================
+    // SECTION A — PERMIT DETAILS  (1. Client/Contractor + 2. Work Desc)
+    // ====================================================================
+    await drawSectionHeader(page, 'SECTION A — PERMIT DETAILS', yPos, 11);
+    yPos -= 26;
+
+    // ---- Subsection 1: CLIENT / CONTRACTOR DETAILS (field-grid) ----
+    await drawSubsectionHeader(page, '1. CLIENT / CONTRACTOR DETAILS', yPos, 10);
+    yPos -= 22;
+
+    const contentW = pageWidth - margin * 2;
+    const gridGap = 12;
+    const col3W = (contentW - gridGap * 2) / 3;
+    const c1x = margin;
+    const c2x = margin + col3W + gridGap;
+    const c3x = margin + (col3W + gridGap) * 2;
+
+    // Row 1: Name | Company | Mobile
+    await drawField(page, { labelEn: 'Name',    value: permit.requester_name || 'N/A',  x: c1x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Company', value: permit.contractor_name || 'N/A', x: c2x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile || 'N/A',  x: c3x, y: yPos, width: col3W });
+    yPos -= 32;
+
+    // Row 2: Email (full width)
+    await drawField(page, { labelEn: 'Email', value: permit.requester_email || 'N/A', x: c1x, y: yPos, width: contentW });
+    yPos -= 32;
+
+    // ---- Subsection 2: WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '2. WORK DESCRIPTION', yPos, 10);
+    yPos -= 22;
+    const description = String(permit.work_description || '').substring(0, 400);
     const words = description.split(' ');
     let line = '';
     for (const word of words) {
       const testLine = line + word + ' ';
-      if (testLine.length > 80) {
+      if (testLine.length > 90) {
         drawText(page, line.trim(), margin, yPos, 10, helvetica);
         yPos -= 14;
         line = word + ' ';
@@ -664,53 +779,35 @@ const serve_handler = async (req: Request): Promise<Response> => {
     }
     if (line.trim()) {
       drawText(page, line.trim(), margin, yPos, 10, helvetica);
-      yPos -= 20;
+      yPos -= 14;
     }
-    
-    yPos -= 10;
-    drawLine(page, yPos);
-    yPos -= 25;
-    
-    // Two column layout
-    const col1 = margin;
-    const col2 = pageWidth / 2 + 10;
+    yPos -= 14;
 
-    // Parties subsection bar (single bar spanning width, columns below).
-    // Replaces the previous two parallel red text headers; aligns with
-    // the v3 design where each numbered subsection has one banner.
-    await drawSubsectionHeader(page, '1. CLIENT / CONTRACTOR DETAILS', yPos, 10);
-    yPos -= 22;
-    drawText(page, 'REQUESTER', col1, yPos, 9, helveticaBold, BRAND_DARK);
-    drawText(page, 'CONTRACTOR', col2, yPos, 9, helveticaBold, BRAND_DARK);
-    yPos -= 14;
-    drawText(page, 'Name: ' + (permit.requester_name || 'N/A'), col1, yPos, 10, helvetica);
-    drawText(page, 'Company: ' + (permit.contractor_name || 'N/A'), col2, yPos, 10, helvetica);
-    yPos -= 14;
-    drawText(page, 'Email: ' + (permit.requester_email || 'N/A'), col1, yPos, 10, helvetica);
-    drawText(page, 'Contact: ' + (permit.contact_mobile || 'N/A'), col2, yPos, 10, helvetica);
-    yPos -= 25;
-    
-    // Location & Schedule
-    drawText(page, 'LOCATION', col1, yPos, 11, helveticaBold, BRAND_RED);
-    drawText(page, 'SCHEDULE', col2, yPos, 11, helveticaBold, BRAND_RED);
-    if (arabicFonts) {
-      await drawArabic(page, arabicLabel('LOCATION') ?? '', col1 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-      await drawArabic(page, arabicLabel('SCHEDULE') ?? '', col2 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-    }
-    yPos -= 18;
-    drawText(page, 'Location: ' + (permit.work_location || 'N/A'), col1, yPos, 10, helvetica);
-    drawText(page, 'Date: ' + formatDate(permit.work_date_from) + ' - ' + formatDate(permit.work_date_to), col2, yPos, 10, helvetica);
-    yPos -= 14;
-    drawText(page, 'Unit: ' + (permit.unit || 'N/A') + ', Floor: ' + (permit.floor || 'N/A'), col1, yPos, 10, helvetica);
-    drawText(page, 'Time: ' + (permit.work_time_from || 'N/A') + ' - ' + (permit.work_time_to || 'N/A'), col2, yPos, 10, helvetica);
-    yPos -= 30;
-    
-    drawLine(page, yPos);
-    yPos -= 18;
+    // Location / Schedule (field-grid). Respect back_of_house:
+    // when true, Unit displays "Back of House"; Floor still shows real value.
+    const isBOH = !!(permit as any).back_of_house;
+    const unitDisplay = isBOH ? 'Back of House' : (permit.unit || 'N/A');
+
+    // Row 3: Location | Unit | Floor
+    await drawField(page, { labelEn: 'Location', value: permit.work_location || 'N/A', x: c1x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Unit',     value: unitDisplay,                   x: c2x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Floor',    value: permit.floor || 'N/A',         x: c3x, y: yPos, width: col3W });
+    yPos -= 32;
+
+    // Row 4: Date | Time
+    const dateValue = `${formatDate(permit.work_date_from)}  -  ${formatDate(permit.work_date_to)}`;
+    const timeValue = `${permit.work_time_from || 'N/A'}  -  ${permit.work_time_to || 'N/A'}`;
+    const halfW = (contentW - gridGap) / 2;
+    await drawField(page, { labelEn: 'Date', value: dateValue, x: c1x,                    y: yPos, width: halfW });
+    await drawField(page, { labelEn: 'Time', value: timeValue, x: c1x + halfW + gridGap,  y: yPos, width: halfW });
+    yPos -= 36;
+
+    // ====================================================================
+    // SECTION B — APPROVAL CHAIN
+    // ====================================================================
+    await drawSectionHeader(page, 'SECTION B — APPROVAL CHAIN', yPos, 11);
+    yPos -= 26;
+
 
     // ====================================================================
     // Approval Chain — full-width row layout (v3 design)
@@ -925,10 +1022,10 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // to approved/rejected anymore — the chain shows all rows so
     // viewers see the full audit trail including pending steps.
     
-    // Footer on first page
-    drawLine(page, 50);
-    drawText(page, 'Generated on ' + new Date().toLocaleString(), margin, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
-    drawText(page, 'This is an official work permit document.', pageWidth - margin - 180, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
+    // Footer on first page (sits above the QR/page-number band at y=20)
+    drawLine(page, margin + 28);
+    drawText(page, 'Generated on ' + new Date().toLocaleString(), margin, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
+    drawText(page, 'This is an official work permit document.', pageWidth - margin - 180, margin + 13, 8, helvetica, rgb(0.5, 0.5, 0.5));
 
     // ===== PAGE 2+: Attachment grids =====
     //
@@ -1071,32 +1168,31 @@ const serve_handler = async (req: Request): Promise<Response> => {
         const { page: gridPage } = createPage();
         let headerY = pageHeight - margin;
 
-        // Section header — bilingual title + page indicator
-        const title = totalGridPages > 1
-          ? `${cfg.sectionTitle} (${pg + 1} of ${totalGridPages})`
+        // SECTION C — ATTACHMENTS black banner (only on the first page
+        // of the very first grid section; subsequent grid pages get
+        // just the subsection bar). cfg.sectionTitle differentiates.
+        await drawSectionHeader(gridPage, 'SECTION C — ATTACHMENTS', headerY, 11);
+        headerY -= 28;
+
+        // Subsection bar — burgundy "4. ATTACHED DOCUMENTS" (canonical
+        // key so the AR translation resolves). The grid-specific title
+        // and page indicator render as a smaller caption below.
+        await drawSubsectionHeader(gridPage, '4. ATTACHED DOCUMENTS', headerY, 10);
+        headerY -= 22;
+        const caption = totalGridPages > 1
+          ? `${cfg.sectionTitle}  (${pg + 1} of ${totalGridPages})`
           : cfg.sectionTitle;
-        drawText(gridPage, title, margin, headerY, 16, helveticaBold, BRAND_RED);
+        drawText(gridPage, caption, margin, headerY, 9, helveticaBold, BRAND_DARK);
         if (arabicFonts && cfg.sectionTitleArabic) {
           try {
-            await drawArabic(
-              gridPage,
-              cfg.sectionTitleArabic,
-              pageWidth - margin,
-              headerY,
-              { font: arabicFonts.bold, size: 16, color: BRAND_RED },
-            );
-          } catch {
-            // Arabic font issue is non-fatal
-          }
+            await drawArabic(gridPage, cfg.sectionTitleArabic, pageWidth - margin, headerY, {
+              font: arabicFonts.regular, size: 9, color: BRAND_DARK,
+            });
+          } catch { /* non-fatal */ }
         }
-        headerY -= 8;
-        gridPage.drawLine({
-          start: { x: margin, y: headerY },
-          end: { x: pageWidth - margin, y: headerY },
-          thickness: 1,
-          color: BRAND_RED,
-        });
-        headerY -= 20;
+        headerY -= 16;
+
+
 
         // The grid starts below the header. We center horizontally.
         const gridWidth = cfg.cols * cfg.cellW + (cfg.cols - 1) * cfg.gap;
