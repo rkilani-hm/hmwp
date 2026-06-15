@@ -923,40 +923,40 @@ const serve_handler = async (req: Request): Promise<Response> => {
       const dotX = margin + 8;
       const dotY = rowMid;
       if (drawHalo) {
-        page.drawCircle({ x: dotX, y: dotY, size: 7, color: rgb(0.95, 0.85, 0.85) });
+        page.drawCircle({ x: dotX, y: dotY, size: 6, color: rgb(0.95, 0.85, 0.85) });
       }
-      page.drawCircle({ x: dotX, y: dotY, size: 3.5, color: dotColor });
+      page.drawCircle({ x: dotX, y: dotY, size: 3, color: dotColor });
       drawText(
         page,
         String(i + 1).padStart(2, '0'),
-        dotX + 8, dotY - 3, 10, helveticaBold, BRAND_DARK,
+        dotX + 7, dotY - 2.5, 8, helveticaBold, BRAND_DARK,
       );
 
       // ---- Cell 2: role name (English bold + Arabic below) + signer/date ----
-      const roleX = margin + 40;
-      const signerX = margin + 220;
+      const roleX = margin + 36;
+      const signerX = margin + 200;
 
       // English role name (top, bold)
-      drawText(page, approval.name, roleX, rowMid + 5, 10, helveticaBold, BRAND_DARK);
+      drawText(page, approval.name, roleX, rowMid + 3, 8, helveticaBold, BRAND_DARK);
 
       // Arabic role name (below, smaller, RTL anchored)
       if (approval.nameAr && arabicFonts) {
-        await drawArabic(page, approval.nameAr, roleX + 175, rowMid - 9, {
+        await drawArabic(page, approval.nameAr, roleX + 155, rowMid - 6, {
           font: arabicFonts.regular,
-          size: 9,
+          size: 7,
           color: rgb(0.302, 0.302, 0.302),
         });
       }
 
       // Signer name (top)
       const signerName = (isApproved || isRejected) ? (approval.approver || '—') : '—';
-      drawText(page, signerName, signerX, rowMid + 5, 9.5, helvetica, BRAND_DARK);
+      drawText(page, signerName, signerX, rowMid + 3, 7.5, helvetica, BRAND_DARK);
 
       // Date or Pending
       const dateLabel = (isApproved || isRejected) && approval.date
         ? formatDateTime(approval.date)
         : 'Pending';
-      drawText(page, dateLabel, signerX, rowMid - 7, 8, helvetica, rgb(0.541, 0.541, 0.541));
+      drawText(page, dateLabel, signerX, rowMid - 5, 6.5, helvetica, rgb(0.541, 0.541, 0.541));
 
       // ---- Cell 3: status pill (colored text) ----
       const pillX = pageWidth * 0.62;
@@ -964,7 +964,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
                     : isRejected ? '\u2717 '
                     : isFirstPending ? '\u25CF '
                     : '\u25CB ';
-      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 9, helveticaBold, pillColor);
+      drawText(page, prefix + pillLabel, pillX, rowMid - 1, 7.5, helveticaBold, pillColor);
 
       // ---- Cell 4: signature (image or "AWAITING SIGNATURE" placeholder) ----
       const sigX = pageWidth * 0.78;
