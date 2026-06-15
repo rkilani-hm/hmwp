@@ -81,6 +81,37 @@ export function useApproveTenant() {
 
       if (error) throw error;
 
+      // Ensure approved user has the 'tenant' role. Idempotent — if
+      // they already hold it, the (user_id, role_id) unique index makes
+      // this a no-op. Admin RLS "Admins can manage roles" allows this
+      // client-side insert.
+      try {
+        const { data: tenantRole, error: roleLookupErr } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('name', 'tenant')
+          .maybeSingle();
+        if (roleLookupErr) throw roleLookupErr;
+        if (!tenantRole?.id) {
+          console.error('Approval: tenant role missing from roles table');
+        } else {
+          const { error: roleInsertErr } = await supabase
+            .from('user_roles')
+            .upsert(
+              { user_id: tenantId, role_id: tenantRole.id },
+              { onConflict: 'user_id,role_id', ignoreDuplicates: true },
+            );
+          if (roleInsertErr && roleInsertErr.code !== '23505') {
+            throw roleInsertErr;
+          }
+        }
+      } catch (roleErr: any) {
+        console.error('Failed to assign tenant role on approval:', roleErr);
+        toast.error(
+          'Tenant approved, but assigning the tenant role failed. Please retry or assign it manually.',
+        );
+      }
+
       // Best-effort email — don't block / fail on email errors.
       try {
         await supabase.functions.invoke('send-email-notification', {
@@ -101,6 +132,8 @@ export function useApproveTenant() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PENDING_TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: ['users-with-roles'] });
+      qc.invalidateQueries({ queryKey: ['users-by-role'] });
       toast.success('Tenant approved');
     },
     onError: (err: Error) => {
