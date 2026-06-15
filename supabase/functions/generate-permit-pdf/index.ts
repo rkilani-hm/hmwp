@@ -795,8 +795,76 @@ const serve_handler = async (req: Request): Promise<Response> => {
     await drawField(page, { labelEn: 'Mobile',  value: permit.contact_mobile  || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
     yPos -= 32;
 
-    // ---- Subsection 3: WORK DESCRIPTION ----
-    await drawSubsectionHeader(page, '3. Work Description', yPos, 10);
+    // ---- Subsection 3: NOTES (static bilingual boilerplate) ----
+    await drawSubsectionHeader(page, '3. Notes', yPos, 10);
+    yPos -= 18;
+
+    // Fixed boilerplate notes — identical on every permit. Edit here
+    // to change wording. English left-aligned, Arabic right-aligned,
+    // both occupying ~half the content width per row.
+    const NOTES: Array<{ en: string; ar: string }> = [
+      {
+        en: '1. Please contact Helpdesk at 22233043 prior to commencing works and after completion of works.',
+        ar: '١. يرجى الاتصال بمكتب المساعدة على الرقم 22233043 قبل البدء وبعد إنجاز الأعمال.',
+      },
+      {
+        en: '2. Permission is granted only for the works approved above; works outside the described work above will not be permitted.',
+        ar: '٢. يُمنح تصريح العمل للأعمال المعتمدة أعلاه فقط، ولا يُصرح بالأعمال خارج نطاق الوصف أعلاه.',
+      },
+      {
+        en: '3. All Work permits require 24-48 Hrs for processing.',
+        ar: '٣. كافة تصاريح العمل تحتاج 24-48 ساعة للمراجعة والاعتماد.',
+      },
+    ];
+
+    const noteFontSize = 8;
+    const noteLineH = 11;
+    const noteHalfW = contentW / 2 - 8;
+    const enColX = margin;
+    const arColRightX = pageWidth - margin;
+
+    // Greedy word-wrap by measured width.
+    const wrapByWidth = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
+      const words = text.split(/\s+/);
+      const lines: string[] = [];
+      let cur = '';
+      for (const w of words) {
+        const test = cur ? cur + ' ' + w : w;
+        if (font.widthOfTextAtSize(test, size) > maxWidth && cur) {
+          lines.push(cur);
+          cur = w;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    };
+
+    for (const note of NOTES) {
+      const enLines = wrapByWidth(note.en, helvetica, noteFontSize, noteHalfW);
+      const arLines = arabicFonts
+        ? wrapByWidth(note.ar, arabicFonts.regular, noteFontSize, noteHalfW)
+        : [];
+      const rowLines = Math.max(enLines.length, arLines.length, 1);
+
+      for (let i = 0; i < enLines.length; i++) {
+        drawText(page, enLines[i], enColX, yPos - i * noteLineH, noteFontSize, helvetica);
+      }
+      if (arabicFonts) {
+        for (let i = 0; i < arLines.length; i++) {
+          await drawArabic(page, arLines[i], arColRightX, yPos - i * noteLineH, {
+            font: arabicFonts.regular,
+            size: noteFontSize,
+          });
+        }
+      }
+      yPos -= rowLines * noteLineH + 6;
+    }
+    yPos -= 4;
+
+    // ---- Subsection 4: WORK DESCRIPTION ----
+    await drawSubsectionHeader(page, '4. Work Description', yPos, 10);
     yPos -= 22;
     const description = String(permit.work_description || '').substring(0, 400);
     const words = description.split(' ');
