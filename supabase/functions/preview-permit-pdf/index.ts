@@ -181,39 +181,34 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth handling — DELIBERATELY LENIENT.
-    //
-    // This function renders a preview PDF from form data the caller
-    // provides. The function:
-    //   - Doesn't read sensitive user data
-    //   - Doesn't write anywhere
-    //   - Doesn't return personalized info
-    // So strict per-user auth was overkill.
-    //
-    // The previous version called supabaseUser.auth.getUser() and
-    // returned 'Invalid token' on failure. That triggered for several
-    // legitimate scenarios (token age, sometimes JWT signature variance
-    // between regions) and blocked tenants from previewing their own
-    // permit before submission. Now: try to resolve a user for rate
-    // limiting, but proceed anyway if it fails. The Supabase platform's
-    // verify_jwt setting (when enabled in supabase/config.toml) still
-    // does its own JWT validation BEFORE this function runs, so this
-    // isn't a security regression.
+    // Auth REQUIRED — preview PDFs are only available to signed-in users.
     const authHeader = req.headers.get("Authorization");
-    let userId: string | null = null;
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
-    if (authHeader) {
-      try {
-        const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: authHeader } },
-        });
-        const { data: { user } } = await supabaseUser.auth.getUser();
-        if (user) userId = user.id;
-      } catch (authErr) {
-        // Best-effort — keep going without a user id. Rate limiter
-        // falls back to a per-IP bucket.
-        console.warn("preview-permit-pdf: optional user lookup failed:", authErr);
+    let userId: string | null = null;
+    try {
+      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
+      if (authErr || !user) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid or expired session" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
+      userId = user.id;
+    } catch (authErr) {
+      console.warn("preview-permit-pdf: auth failed:", authErr);
+      return new Response(
+        JSON.stringify({ success: false, error: "Authentication failed" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Rate limit — by user id if we have one, otherwise by best-effort
