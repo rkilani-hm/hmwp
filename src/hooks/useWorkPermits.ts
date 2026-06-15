@@ -718,7 +718,7 @@ export function useCreatePermit() {
         action: 'Permit Created',
         performed_by: profile?.full_name || user?.email || 'Unknown',
         performed_by_id: user?.id,
-        details: `Permit ${permitNo} submitted for review (${urgency === 'urgent' ? 'URGENT - 4hr SLA' : 'Normal - 48hr SLA'})`,
+        details: `Permit ${permitNo} submitted for review (24h SLA)`,
       });
 
       // Submission confirmation notification to the requester.
