@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { normalizeKuwaitPhone } from '@/lib/validation/phone';
 import { useUpdateUserProfile } from '@/hooks/useUserManagement';
 import type { UserWithRoles } from '@/hooks/useAdmin';
 
@@ -46,11 +48,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     e.preventDefault();
     if (!user) return;
 
+    const trimmedPhone = phone.trim();
+    let normalizedPhone: string | null = null;
+    if (trimmedPhone) {
+      const n = normalizeKuwaitPhone(trimmedPhone);
+      if (!n) {
+        toast.error('Enter a valid Kuwaiti mobile number (8 digits, e.g. 66001030)');
+        return;
+      }
+      normalizedPhone = n;
+    }
+
     update.mutate(
       {
         userId: user.id,
         fullName: fullName.trim() || null,
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         companyName: companyName.trim() || null,
       },
       {
