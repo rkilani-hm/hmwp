@@ -182,46 +182,33 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Auth REQUIRED — preview PDFs are only available to signed-in users.
+    // We validate the JWT explicitly here (the function is deployed with
+    // verify_jwt = true for defense-in-depth, but we never rely on the
+    // platform alone). Matches the auth model used by generate-permit-pdf.
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
-        JSON.stringify({ success: false, error: "Authentication required" }),
+        JSON.stringify({ success: false, error: "Unauthorized - No authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    let userId: string | null = null;
-    try {
-      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
-      if (authErr || !user) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid or expired session" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      userId = user.id;
-    } catch (authErr) {
-      console.warn("preview-permit-pdf: auth failed:", authErr);
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser(token);
+    if (authErr || !user) {
+      console.warn("preview-permit-pdf: invalid token", authErr?.message);
       return new Response(
-        JSON.stringify({ success: false, error: "Authentication failed" }),
+        JSON.stringify({ success: false, error: "Unauthorized - Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    const userId = user.id;
 
-    // Rate limit — by user id if we have one, otherwise by best-effort
-    // IP header. Worst case: rate limit is applied to 'anonymous'
-    // (effectively a global bucket). For a preview function this is
-    // acceptable; the budget is generous (20/min).
-    const rateLimitKey =
-      userId ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("cf-connecting-ip") ||
-      "anonymous";
-
-    const rl = checkRateLimit(rateLimitKey);
+    // Rate limit keyed strictly off the authenticated user id. No
+    // anonymous fallback — auth is required above, so userId is always
+    // present at this point.
+    const rl = checkRateLimit(userId);
     if (!rl.allowed) {
       return new Response(
         JSON.stringify({ success: false, error: "Too many preview requests" }),
@@ -235,6 +222,7 @@ serve(async (req) => {
         },
       );
     }
+
 
     // Parse body
     const body = await req.json().catch(() => null);
