@@ -12,6 +12,7 @@ import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 import { emailSchema, passwordSchema } from '@/lib/validation/auth';
+import { normalizeKuwaitPhone } from '@/lib/validation/phone';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -85,6 +86,8 @@ export default function Auth() {
     }
     if (!signUpPhone.trim()) {
       errors.phone = 'Phone number is required';
+    } else if (!normalizeKuwaitPhone(signUpPhone)) {
+      errors.phone = 'Enter a valid Kuwaiti mobile number (8 digits, e.g. 66001030)';
     }
     if (!signUpCompany.trim()) {
       errors.company = 'Company name is required';
@@ -129,7 +132,7 @@ export default function Auth() {
     
     setIsLoading(true);
     const { error } = await signUp(signUpEmail, signUpPassword, signUpName, {
-      phone: signUpPhone,
+      phone: normalizeKuwaitPhone(signUpPhone) ?? signUpPhone,
       companyName: signUpCompany,
       unit: signUpUnit,
       floor: signUpFloor,
