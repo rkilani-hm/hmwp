@@ -12,11 +12,22 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin } from 'lucide-react';
+import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin, Eye, EyeOff, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
+import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
+import { z } from 'zod';
+
+// Mirror the signup password rules so in-app password changes can't
+// downgrade to a weaker secret than what we accept at registration.
+const changePasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/\d/, 'Password must contain a number')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character');
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
