@@ -662,12 +662,98 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {/* Change Password — visible to everyone (tenants and staff). */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Change Password
+              </CardTitle>
+              <CardDescription>
+                Set a new password for your account. You must be signed in recently.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <PasswordStrengthIndicator password={newPassword} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {passwordValidation.error && (
+                  <p className="text-xs text-destructive">{passwordValidation.error}</p>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={!passwordValidation.valid || isChangingPassword}
+                className="w-full"
+              >
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Update Password
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Saved signature & initials — pre-loaded into every approval pad.
               Hidden from tenant-only users since they never approve permits. */}
           {!isTenantOnly && <UserSignaturesCard />}
 
-          {/* Registered biometric devices (WebAuthn) */}
-          <BiometricDevices />
+          {/* Registered biometric devices (WebAuthn) — hidden for tenants
+              since they never approve permits and don't need biometric auth. */}
+          {!isTenantOnly && <BiometricDevices />}
         </div>
       </div>
     </div>
