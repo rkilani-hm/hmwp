@@ -601,8 +601,9 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Saved signature & initials — pre-loaded into every approval pad */}
-          <UserSignaturesCard />
+          {/* Saved signature & initials — pre-loaded into every approval pad.
+              Hidden from tenant-only users since they never approve permits. */}
+          {!isTenantOnly && <UserSignaturesCard />}
 
           {/* Registered biometric devices (WebAuthn) */}
           <BiometricDevices />
