@@ -12,11 +12,22 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin } from 'lucide-react';
+import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, ImageIcon, Fingerprint, KeyRound, MapPin, Eye, EyeOff, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
+import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
+import { z } from 'zod';
+
+// Mirror the signup password rules so in-app password changes can't
+// downgrade to a weaker secret than what we accept at registration.
+const changePasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/\d/, 'Password must contain a number')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character');
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
@@ -40,6 +51,56 @@ export default function Settings() {
   const [unit, setUnit] = useState('');
   const [floor, setFloor] = useState('');
   const [authPreference, setAuthPreference] = useState<'password' | 'biometric'>('password');
+
+  // Change-password card state. Hooks are declared unconditionally
+  // (Rules of Hooks) even though the card itself is visible to all
+  // users — keeps render branches independent of hook order.
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const passwordValidation = (() => {
+    if (!newPassword) return { valid: false, error: '' };
+    const parsed = changePasswordSchema.safeParse(newPassword);
+    if (!parsed.success) return { valid: false, error: parsed.error.errors[0].message };
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return { valid: false, error: 'Passwords do not match' };
+    }
+    if (!confirmPassword) return { valid: false, error: '' };
+    return { valid: true, error: '' };
+  })();
+
+  const handleChangePassword = async () => {
+    if (!passwordValidation.valid) return;
+    setIsChangingPassword(true);
+    const toastId = toast.loading('Updating password...');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('reauthentication') || msg.includes('session') || msg.includes('expired')) {
+          toast.error('Please sign out and sign back in, then try again.', { id: toastId });
+        } else if (msg.includes('same') || msg.includes('different from')) {
+          toast.error('New password must be different from your current password.', { id: toastId });
+        } else if (msg.includes('weak') || msg.includes('pwned') || msg.includes('compromised')) {
+          toast.error('This password is too weak or has been found in a data breach. Choose another.', { id: toastId });
+        } else {
+          toast.error(error.message || 'Failed to update password', { id: toastId });
+        }
+        return;
+      }
+      toast.success('Password updated successfully', { id: toastId });
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error('Error updating password:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update password', { id: toastId });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   // Load company logo URL
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -489,8 +550,8 @@ export default function Settings() {
         <div className="space-y-4">
           <PushNotificationSettings />
           
-          {/* Authentication Preference - Only for approvers */}
-          {isApprover() && (
+          {/* Authentication Preference - Only for approvers, never tenants */}
+          {!isTenantOnly && isApprover() && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -601,12 +662,98 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {/* Change Password — visible to everyone (tenants and staff). */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Change Password
+              </CardTitle>
+              <CardDescription>
+                Set a new password for your account. You must be signed in recently.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <PasswordStrengthIndicator password={newPassword} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {passwordValidation.error && (
+                  <p className="text-xs text-destructive">{passwordValidation.error}</p>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={!passwordValidation.valid || isChangingPassword}
+                className="w-full"
+              >
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Update Password
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Saved signature & initials — pre-loaded into every approval pad.
               Hidden from tenant-only users since they never approve permits. */}
           {!isTenantOnly && <UserSignaturesCard />}
 
-          {/* Registered biometric devices (WebAuthn) */}
-          <BiometricDevices />
+          {/* Registered biometric devices (WebAuthn) — hidden for tenants
+              since they never approve permits and don't need biometric auth. */}
+          {!isTenantOnly && <BiometricDevices />}
         </div>
       </div>
     </div>
