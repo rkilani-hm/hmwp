@@ -1197,6 +1197,143 @@ export type Database = {
           },
         ]
       }
+      wa_action_tokens: {
+        Row: {
+          approver_user_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          permit_id: string
+          scope: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          approver_user_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          permit_id: string
+          scope: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          approver_user_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          permit_id?: string
+          scope?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_action_tokens_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          id: string
+          media_ref: string | null
+          media_type: string | null
+          permit_id: string | null
+          phone: string
+          session_id: string | null
+          user_id: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction: string
+          id?: string
+          media_ref?: string | null
+          media_type?: string | null
+          permit_id?: string | null
+          phone: string
+          session_id?: string | null
+          user_id?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          media_ref?: string | null
+          media_type?: string | null
+          permit_id?: string | null
+          phone?: string
+          session_id?: string | null
+          user_id?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_messages_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "wa_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_sessions: {
+        Row: {
+          collected_fields: Json
+          created_at: string
+          expires_at: string | null
+          id: string
+          lang: string
+          last_activity_at: string
+          phone: string
+          state: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          collected_fields?: Json
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lang?: string
+          last_activity_at?: string
+          phone: string
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          collected_fields?: Json
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lang?: string
+          last_activity_at?: string
+          phone?: string
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       webauthn_challenges: {
         Row: {
           binding: Json
@@ -1414,6 +1551,7 @@ export type Database = {
           rework_version: number | null
           sla_breached: boolean | null
           sla_deadline: string | null
+          source: string
           status: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at: string
@@ -1539,6 +1677,7 @@ export type Database = {
           rework_version?: number | null
           sla_breached?: boolean | null
           sla_deadline?: string | null
+          source?: string
           status?: Database["public"]["Enums"]["permit_status"]
           unit: string
           updated_at?: string
@@ -1664,6 +1803,7 @@ export type Database = {
           rework_version?: number | null
           sla_breached?: boolean | null
           sla_deadline?: string | null
+          source?: string
           status?: Database["public"]["Enums"]["permit_status"]
           unit?: string
           updated_at?: string
