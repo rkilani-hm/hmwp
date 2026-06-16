@@ -11,14 +11,7 @@ import { Loader2, Info, CheckCircle, Mail, Clock } from 'lucide-react';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
-
-const emailSchema = z.string().email('Please enter a valid email');
-const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter')
-  .regex(/\d/, 'Password must contain a number')
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character');
+import { emailSchema, passwordSchema } from '@/lib/validation/auth';
 
 export default function Auth() {
   const navigate = useNavigate();
