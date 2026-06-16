@@ -16,6 +16,7 @@ import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, I
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
