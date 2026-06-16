@@ -20,6 +20,7 @@ import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
 import { z } from 'zod';
 import { passwordSchema } from '@/lib/validation/auth';
+import { normalizeKuwaitPhone } from '@/lib/validation/phone';
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
@@ -237,6 +238,20 @@ export default function Settings() {
   const saveProfile = async () => {
     if (!user) return;
 
+    // Normalize phone to E.164 KW format. Empty is allowed (null);
+    // a non-empty value that can't be normalized is rejected so we
+    // don't poison the dataset that drives WhatsApp matching.
+    const trimmedPhone = phone.trim();
+    let normalizedPhone: string | null = null;
+    if (trimmedPhone) {
+      const n = normalizeKuwaitPhone(trimmedPhone);
+      if (!n) {
+        toast.error('Enter a valid Kuwaiti mobile number (8 digits, e.g. 66001030)');
+        return;
+      }
+      normalizedPhone = n;
+    }
+
     setIsSaving(true);
     const toastId = toast.loading('Saving profile...');
 
@@ -251,7 +266,7 @@ export default function Settings() {
             id: user.id,
             email,
             full_name: fullName.trim(),
-            phone: phone.trim() || null,
+            phone: normalizedPhone,
             company_name: companyName.trim() || null,
             // Tenant master data — trimmed, blank → null so the
             // wizards' pre-fill logic doesn't have to distinguish
