@@ -23,6 +23,7 @@ export default function Settings() {
   const { isSubscribed } = usePushNotifications();
   const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
   const isMobile = useIsMobile();
+  const isTenantOnly = useIsTenantOnly();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
