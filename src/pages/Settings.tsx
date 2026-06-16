@@ -52,6 +52,56 @@ export default function Settings() {
   const [floor, setFloor] = useState('');
   const [authPreference, setAuthPreference] = useState<'password' | 'biometric'>('password');
 
+  // Change-password card state. Hooks are declared unconditionally
+  // (Rules of Hooks) even though the card itself is visible to all
+  // users — keeps render branches independent of hook order.
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const passwordValidation = (() => {
+    if (!newPassword) return { valid: false, error: '' };
+    const parsed = changePasswordSchema.safeParse(newPassword);
+    if (!parsed.success) return { valid: false, error: parsed.error.errors[0].message };
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return { valid: false, error: 'Passwords do not match' };
+    }
+    if (!confirmPassword) return { valid: false, error: '' };
+    return { valid: true, error: '' };
+  })();
+
+  const handleChangePassword = async () => {
+    if (!passwordValidation.valid) return;
+    setIsChangingPassword(true);
+    const toastId = toast.loading('Updating password...');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('reauthentication') || msg.includes('session') || msg.includes('expired')) {
+          toast.error('Please sign out and sign back in, then try again.', { id: toastId });
+        } else if (msg.includes('same') || msg.includes('different from')) {
+          toast.error('New password must be different from your current password.', { id: toastId });
+        } else if (msg.includes('weak') || msg.includes('pwned') || msg.includes('compromised')) {
+          toast.error('This password is too weak or has been found in a data breach. Choose another.', { id: toastId });
+        } else {
+          toast.error(error.message || 'Failed to update password', { id: toastId });
+        }
+        return;
+      }
+      toast.success('Password updated successfully', { id: toastId });
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error('Error updating password:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update password', { id: toastId });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   // Load company logo URL
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
