@@ -55,7 +55,7 @@ export default function Settings() {
 
   const passwordValidation = (() => {
     if (!newPassword) return { valid: false, error: '' };
-    const parsed = changePasswordSchema.safeParse(newPassword);
+    const parsed = passwordSchema.safeParse(newPassword);
     if (!parsed.success) return { valid: false, error: parsed.error.errors[0].message };
     if (confirmPassword && newPassword !== confirmPassword) {
       return { valid: false, error: 'Passwords do not match' };
