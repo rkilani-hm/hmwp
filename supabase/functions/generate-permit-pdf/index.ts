@@ -803,22 +803,66 @@ const serve_handler = async (req: Request): Promise<Response> => {
     // ---- Subsection 3: LOCATION AND WORK DESCRIPTION ----
     await drawSubsectionHeader(page, '3. Location and Work Description', yPos, 10);
     yPos -= 22;
-    const description = String(permit.work_description || '').substring(0, 400);
-    const words = description.split(' ');
-    let line = '';
-    for (const word of words) {
-      const testLine = line + word + ' ';
-      if (testLine.length > 90) {
-        drawText(page, line.trim(), margin, yPos, 10, helvetica);
-        yPos -= 14;
-        line = word + ' ';
+    // Work description is FREE TEXT that can be English, Arabic, or mixed.
+    // The plain drawText path runs sanitizeWinAnsi which strips all Arabic
+    // glyphs ("?"). To preserve bilingual descriptions we split on newlines,
+    // detect Arabic per segment, and route Arabic-bearing lines through the
+    // embedded Noto Kufi font via drawArabic (right-aligned, RTL).
+    const description = String(permit.work_description || '').substring(0, 1500);
+    const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    const rightEdge = pageWidth - margin;
+    const descLines = description.split(/\r?\n/);
+    for (const rawLine of descLines) {
+      const segment = rawLine.trim();
+      if (!segment) { yPos -= 8; continue; }
+      const hasArabic = arabicRegex.test(segment);
+      if (hasArabic && arabicFonts) {
+        // Char-based wrap for Arabic (shaped width is hard to predict exactly;
+        // ~80 chars at 10pt fits comfortably inside the A4 content width).
+        const maxChars = 80;
+        const wrapped: string[] = [];
+        if (segment.length <= maxChars) {
+          wrapped.push(segment);
+        } else {
+          const ws = segment.split(/\s+/);
+          let cur = '';
+          for (const w of ws) {
+            const test = cur ? cur + ' ' + w : w;
+            if (test.length > maxChars) {
+              if (cur) wrapped.push(cur);
+              cur = w;
+            } else {
+              cur = test;
+            }
+          }
+          if (cur) wrapped.push(cur);
+        }
+        for (const wline of wrapped) {
+          await drawArabic(page, wline, rightEdge, yPos, {
+            font: arabicFonts.regular,
+            size: 10,
+            color: BRAND_DARK,
+          });
+          yPos -= 14;
+        }
       } else {
-        line = testLine;
+        const words = segment.split(' ');
+        let line = '';
+        for (const word of words) {
+          const testLine = line + word + ' ';
+          if (testLine.length > 90) {
+            drawText(page, line.trim(), margin, yPos, 10, helvetica);
+            yPos -= 14;
+            line = word + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        if (line.trim()) {
+          drawText(page, line.trim(), margin, yPos, 10, helvetica);
+          yPos -= 14;
+        }
       }
-    }
-    if (line.trim()) {
-      drawText(page, line.trim(), margin, yPos, 10, helvetica);
-      yPos -= 14;
     }
     yPos -= 10;
 

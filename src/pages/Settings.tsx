@@ -16,12 +16,14 @@ import { User, Mail, Phone, Building2, Send, Loader2, Pencil, Save, X, Upload, I
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserSignaturesCard } from '@/components/settings/UserSignaturesCard';
+import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
   const { isSubscribed } = usePushNotifications();
   const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
   const isMobile = useIsMobile();
+  const isTenantOnly = useIsTenantOnly();
   const [isSending, setIsSending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -599,8 +601,9 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Saved signature & initials — pre-loaded into every approval pad */}
-          <UserSignaturesCard />
+          {/* Saved signature & initials — pre-loaded into every approval pad.
+              Hidden from tenant-only users since they never approve permits. */}
+          {!isTenantOnly && <UserSignaturesCard />}
 
           {/* Registered biometric devices (WebAuthn) */}
           <BiometricDevices />
