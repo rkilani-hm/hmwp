@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   FolderCog,
   Stethoscope,
+  Mail,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
