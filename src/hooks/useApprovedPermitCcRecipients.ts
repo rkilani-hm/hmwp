@@ -21,7 +21,7 @@ export function useApprovedPermitCcRecipients() {
         .select('id, user_id, created_at')
         .order('created_at', { ascending: true });
       if (error) throw error;
-      const list = (rows || []) as Array<{ id: string; user_id: string; created_at: string }>;
+      const list = ((rows || []) as unknown) as Array<{ id: string; user_id: string; created_at: string }>;
       if (list.length === 0) return [];
       const ids = list.map(r => r.user_id);
       const { data: profiles } = await supabase

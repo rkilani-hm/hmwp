@@ -32,6 +32,7 @@ import GatePassDetail from './GatePassDetail';
 import GatePassApprovals from './GatePassApprovals';
 import GatePassWorkflowConfig from './admin/GatePassWorkflowConfig';
 import AdminDeletionAuditLog from './admin/AdminDeletionAuditLog';
+import ApprovedPermitRecipients from './admin/ApprovedPermitRecipients';
 import MyDelegations from './MyDelegations';
 const Index = () => {
   const { roles, hasRole } = useAuth();
@@ -124,6 +125,7 @@ const Index = () => {
         <Route path="gate-passes/approvals" element={<GatePassApprovals />} />
         <Route path="gate-pass-workflows" element={isAdmin ? <GatePassWorkflowConfig /> : <Navigate to="/" replace />} />
         <Route path="deletion-audit-log" element={isAdmin ? <AdminDeletionAuditLog /> : <Navigate to="/" replace />} />
+        <Route path="approved-permit-recipients" element={isAdmin ? <ApprovedPermitRecipients /> : <Navigate to="/" replace />} />
         <Route
           path="pending-tenants"
           element={isAdmin ? <PendingApprovals /> : <Navigate to="/" replace />}

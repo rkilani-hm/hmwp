@@ -222,6 +222,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
           { icon: Package, label: 'Gate Pass Workflows', path: '/gate-pass-workflows' },
           { icon: QrCode, label: 'QR Code Poster', path: '/qr-poster' },
+          { icon: Mail, label: 'Approved Permit Recipients', path: '/approved-permit-recipients' },
         ],
       },
       {
