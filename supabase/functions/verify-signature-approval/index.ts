@@ -682,11 +682,43 @@ const handler = async (req: Request): Promise<Response> => {
             statusMessage = `It has been approved by ${roleLabel} and is now pending the next approval.`;
             emailSubject = `Work Permit Progress Update: ${updatedPermit.permit_no}`;
           }
+
+          // Build recipient list. For FINAL approval only, append admin-configured CC recipients.
+          let recipients: string[] = [updatedPermit.requester_email];
+          let ccEmails: string[] = [];
+          if (isFinalApproval) {
+            try {
+              const { data: ccRows } = await serviceClient
+                .from("wp_approval_cc_recipients")
+                .select("user_id");
+              const ccUserIds = (ccRows || [])
+                .map((r: { user_id: string }) => r.user_id)
+                .filter(Boolean);
+              if (ccUserIds.length > 0) {
+                const { data: ccProfiles } = await serviceClient
+                  .from("profiles")
+                  .select("email")
+                  .in("id", ccUserIds);
+                ccEmails = (ccProfiles || [])
+                  .map((p: { email: string | null }) => p.email)
+                  .filter((e: string | null): e is string => !!e && e.trim() !== "");
+              }
+            } catch (e) {
+              console.error("CC recipient lookup failed (sending to requester only):", e);
+            }
+            const deduped = new Set<string>();
+            for (const e of [...recipients, ...ccEmails]) {
+              const norm = (e || "").trim().toLowerCase();
+              if (norm) deduped.add(norm);
+            }
+            recipients = Array.from(deduped);
+          }
+
           await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
             method: "POST",
             headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              to: [updatedPermit.requester_email],
+              to: recipients,
               notificationType: emailNotificationType,
               subject: emailSubject,
               permitNo: updatedPermit.permit_no,
@@ -700,6 +732,16 @@ const handler = async (req: Request): Promise<Response> => {
               },
             }),
           });
+
+          if (isFinalApproval && ccEmails.length > 0) {
+            await serviceClient.from("activity_logs").insert({
+              permit_id: permitId,
+              action: "Approved Permit Distributed",
+              performed_by: "System",
+              performed_by_id: user.id,
+              details: `Approved permit emailed to requester + ${ccEmails.length} CC recipient(s): ${ccEmails.join(", ")}`,
+            });
+          }
         } catch (e) { console.error("Email error:", e); }
       }
     }

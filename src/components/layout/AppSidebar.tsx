@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   FolderCog,
   Stethoscope,
+  Mail,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -222,6 +223,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
           { icon: Package, label: 'Gate Pass Workflows', path: '/gate-pass-workflows' },
           { icon: QrCode, label: 'QR Code Poster', path: '/qr-poster' },
+          { icon: Mail, label: 'Approved Permit Recipients', path: '/approved-permit-recipients' },
         ],
       },
       {

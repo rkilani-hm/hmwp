@@ -2073,6 +2073,27 @@ export type Database = {
         }
         Relationships: []
       }
+      wp_approval_cc_recipients: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       approver_setup_audit: {
@@ -2421,6 +2442,7 @@ export type Database = {
         | "pending_head_of_mep_engineering"
         | "pending_ecovert_approver"
         | "pending_tenant"
+        | "pending_ecovert_helpdesk-security"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2606,6 +2628,7 @@ export const Constants = {
         "pending_head_of_mep_engineering",
         "pending_ecovert_approver",
         "pending_tenant",
+        "pending_ecovert_helpdesk-security",
       ],
     },
   },
