@@ -2073,6 +2073,27 @@ export type Database = {
         }
         Relationships: []
       }
+      wp_approval_cc_recipients: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       approver_setup_audit: {
