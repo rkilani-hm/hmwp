@@ -2443,6 +2443,7 @@ export type Database = {
         | "pending_ecovert_approver"
         | "pending_tenant"
         | "pending_ecovert_helpdesk-security"
+        | "pending_head_of_fit_out_unit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2629,6 +2630,7 @@ export const Constants = {
         "pending_ecovert_approver",
         "pending_tenant",
         "pending_ecovert_helpdesk-security",
+        "pending_head_of_fit_out_unit",
       ],
     },
   },
