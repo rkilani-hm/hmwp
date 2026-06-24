@@ -148,21 +148,32 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Authorization check: user must be requester or approver
+    // Authorization check: requester, OR any internal (non-tenant) staff member.
+    //
+    // Previously this required is_approver(), which only recognizes roles wired
+    // into a workflow template. Staff with a valid internal role that isn't in a
+    // workflow (e.g. bdcr_manager) were wrongly denied — even though the
+    // tenant-only block below is the actual intended restriction. Forwarded /
+    // delegated approvers are also non-tenant staff without necessarily holding a
+    // workflow role, so this aligns PDF access with who can legitimately act on
+    // permits. Tenant-only users remain restricted by the block further down.
     const isRequester = permit.requester_id === user.id;
-    
-    // Check if user is an approver
+
+    // is_approver() — kept for logging/clarity; subset of non-tenant staff.
     const { data: isApproverResult } = await supabaseAdmin.rpc('is_approver', { _user_id: user.id });
     const isApprover = isApproverResult === true;
 
-    // Check if user is admin
-    const { data: isAdminResult } = await supabaseAdmin.rpc('has_role', { 
-      _user_id: user.id, 
-      _role: 'admin' 
+    const { data: isAdminResult } = await supabaseAdmin.rpc('has_role', {
+      _user_id: user.id,
+      _role: 'admin',
     });
     const isAdmin = isAdminResult === true;
 
-    if (!isRequester && !isApprover && !isAdmin) {
+    // Any user holding at least one non-tenant role is internal staff.
+    const { data: isStaffResult } = await supabaseAdmin.rpc('is_non_tenant_staff', { p_user: user.id });
+    const isNonTenantStaff = isStaffResult === true;
+
+    if (!isRequester && !isApprover && !isAdmin && !isNonTenantStaff) {
       console.error("User not authorized to generate PDF for this permit:", user.id);
       return new Response(JSON.stringify({ error: "Forbidden - You don't have access to this permit" }), {
         status: 403,
@@ -206,7 +217,7 @@ const serve_handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Authorization check passed. User:", user.email, "isRequester:", isRequester, "isApprover:", isApprover, "isAdmin:", isAdmin);
+    console.log("Authorization check passed. User:", user.email, "isRequester:", isRequester, "isApprover:", isApprover, "isAdmin:", isAdmin, "isNonTenantStaff:", isNonTenantStaff);
     console.log("Permit found:", permit.permit_no, "Status:", permit.status);
 
     // Generate the PDF using pdf-lib
@@ -721,8 +732,8 @@ const serve_handler = async (req: Request): Promise<Response> => {
         date: r.approved_at,
         signature: r.signature,
         comments: r.comments,
-        stepOrder: (r.workflow_steps?.step_order ?? null)
-          ?? ROLE_ORDER_INDEX[r.role_name] ?? 999,
+        stepOrder: ((Array.isArray(r.workflow_steps) ? r.workflow_steps[0]?.step_order : r.workflow_steps?.step_order)
+          ?? ROLE_ORDER_INDEX[r.role_name] ?? 999),
       }));
       approvals.sort((a, b) => a.stepOrder - b.stepOrder);
     } else {
