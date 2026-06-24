@@ -175,10 +175,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // (e.g. on an older deployment that hasn't run the migration
       // yet) — degraded but functional.
       try {
+        // get_my_effective_roles() is SECURITY DEFINER and keyed on auth.uid()
+        // — it returns the caller's direct roles MINUS any actively delegated
+        // away PLUS any delegated to them, bypassing user_roles' own-row-only
+        // RLS (which would otherwise hide a delegator's roles from the delegate).
         const { data: effectiveData, error: effectiveError } = await supabase
-          .from('effective_approvers' as any)
-          .select('role_name')
-          .eq('effective_user_id', userId);
+          .rpc('get_my_effective_roles' as any);
 
         if (effectiveError) throw effectiveError;
 
