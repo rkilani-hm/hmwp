@@ -189,8 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // the role name once).
         const uniqueRoles = Array.from(
           new Set(
-            (effectiveData || [])
-              .map((r: any) => r.role_name as RoleName)
+            ((effectiveData as { role_name: string }[] | null) || [])
+              .map((r) => r.role_name as RoleName)
               .filter(Boolean),
           ),
         );
