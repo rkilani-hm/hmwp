@@ -17,8 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useForwardPermit } from '@/hooks/useWorkPermits';
-import { Forward, Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useForwardPermit, useForwardPermitToUser } from '@/hooks/useWorkPermits';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { Forward, Loader2, Users, User } from 'lucide-react';
 
 type AppRole = string;
 
@@ -73,35 +76,61 @@ export function ForwardPermitDialog({
   permitId,
   currentStatus,
 }: ForwardPermitDialogProps) {
+  const [mode, setMode] = useState<'role' | 'user'>('role');
   const [targetRole, setTargetRole] = useState<string>('');
+  const [targetUserId, setTargetUserId] = useState<string>('');
   const [reason, setReason] = useState('');
   const forwardPermit = useForwardPermit();
+  const forwardPermitToUser = useForwardPermitToUser();
 
-  // Get current role from status to exclude from options
+  // Candidate users for person-forward: non-tenant internal staff via the
+  // SECURITY DEFINER RPC (a direct profiles query is RLS-blocked for non-admins).
+  const { data: candidates = [] } = useQuery({
+    queryKey: ['forward-candidates'],
+    enabled: open && mode === 'user',
+    queryFn: async (): Promise<Array<{ id: string; full_name: string | null; email: string }>> => {
+      const { data, error } = await supabase.rpc('list_delegatable_employees' as any);
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; full_name: string | null; email: string }>;
+    },
+  });
+
+  // Get current role from status to exclude from role options
   const getCurrentRoleFromStatus = (status: string): string => {
     if (status === 'submitted') return 'helpdesk';
-    if (status.startsWith('pending_')) {
-      return status.replace('pending_', '');
-    }
+    if (status.startsWith('pending_')) return status.replace('pending_', '');
     return '';
   };
-
   const currentRole = getCurrentRoleFromStatus(currentStatus);
 
-  const handleSubmit = () => {
-    if (!targetRole || !reason.trim()) return;
+  const isPending = forwardPermit.isPending || forwardPermitToUser.isPending;
 
-    forwardPermit.mutate(
-      { permitId, targetRole: targetRole as AppRole, reason: reason.trim() },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-          setTargetRole('');
-          setReason('');
-        },
-      }
-    );
+  const reset = () => {
+    setTargetRole('');
+    setTargetUserId('');
+    setReason('');
   };
+
+  const handleSubmit = () => {
+    if (!reason.trim()) return;
+    if (mode === 'role') {
+      if (!targetRole) return;
+      forwardPermit.mutate(
+        { permitId, targetRole: targetRole as AppRole, reason: reason.trim() },
+        { onSuccess: () => { onOpenChange(false); reset(); } },
+      );
+    } else {
+      if (!targetUserId) return;
+      forwardPermitToUser.mutate(
+        { permitId, userId: targetUserId, reason: reason.trim() },
+        { onSuccess: () => { onOpenChange(false); reset(); } },
+      );
+    }
+  };
+
+  const submitDisabled =
+    isPending || !reason.trim() ||
+    (mode === 'role' ? !targetRole : !targetUserId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,49 +141,77 @@ export function ForwardPermitDialog({
             Forward Permit
           </DialogTitle>
           <DialogDescription>
-            Forward this permit to another approver for their review.
+            Forward this permit's current step to another approver — a role, or a
+            specific person.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Forward To</Label>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as 'role' | 'user')} className="py-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="role" className="gap-1.5">
+              <Users className="w-4 h-4" /> To a role
+            </TabsTrigger>
+            <TabsTrigger value="user" className="gap-1.5">
+              <User className="w-4 h-4" /> To a person
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="role" className="space-y-2 pt-3">
+            <Label>Forward to role</Label>
             <Select value={targetRole} onValueChange={setTargetRole}>
               <SelectTrigger>
                 <SelectValue placeholder="Select approver role" />
               </SelectTrigger>
               <SelectContent>
                 {approverRoles
-                  .filter(role => role !== currentRole)
-                  .map(role => (
+                  .filter((role) => role !== currentRole)
+                  .map((role) => (
                     <SelectItem key={role} value={role}>
-                      {roleLabels[role]}
+                      {roleLabels[role] || role}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
-          </div>
+          </TabsContent>
 
-          <div className="space-y-2">
-            <Label>Reason for Forwarding</Label>
-            <Textarea
-              placeholder="Explain why you're forwarding this permit..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={4}
-            />
-          </div>
+          <TabsContent value="user" className="space-y-2 pt-3">
+            <Label>Forward to person</Label>
+            <Select value={targetUserId} onValueChange={setTargetUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a staff member" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {candidates.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.full_name || c.email}
+                    {c.full_name && <span className="text-muted-foreground"> · {c.email}</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              The person you choose can approve or reject THIS step on your behalf —
+              it moves to their inbox until they act. No admin role grant needed.
+            </p>
+          </TabsContent>
+        </Tabs>
+
+        <div className="space-y-2">
+          <Label>Reason for Forwarding</Label>
+          <Textarea
+            placeholder="Explain why you're forwarding this permit..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+          />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!targetRole || !reason.trim() || forwardPermit.isPending}
-          >
-            {forwardPermit.isPending ? (
+          <Button onClick={handleSubmit} disabled={submitDisabled}>
+            {isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Forwarding...

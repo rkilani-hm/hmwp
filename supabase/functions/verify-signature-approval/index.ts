@@ -482,7 +482,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { data: authz, error: authzError } = await adminClient.rpc(
       "authorize_permit_approval",
-      { p_user: user.id, p_role_name: roleField },
+      { p_user: user.id, p_permit_id: permitId, p_role_name: roleField },
     );
     if (authzError) {
       console.error("authorize_permit_approval failed:", authzError);
@@ -500,8 +500,11 @@ const handler = async (req: Request): Promise<Response> => {
     // Populated ONLY when acting purely as a delegate (not a direct role holder).
     const onBehalfOfId: string | null = (authz?.on_behalf_of as string | null) ?? null;
     const onBehalfOfName: string | null = (authz?.on_behalf_of_name as string | null) ?? null;
+    const onBehalfOfKind: string | null = (authz?.on_behalf_of_kind as string | null) ?? null;
     const delegationNote = onBehalfOfName
-      ? ` (acting on behalf of ${onBehalfOfName} via delegation)`
+      ? (onBehalfOfKind === "forward"
+          ? ` (acting on the step forwarded by ${onBehalfOfName})`
+          : ` (acting on behalf of ${onBehalfOfName} via delegation)`)
       : "";
 
     const userAgent = req.headers.get("user-agent") || "unknown";

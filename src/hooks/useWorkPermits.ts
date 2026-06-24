@@ -1041,20 +1041,28 @@ export function usePendingPermitsForApprover() {
       // query to fetch full permit rows with work_types. Only the active
       // ids are fetched, so this is cheaper than the old
       // .in('status', [enum values…]) filter for large permit tables.
+      // Resolution is server-side via get_my_inbox_permits(): role-based
+      // effective roles (delegation-aware) MINUS permits forwarded away, PLUS
+      // permits forwarded TO me. Single source shared with notify + the
+      // approval gate — no parallel router.
       const { data: activeRows, error: viewErr } = await supabase
-        .from('permit_active_approvers' as any)
-        .select('permit_id, sla_deadline')
-        .in('role_name', roles as unknown as string[])
-        .order('sla_deadline', { ascending: true, nullsFirst: false });
+        .rpc('get_my_inbox_permits' as any);
 
       if (viewErr) throw viewErr;
-      if (!activeRows || activeRows.length === 0) return [];
+      const rows = (activeRows as unknown as Array<{ permit_id: string; sla_deadline: string | null }> | null) ?? [];
+      if (rows.length === 0) return [];
 
-      // De-dupe — a permit with parallel steps could appear once per role
-      // the user holds. Preserve order (already sorted by SLA deadline).
+      // Sort by SLA deadline (soonest first, nulls last), then de-dupe — a
+      // permit pending on parallel roles can appear more than once.
+      const sorted = [...rows].sort((a, b) => {
+        if (a.sla_deadline === b.sla_deadline) return 0;
+        if (!a.sla_deadline) return 1;
+        if (!b.sla_deadline) return -1;
+        return a.sla_deadline < b.sla_deadline ? -1 : 1;
+      });
       const seen = new Set<string>();
       const permitIds: string[] = [];
-      for (const row of activeRows as unknown as Array<{ permit_id: string }>) {
+      for (const row of sorted) {
         if (!seen.has(row.permit_id)) {
           seen.add(row.permit_id);
           permitIds.push(row.permit_id);
@@ -1093,13 +1101,13 @@ export function usePendingPermitsCount() {
       // permit if the user holds multiple roles and the permit is pending
       // on more than one. Acceptable because inbox count is a heuristic —
       // a small over-count is preferable to an additional round trip.
-      const { count, error } = await supabase
-        .from('permit_active_approvers' as any)
-        .select('permit_id', { count: 'exact', head: true })
-        .in('role_name', roles as unknown as string[]);
-
+      // Same server-side resolution as the inbox list (forward/delegation aware).
+      const { data, error } = await supabase.rpc('get_my_inbox_permits' as any);
       if (error) return 0;
-      return count || 0;
+      const ids = new Set(
+        ((data as unknown as Array<{ permit_id: string }> | null) ?? []).map((r) => r.permit_id),
+      );
+      return ids.size;
     },
     enabled: roles.length > 0,
   });
@@ -1256,6 +1264,69 @@ export function useForwardPermit() {
       toast.success('Permit forwarded successfully');
     },
     onError: (error) => {
+      toast.error('Failed to forward permit: ' + error.message);
+    },
+  });
+}
+
+// Forward the current step to a specific USER (not a role). The
+// forward_permit_to_user RPC records a per-permit, per-step forward; the step's
+// role is unchanged but the inbox/notify/gate route to the forwarded user only.
+export function useForwardPermitToUser() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      permitId,
+      userId,
+      reason,
+    }: {
+      permitId: string;
+      userId: string;
+      reason: string;
+    }) => {
+      const { data, error } = await supabase.rpc('forward_permit_to_user' as any, {
+        p_permit_id: permitId,
+        p_user_id: userId,
+        p_reason: reason || null,
+      });
+
+      if (error) {
+        const msg = (error as { message?: string }).message ?? String(error);
+        if (/function.*does not exist|forward_permit_to_user/i.test(msg)) {
+          throw new Error(
+            'Cannot forward — the database is missing the forward_permit_to_user function. Ask your admin to apply pending migrations.',
+          );
+        }
+        throw new Error(msg);
+      }
+
+      const payload = (data || {}) as { permit_no?: string; forwarded_to_name?: string | null };
+
+      // The step now routes to the forwarded user; notify_permit_active_approvers
+      // reroutes the recipient to them.
+      await notifyActiveApprovers(
+        permitId,
+        payload.permit_no || permitId,
+        await fetchPermitUrgency(permitId),
+        'new_permit',
+        profile,
+        user?.email,
+      );
+
+      return payload;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['work-permits'] });
+      queryClient.invalidateQueries({ queryKey: ['work-permit', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-permits-approver'] });
+      queryClient.invalidateQueries({ queryKey: ['permit-approvals', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['permit-active-approvers', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
+      toast.success('Permit forwarded successfully');
+    },
+    onError: (error: Error) => {
       toast.error('Failed to forward permit: ' + error.message);
     },
   });
