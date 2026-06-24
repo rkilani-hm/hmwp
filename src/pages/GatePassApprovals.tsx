@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGatePasses, useCompleteGatePass } from '@/hooks/useGatePasses';
+import { useGatePasses, usePendingGatePassesForApprover, useCompleteGatePass } from '@/hooks/useGatePasses';
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassStatusLabels, gatePassTypeLabels } from '@/types/gatePass';
 import type { GatePass, GatePassStatus } from '@/types/gatePass';
@@ -26,25 +26,32 @@ const statusColors: Record<string, string> = {
 
 export default function GatePassApprovals() {
   const navigate = useNavigate();
-  const { data: passes, isLoading } = useGatePasses();
+  // Pending-for-me is resolved server-side (WP method): get_my_gate_pass_inbox →
+  // gate_pass_active_approvers, role-based on effective roles (delegation-aware).
+  const { data: pendingForMe = [], isLoading } = usePendingGatePassesForApprover();
+  // Still need the full list for the GP-specific "complete" step on approved passes.
+  const { data: allPasses } = useGatePasses();
   const { roles } = useAuth();
   const completeGatePass = useCompleteGatePass();
 
   const pendingPasses = useMemo(() => {
-    if (!passes) return [];
-    return passes.filter(p => {
-      // Check if any of the user's roles match the pending status
-      for (const role of roles) {
-        if (p.status === `pending_${role}`) return true;
-      }
-      if (roles.includes('security') && p.status === 'approved') return true;
-      return false;
-    });
-  }, [passes, roles]);
+    const canComplete =
+      roles.includes('security') || roles.includes('hm_security_pmd') || roles.includes('admin');
+    const completable = canComplete && allPasses ? allPasses.filter(p => p.status === 'approved') : [];
+    // Combine pending-my-action + approved-I-can-complete; de-dupe by id.
+    const byId = new Map<string, GatePass>();
+    for (const p of [...pendingForMe, ...completable]) byId.set(p.id, p);
+    return Array.from(byId.values());
+  }, [pendingForMe, allPasses, roles]);
 
   const getApprovalRole = (gp: GatePass): string | null => {
     for (const role of roles) {
       if (gp.status === `pending_${role}`) return role;
+    }
+    // Fallback: derive the step's role from the status so a delegated approver
+    // (who doesn't directly hold the role) still acts as the correct step role.
+    if (typeof gp.status === 'string' && gp.status.startsWith('pending_')) {
+      return gp.status.replace('pending_', '');
     }
     return null;
   };

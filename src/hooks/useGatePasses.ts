@@ -33,6 +33,50 @@ export function useGatePasses() {
   });
 }
 
+/**
+ * Gate passes pending the current user's action — the GP analogue of
+ * usePendingPermitsForApprover. Resolution is server-side via
+ * get_my_gate_pass_inbox() (reads gate_pass_active_approvers, role-based on the
+ * caller's effective roles, so delegation applies), replacing the old
+ * client-side `status === 'pending_<role>'` match. Then a hydrate query fetches
+ * the full rows (approvers can read all gate passes via RLS).
+ */
+export function usePendingGatePassesForApprover() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['pending-gate-passes-approver', user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<GatePass[]> => {
+      const { data: rows, error } = await supabase.rpc('get_my_gate_pass_inbox' as any);
+      if (error) throw error;
+      const list = (rows as unknown as Array<{ gate_pass_id: string; pass_created_at: string | null }> | null) ?? [];
+      if (list.length === 0) return [];
+
+      const sorted = [...list].sort((a, b) => {
+        if (a.pass_created_at === b.pass_created_at) return 0;
+        if (!a.pass_created_at) return 1;
+        if (!b.pass_created_at) return -1;
+        return a.pass_created_at < b.pass_created_at ? 1 : -1; // newest first
+      });
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const r of sorted) {
+        if (!seen.has(r.gate_pass_id)) { seen.add(r.gate_pass_id); ids.push(r.gate_pass_id); }
+      }
+
+      const { data: passes, error: hErr } = await supabase
+        .from('gate_passes')
+        .select('*')
+        .in('id', ids);
+      if (hErr) throw hErr;
+
+      const byId = new Map((passes ?? []).map((p) => [p.id as string, p as GatePass]));
+      return ids.map((id) => byId.get(id)).filter(Boolean) as GatePass[];
+    },
+  });
+}
+
 export function useGatePass(id: string | undefined) {
   const { user } = useAuth();
 
