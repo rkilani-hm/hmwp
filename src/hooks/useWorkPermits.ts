@@ -504,9 +504,6 @@ export function useCreatePermit() {
       const SLA_HOURS = 24;
       const slaDeadline = new Date(Date.now() + SLA_HOURS * 60 * 60 * 1000).toISOString();
 
-      // Generate a temporary ID for file uploads
-      const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
       // Upload files first if any.
       // attachmentPaths populates the legacy text[] column on
       // work_permits (kept for backward compatibility).
@@ -532,6 +529,14 @@ export function useCreatePermit() {
       const uploadedAttachments: UploadedAttachment[] = [];
 
       if (permitData.files && permitData.files.length > 0) {
+        // Attachments are keyed on the uploader's user id so the storage RLS
+        // INSERT policy (first path segment must equal auth.uid()) is satisfied.
+        // The work_permits row doesn't exist yet at upload time, so a permit-id
+        // folder can't be used — this mirrors the proven company-logos model.
+        if (!user?.id) {
+          throw new Error('You must be signed in to upload attachments.');
+        }
+
         // Import file validation
         const { validateFile } = await import('./useFileUpload');
 
@@ -555,7 +560,7 @@ export function useCreatePermit() {
           }
 
           const fileExt = file.name.split('.').pop()?.toLowerCase();
-          const fileName = `${tempId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('permit-attachments')
@@ -659,6 +664,17 @@ export function useCreatePermit() {
         .single();
 
       if (error) {
+        // The permit row failed to insert but files were already uploaded —
+        // best-effort remove the orphans (now under the `${user.id}/...` path).
+        if (attachmentPaths.length > 0) {
+          supabase.storage
+            .from('permit-attachments')
+            .remove(attachmentPaths)
+            .catch((cleanupErr) => {
+              console.warn('Failed to clean up orphan uploads after permit insert failure:', cleanupErr);
+            });
+        }
+
         // Specific catch for the legacy permit_status enum mismatch.
         // If migration 20260513210000_dynamic_permit_status_enum hasn't
         // been applied yet for any reason, surface a clearer message
@@ -1548,7 +1564,10 @@ export function useUpdateAndResubmitPermit() {
       let newAttachmentPaths: string[] = [];
       if (newFiles.length > 0) {
         for (const file of newFiles) {
-          const fileName = `${permitId}/${Date.now()}-${encodeURIComponent(file.name)}`;
+          // Key on the uploader's user id (consistent with useCreatePermit) so
+          // the storage RLS INSERT policy (first segment = auth.uid()) passes.
+          // The resubmitter is the permit's requester (checked above).
+          const fileName = `${user!.id}/${Date.now()}-${encodeURIComponent(file.name)}`;
           const { error: uploadError } = await supabase.storage
             .from('permit-attachments')
             .upload(fileName, file);
