@@ -29,8 +29,11 @@ export function useIsTenantOnly(): boolean {
   const hasTenant = normalized.includes('tenant');
   const hasOther = normalized.some((r) => r && r !== 'tenant');
 
-  // No roles assigned at all → treat as tenant-only (most restrictive)
-  if (normalized.length === 0) return true;
-
+  // "Tenant-only" is authoritative on the tenant role being present (mirrors the
+  // DB is_tenant_user check) — NOT "has zero effective roles". An empty set must
+  // not be treated as tenant: e.g. a delegator who delegated all their roles, or
+  // a mis-provisioned internal account with no roles, are internal — they get a
+  // non-tenant (non-approver) view, never tenant UX. Prevents the whole
+  // "empty roles => tenant" class of bugs.
   return hasTenant && !hasOther;
 }
