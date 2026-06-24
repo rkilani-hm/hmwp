@@ -66,6 +66,18 @@ async function resolveApprovalRole(
   permitId: string,
   userRoles: string[],
 ): Promise<string> {
+  // Server-side resolution (SECURITY DEFINER): returns the current-step role the
+  // user is authorized for — including a forwarded/delegated user who does NOT
+  // hold the step's role directly (and otherwise can't read the view under RLS).
+  try {
+    const { data: actionRole } = await supabase
+      .rpc('get_my_action_role' as any, { p_permit_id: permitId });
+    if (actionRole && typeof actionRole === 'string') return actionRole;
+  } catch (e) {
+    console.error('get_my_action_role failed; falling back', e);
+  }
+
+  // Fallback: intersect the permit's active roles with the roles the user holds.
   try {
     const { data } = await supabase
       .from('permit_active_approvers' as any)
@@ -79,12 +91,14 @@ async function resolveApprovalRole(
 
     const match = userRoles.find((r) => activeRoleNames.includes(r));
     if (match) return match;
+    // Forwarded user without the role: act AS the step's active role; the edge
+    // function authorizes via the forward.
+    if (activeRoleNames.length > 0) return activeRoleNames[0];
   } catch (e) {
-    console.error('resolveApprovalRole failed; falling back', e);
+    console.error('resolveApprovalRole fallback failed', e);
   }
 
-  // Defensive fallback. Picks the first non-tenant role the user has.
-  // The edge function (verify-signature-approval) validates anyway.
+  // Last-resort fallback. The edge function validates anyway.
   return userRoles.find((r) => r !== 'tenant') || 'helpdesk';
 }
 
