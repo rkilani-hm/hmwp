@@ -431,15 +431,15 @@ export function useWorkTypes() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['work-types'],
+    queryKey: ['work-types', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('work_types')
-        .select('*')
-        .order('name');
-
+      // Server-side filtered (list_work_types_for_caller): tenant-only users
+      // never receive internal-workflow work types; internal staff get all. The
+      // backend insert trigger also rejects a tenant→internal submission, so this
+      // is UX — the RPC is the single source for selectable types.
+      const { data, error } = await supabase.rpc('list_work_types_for_caller' as any);
       if (error) throw error;
-      return data as WorkType[];
+      return (data ?? []) as WorkType[];
     },
     enabled: !!user,
   });
