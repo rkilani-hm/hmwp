@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Allowed file types and their MIME types
 const ALLOWED_FILE_TYPES: Record<string, string[]> = {
@@ -76,14 +77,23 @@ export function validateFile(file: File): FileValidationResult {
 }
 
 export function useFileUpload() {
+  const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  // `permitId` is retained for call-site compatibility but no longer used for
+  // the storage path: attachments are keyed on the uploader's user id so the
+  // storage RLS INSERT policy (first segment must equal auth.uid()) is met.
+  // The permit linkage is preserved by the caller via permit_attachments.permit_id.
   const uploadFiles = async (
     files: File[],
     permitId: string
   ): Promise<string[]> => {
     if (files.length === 0) return [];
+    if (!user?.id) {
+      toast.error('You must be signed in to upload files.');
+      return [];
+    }
 
     setIsUploading(true);
     setProgress(0);
@@ -101,7 +111,7 @@ export function useFileUpload() {
         }
 
         const fileExt = file.name.split('.').pop()?.toLowerCase();
-        const fileName = `${permitId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('permit-attachments')
