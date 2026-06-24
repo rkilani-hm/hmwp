@@ -469,6 +469,41 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log(`Identity verified for ${user.email} via ${authMethod}`);
+
+    // -----------------------------------------------------------------------
+    // R6: server-side authorization gate.
+    // The acting user must genuinely hold the step's role, OR be an admin, OR
+    // be a non-tenant delegate with an ACTIVE delegation for that role from a
+    // genuine holder. Validated entirely server-side via authorize_permit_approval
+    // — never trusting the client's `role` or the inbox display. Tenants can
+    // never approve (they are never non-tenant staff, never a valid delegate).
+    // -----------------------------------------------------------------------
+    const roleField = role.toLowerCase().replace(/ /g, "_");
+
+    const { data: authz, error: authzError } = await adminClient.rpc(
+      "authorize_permit_approval",
+      { p_user: user.id, p_role_name: roleField },
+    );
+    if (authzError) {
+      console.error("authorize_permit_approval failed:", authzError);
+      return new Response(JSON.stringify({ error: "Authorization check failed" }), {
+        status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    if (!authz?.allowed) {
+      console.warn(`Approval denied for ${user.email} as role ${roleField} on permit ${permitId}`);
+      return new Response(
+        JSON.stringify({ error: "You are not an authorized approver for this step." }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+    // Populated ONLY when acting purely as a delegate (not a direct role holder).
+    const onBehalfOfId: string | null = (authz?.on_behalf_of as string | null) ?? null;
+    const onBehalfOfName: string | null = (authz?.on_behalf_of_name as string | null) ?? null;
+    const delegationNote = onBehalfOfName
+      ? ` (acting on behalf of ${onBehalfOfName} via delegation)`
+      : "";
+
     const userAgent = req.headers.get("user-agent") || "unknown";
 
     const deviceInfo = {
@@ -485,6 +520,8 @@ const handler = async (req: Request): Promise<Response> => {
         : "Unknown",
       timestamp: new Date().toISOString(),
       authMethod,
+      onBehalfOf: onBehalfOfId,
+      onBehalfOfName,
     };
 
     // Signature hash for audit
@@ -539,7 +576,6 @@ const handler = async (req: Request): Promise<Response> => {
     const workLocation = currentPermit?.work_locations as WorkLocation | null;
     const locationType = workLocation?.location_type || (currentPermit.work_location_other ? "shop" : null);
 
-    const roleField = role.toLowerCase().replace(/ /g, "_");
     const approvalStatus = approved ? "approved" : "rejected";
 
     const rolesWithColumns = [
@@ -598,10 +634,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     await serviceClient.from("activity_logs").insert({
       permit_id: permitId,
-      action: approved ? `${role} Approved` : `${role} Rejected`,
-      performed_by: userName,
+      action: (approved ? `${role} Approved` : `${role} Rejected`) + delegationNote,
+      performed_by: userName + delegationNote,
       performed_by_id: user.id,
-      details: comments || `${approved ? "Approved" : "Rejected"} with verified signature (${authMethod})`,
+      details: (comments || `${approved ? "Approved" : "Rejected"} with verified signature (${authMethod})`)
+        + (onBehalfOfName ? ` — acting on behalf of ${onBehalfOfName}` : ""),
     });
 
     if (updatedPermit.requester_id) {
@@ -755,7 +792,18 @@ const handler = async (req: Request): Promise<Response> => {
         if (roleRow?.id) {
           const { data: nextApprovers } = await serviceClient
             .from("user_roles").select("user_id").eq("role_id", roleRow.id);
-          const approverIds: string[] = (nextApprovers || []).map((a: { user_id: string }) => a.user_id).filter(Boolean);
+          const holderIds: string[] = (nextApprovers || []).map((a: { user_id: string }) => a.user_id).filter(Boolean);
+          // R5 reroute: replace each genuine holder of the next role with their
+          // active delegate for that role (if any), deduped — so an active
+          // delegation routes the next step's notifications to the delegate only.
+          const recipientSet = new Set<string>();
+          for (const holderId of holderIds) {
+            const { data: del } = await serviceClient.rpc("active_delegation_for", {
+              p_delegator: holderId, p_role_id: roleRow.id,
+            });
+            recipientSet.add((del as string | null) || holderId);
+          }
+          const approverIds: string[] = Array.from(recipientSet);
           if (approverIds.length > 0) {
             const roleLabel = nextRole.toUpperCase().replace(/_/g, " ");
             for (const approverId of approverIds) {

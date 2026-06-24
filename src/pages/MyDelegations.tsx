@@ -94,10 +94,9 @@ export default function MyDelegations() {
         </Dialog>
       </div>
 
-      {/* How it works — explains the two-step nature (delegation record
-          + temporary role grant by admin). Visible to everyone on this
-          page; collapsed by default so it doesn't dominate the screen
-          for returning users. */}
+      {/* How it works — an active delegation takes effect immediately and
+          routes the delegator's pending steps to the delegate until it
+          expires or is revoked. No admin role-grant is involved. */}
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -107,29 +106,23 @@ export default function MyDelegations() {
         </CardHeader>
         <CardContent className="text-xs text-foreground/80 space-y-1.5">
           <p>
-            <strong>Step 1.</strong> Create the delegation here. This records
-            who is acting on whose behalf, for what time window, and shows
-            them the relevant permits in their inbox.
+            <strong>Step 1.</strong> Create the delegation here — choose the
+            teammate, an optional role scope, and the time window.
           </p>
           <p>
-            <strong>Step 2.</strong> Ask an admin to temporarily grant the
-            delegate the relevant role in{' '}
-            <span className="font-mono text-[10px] bg-background px-1 rounded border">
-              Admin → Approvers Management
-            </span>
-            . This is what allows approvals to go through — the delegation
-            alone doesn't bypass permission checks.
+            <strong>Step 2.</strong> It takes effect immediately. While the
+            delegation is active, the relevant permits route to your
+            delegate's inbox and notifications go to them — they can approve
+            on your behalf with no further setup.
           </p>
           <p>
-            <strong>Step 3.</strong> When the delegate approves, the audit
-            log will record both their name AND yours
-            ("acting on behalf of …"), so reviewers can always see who
-            actually clicked approve.
+            <strong>Step 3.</strong> When the delegate approves, the audit log
+            records both their name and yours ("acting on behalf of …"), so
+            reviewers can always see who actually clicked approve.
           </p>
           <p className="text-muted-foreground italic pt-1">
-            When the delegation window ends, both pieces should be undone:
-            the delegation auto-expires; the admin should also remove the
-            temporary role.
+            When the window ends — or you revoke it — routing reverts to you
+            automatically. Nothing else to undo.
           </p>
         </CardContent>
       </Card>
@@ -366,20 +359,17 @@ function CreateDelegationDialog({ onDone }: { onDone: () => void }) {
     return allRoles.filter((r) => roles.includes(r.name) && r.name !== 'tenant');
   }, [allRoles, roles]);
 
-  // List of potential delegates: anyone with a profile other than me.
-  // Loaded lazily so the dialog opens fast.
+  // List of potential delegates: non-tenant staff other than me. Served by the
+  // list_delegatable_employees SECURITY DEFINER RPC so a non-admin approver
+  // gets a populated dropdown WITHOUT loosening profiles RLS (a plain
+  // profiles select returns only the caller's own row for non-admins).
   const { data: candidates = [] } = useQuery({
     queryKey: ['delegation-candidates', user?.id],
     enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .neq('id', user!.id)
-        .order('full_name', { ascending: true })
-        .limit(500);
+    queryFn: async (): Promise<Array<{ id: string; full_name: string | null; email: string }>> => {
+      const { data, error } = await supabase.rpc('list_delegatable_employees' as any);
       if (error) throw error;
-      return data || [];
+      return (data || []) as Array<{ id: string; full_name: string | null; email: string }>;
     },
   });
 
@@ -410,26 +400,18 @@ function CreateDelegationDialog({ onDone }: { onDone: () => void }) {
         </DialogDescription>
       </DialogHeader>
 
-      {/* Admin-action notice — important caveat the delegator needs
-          to act on. The delegation table records intent + audit
-          attribution, but RLS still gates the actual approve action
-          on user_roles, so the delegate must ALSO be temporarily
-          granted the role by an admin for approvals to go through.
-          Without this step the delegate will see the permit in their
-          inbox but the approve button will fail. */}
-      <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2.5 text-xs space-y-1">
-        <p className="font-medium text-warning flex items-start gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Admin action required</span>
+      {/* Takes effect immediately — no admin role-grant needed. While active,
+          the delegate can approve on the delegator's behalf and the relevant
+          permits route to their inbox. */}
+      <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 text-xs space-y-1">
+        <p className="font-medium text-primary flex items-start gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Takes effect immediately</span>
         </p>
         <p className="text-foreground/80 pl-5">
-          After creating this delegation, ask an admin to also grant your
-          delegate the role temporarily (under{' '}
-          <span className="font-mono text-[10px] bg-muted px-1 rounded">
-            Approvers Management
-          </span>
-          ). This delegation logs intent and audit attribution; the role
-          assignment is what lets approvals actually go through.
+          No admin action is needed. As soon as the window starts, the relevant
+          permits route to your delegate's inbox and they can approve on your
+          behalf. Their approvals are logged as "acting on behalf of you".
         </p>
       </div>
 
