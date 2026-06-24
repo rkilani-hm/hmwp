@@ -120,11 +120,16 @@ const handler = async (req: Request): Promise<Response> => {
       .eq("gate_pass_id", gatePassId)
       .order("serial_number", { ascending: true });
 
-    // Auth check
+    // Auth check — requester, OR any internal (non-tenant) staff member.
+    // Parity with the Work Permit PDF: is_gate_pass_approver only recognizes
+    // roles wired into a gate-pass workflow, so staff with a valid internal role
+    // (e.g. bdcr_manager) were wrongly denied. is_non_tenant_staff matches who can
+    // legitimately handle internal documents; tenant-only users remain blocked.
     const isRequester = gp.requester_id === user.id;
     const { data: isApproverResult } = await supabaseAdmin.rpc("is_gate_pass_approver", { _user_id: user.id });
     const { data: isAdminResult } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    if (!isRequester && !isApproverResult && !isAdminResult) {
+    const { data: isStaffResult } = await supabaseAdmin.rpc("is_non_tenant_staff", { p_user: user.id });
+    if (!isRequester && !isApproverResult && !isAdminResult && !isStaffResult) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
