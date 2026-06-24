@@ -91,6 +91,60 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_delegations: {
+        Row: {
+          created_at: string
+          delegate_id: string
+          delegator_id: string
+          id: string
+          is_active: boolean
+          reason: string | null
+          role_id: string | null
+          updated_at: string
+          valid_from: string
+          valid_to: string
+        }
+        Insert: {
+          created_at?: string
+          delegate_id: string
+          delegator_id: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          role_id?: string | null
+          updated_at?: string
+          valid_from: string
+          valid_to: string
+        }
+        Update: {
+          created_at?: string
+          delegate_id?: string
+          delegator_id?: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          role_id?: string | null
+          updated_at?: string
+          valid_from?: string
+          valid_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_delegations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "approval_delegations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
@@ -2310,6 +2364,14 @@ export type Database = {
       }
     }
     Functions: {
+      active_delegation_for: {
+        Args: { p_delegator: string; p_role_id: string }
+        Returns: string
+      }
+      authorize_permit_approval: {
+        Args: { p_role_name: string; p_user: string }
+        Returns: Json
+      }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       current_user_account_status: { Args: never; Returns: string }
       ensure_pending_status_for_role: {
@@ -2328,7 +2390,17 @@ export type Database = {
         }
         Returns: Json
       }
+      get_delegation_origin: {
+        Args: { acting_role_name: string; acting_user_id: string }
+        Returns: string
+      }
       get_emails_for_role: { Args: { p_role_name: string }; Returns: Json }
+      get_my_effective_roles: {
+        Args: never
+        Returns: {
+          role_name: string
+        }[]
+      }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
@@ -2351,7 +2423,16 @@ export type Database = {
       }
       is_approver: { Args: { _user_id: string }; Returns: boolean }
       is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
+      is_non_tenant_staff: { Args: { p_user: string }; Returns: boolean }
       is_tenant_user: { Args: { _user_id: string }; Returns: boolean }
+      list_delegatable_employees: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       next_gate_pass_number: { Args: { target_date: string }; Returns: string }
       next_gate_pass_number_today: { Args: never; Returns: string }
       next_permit_number: { Args: { target_date: string }; Returns: string }
@@ -2444,6 +2525,8 @@ export type Database = {
         | "pending_tenant"
         | "pending_ecovert_helpdesk-security"
         | "pending_head_of_fit_out_unit"
+        | "pending_head_of_civil"
+        | "pending_bdcr_manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2631,6 +2714,8 @@ export const Constants = {
         "pending_tenant",
         "pending_ecovert_helpdesk-security",
         "pending_head_of_fit_out_unit",
+        "pending_head_of_civil",
+        "pending_bdcr_manager",
       ],
     },
   },
