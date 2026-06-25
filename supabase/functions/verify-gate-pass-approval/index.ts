@@ -455,6 +455,55 @@ serve(async (req) => {
       console.error("Gate pass email error (non-blocking):", e);
     }
 
+    // ---- Notify the NEXT step's approver(s) when the pass ADVANCED ----
+    // Parity with verify-signature-approval (WP). Done inline with the service
+    // client (the notify RPC requires a real auth.uid() and the just-approved
+    // user is no longer the active approver). Holders are rerouted to their
+    // active delegate so delegation routing applies to gate passes too.
+    if (approved && typeof updated.status === "string" && updated.status.startsWith("pending_")) {
+      try {
+        const nextRole = updated.status.replace("pending_", "");
+        const { data: roleRow } = await adminClient.from("roles").select("id").eq("name", nextRole).maybeSingle();
+        if (roleRow?.id) {
+          const { data: holders } = await adminClient.from("user_roles").select("user_id").eq("role_id", roleRow.id);
+          const holderIds: string[] = (holders ?? []).map((h: { user_id: string }) => h.user_id).filter(Boolean);
+          const recipientSet = new Set<string>();
+          for (const hid of holderIds) {
+            const { data: del } = await adminClient.rpc("active_delegation_for", { p_delegator: hid, p_role_id: roleRow.id });
+            recipientSet.add((del as string | null) || hid);
+          }
+          const recipientIds = Array.from(recipientSet);
+          if (recipientIds.length > 0) {
+            for (const uid of recipientIds) {
+              await adminClient.from("notifications").insert({
+                user_id: uid, gate_pass_id: gatePassId, type: "gatepass_pending",
+                title: "Gate Pass Awaiting Your Review",
+                message: `${updated.pass_no} is pending your approval.`,
+              });
+            }
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ userIds: recipientIds, title: "Gate Pass Awaiting Approval", message: `${updated.pass_no} requires your review`, data: { url: "/gate-passes/approvals", gatePassId } }),
+              });
+            } catch (e) { console.error("GP next-step push error:", e); }
+            try {
+              const { data: profs } = await adminClient.from("profiles").select("email").in("id", recipientIds);
+              const emails: string[] = (profs ?? []).map((p: { email: string }) => p.email).filter(Boolean);
+              if (emails.length > 0) {
+                await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
+                  method: "POST",
+                  headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ to: emails, notificationType: "approval_required", subject: `Gate Pass Awaiting Approval: ${updated.pass_no}`, permitNo: updated.pass_no, permitId: gatePassId, details: {} }),
+                });
+              }
+            } catch (e) { console.error("GP next-step email error:", e); }
+          }
+        }
+      } catch (e) { console.error("GP next-step notify error (non-blocking):", e); }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       gatePass: updated,

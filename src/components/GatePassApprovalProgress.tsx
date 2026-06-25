@@ -75,15 +75,35 @@ export function GatePassApprovalProgress({
     const approvalByRole = new Map<string, GatePassApproval>();
     (approvals ?? []).forEach((a) => approvalByRole.set(a.role_name, a));
 
+    // The current pending role derived from the pass status (pending_<role>).
+    // Gate passes advance on gate_passes.status; the gate_pass_approvals mirror
+    // may lag (legacy/in-flight passes have no rows), so when a role has no
+    // approval row we fall back to its position relative to the status step
+    // instead of always flagging the first role as pending.
+    const s = gatePassStatus ?? '';
+    const currentRole = s.startsWith('pending_') ? s.replace('pending_', '') : null;
+    const isFinalApproved = s === 'approved' || s === 'completed';
+    const currentIdx = currentRole ? expectedRoles.indexOf(currentRole) : -1;
+
     let encounteredPending = false;
-    return expectedRoles.map((roleName): Row => {
+    return expectedRoles.map((roleName, idx): Row => {
       const approval = approvalByRole.get(roleName) ?? null;
       let status: RenderStatus;
       if (approval?.status === 'approved') {
         status = 'approved';
       } else if (approval?.status === 'rejected') {
         status = 'rejected';
-      } else if (approval?.status === 'pending' || (!approval && !encounteredPending)) {
+      } else if (approval?.status === 'pending') {
+        status = 'pending';
+        encounteredPending = true;
+      } else if (currentIdx >= 0) {
+        // No row: place this role relative to the status' current step.
+        if (idx < currentIdx) status = 'approved';
+        else if (idx === currentIdx) { status = 'pending'; encounteredPending = true; }
+        else status = 'upcoming';
+      } else if (isFinalApproved) {
+        status = 'approved';
+      } else if (!approval && !encounteredPending) {
         status = 'pending';
         encounteredPending = true;
       } else {
@@ -96,7 +116,7 @@ export function GatePassApprovalProgress({
         approval,
       };
     });
-  }, [approvals, expectedRoles]);
+  }, [approvals, expectedRoles, gatePassStatus]);
 
   if (isLoading) {
     return (
