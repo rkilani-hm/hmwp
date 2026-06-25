@@ -52,6 +52,7 @@ import {
   Users,
 } from 'lucide-react';
 import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
+import { PermitComments } from '@/components/PermitComments';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
@@ -723,6 +724,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             permitId={permit.id}
             permitNo={permit.permit_no}
           />
+
+          {/* Comments — three-tier visibility (confidential/internal/public).
+              Server-side RLS decides which rows each viewer can read; this
+              component renders what it gets and badges the tier. Separate
+              from the legacy per-step permit_approvals.comments shown in the
+              approval timeline. */}
+          <PermitComments permitId={permit.id} />
         </div>
 
         {/* Workflow Timeline Sidebar */}
