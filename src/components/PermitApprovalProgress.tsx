@@ -37,6 +37,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermitApprovals, type PermitApproval } from '@/hooks/usePermitApprovals';
 import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
+import { useActorTypes } from '@/hooks/useActorTypes';
+import { approveVerb } from '@/utils/actorVerb';
 
 interface WorkflowStep {
   id: string;
@@ -85,6 +87,13 @@ export function PermitApprovalProgress({
     usePermitApprovals(permitId);
   const { data: permitOverrides, isLoading: isLoadingOverrides } =
     usePermitWorkflowOverridesMap(permitId);
+
+  // Resolve actor_type for every approving user so each completed row can
+  // show "Approved" vs "Reviewed" based on who actually acted (R5/E4).
+  // Defaults to approver wording when the actor or its type is unresolved.
+  const { data: actorTypes } = useActorTypes(
+    (approvals ?? []).map((a) => a.approver_user_id),
+  );
 
   // Load the workflow template's steps + work-type step configs.
   // Same query shape UnifiedWorkflowProgress used, ported to this file
@@ -220,6 +229,10 @@ export function PermitApprovalProgress({
               label={defaultRoleLabel(a.role_name)}
               status={(a.status === 'skipped' ? 'upcoming' : a.status) as RenderStatus}
               approval={a}
+              approvedLabel={approveVerb(
+                actorTypes?.get(a.approver_user_id ?? ''),
+                'past',
+              )}
             />
           ))
         )}
@@ -254,6 +267,10 @@ export function PermitApprovalProgress({
             label={row.roleLabel}
             status={row.status}
             approval={row.approval}
+            approvedLabel={approveVerb(
+              actorTypes?.get(row.approval?.approver_user_id ?? ''),
+              'past',
+            )}
           />
         ))}
       </div>
@@ -288,10 +305,17 @@ function ApprovalCard({
   label,
   status,
   approval,
+  approvedLabel,
 }: {
   label: string;
   status: RenderStatus;
   approval: PermitApproval | null;
+  /**
+   * Verb shown on an APPROVED chip — "Approved" or "Reviewed" per the
+   * acting user's actor_type (R5). Ignored for non-approved statuses.
+   * When absent, falls back to the translated default label.
+   */
+  approvedLabel?: string;
 }) {
   const { t, i18n } = useTranslation();
   const visual = statusVisual(status);
@@ -318,7 +342,9 @@ function ApprovalCard({
             {label}
           </span>
           <span className={cn('text-xs px-2 py-0.5 rounded-full', visual.chip)}>
-            {t(statusLabelKey(status))}
+            {status === 'approved' && approvedLabel
+              ? approvedLabel
+              : t(statusLabelKey(status))}
           </span>
           {approval?.auth_method === 'webauthn' && (
             <Fingerprint

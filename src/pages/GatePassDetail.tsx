@@ -10,6 +10,7 @@ import { GatePassApprovalProgress } from '@/components/GatePassApprovalProgress'
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { approveVerb } from '@/utils/actorVerb';
 import { gatePassStatusLabels, gatePassCategoryLabels, gatePassTypeLabels, shiftingMethodLabels, deliveryTypeLabels } from '@/types/gatePass';
 import type { GatePassStatus } from '@/types/gatePass';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +49,9 @@ export default function GatePassDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: gp, isLoading } = useGatePass(id);
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
+  // Current user's actor_type → displayed approve verb (cosmetic, R5).
+  const approveLabel = approveVerb(profile?.actor_type, 'imperative');
   const { data: effectiveWorkflow } = useGatePassEffectiveWorkflow(gp?.pass_type);
   const approveGatePass = useSecureApproveGatePass();
   const completeGatePass = useCompleteGatePass();
@@ -375,7 +378,7 @@ export default function GatePassDetail() {
                   return (
                     <div key={role} className="flex gap-2">
                       <Button onClick={() => handleOpenApprovalDialog(role, 'approve')} disabled={approveGatePass.isPending}>
-                        <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                        <CheckCircle className="mr-2 h-4 w-4" /> {approveLabel}
                       </Button>
                       <Button variant="destructive" onClick={() => handleOpenApprovalDialog(role, 'reject')} disabled={approveGatePass.isPending}>
                         <XCircle className="mr-2 h-4 w-4" /> Reject
@@ -394,14 +397,19 @@ export default function GatePassDetail() {
         isOpen={approvalDialogOpen}
         onClose={() => setApprovalDialogOpen(false)}
         onConfirm={handleSecureApproval}
-        title={approvalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+        title={
+          approvalAction === 'approve'
+            ? `Confirm ${approveLabel}`
+            : 'Confirm Rejection'
+        }
         description={
           approvalAction === 'approve'
-            ? `Please verify your identity and provide your signature to approve gate pass ${gp.pass_no}.`
+            ? `Please verify your identity and provide your signature to ${approveLabel.toLowerCase()} gate pass ${gp.pass_no}.`
             : `Please verify your identity to reject gate pass ${gp.pass_no}.`
         }
         actionType={approvalAction}
         isLoading={approveGatePass.isPending}
+        approveLabel={approveLabel}
         authBinding={{ gatePassId: gp.id, role: approvalRole }}
       />
 

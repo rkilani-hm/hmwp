@@ -95,6 +95,15 @@ export interface ApprovalRow {
   signature: string | null;
   comments: string | null;
   stepOrder: number;
+  /**
+   * Displayed approve verb for this row, derived from the acting user's
+   * actor_type (spec: departments-and-reviewer-flag.md R5):
+   *   'approver' → "APPROVED"  (default when unresolved — fail safe)
+   *   'reviewer' → "REVIEWED"
+   * Only affects the APPROVED status pill / label; status string itself
+   * stays 'approved'. Reject pill is unaffected.
+   */
+  actorType?: 'approver' | 'reviewer' | null;
 }
 
 export interface PdfLayoutContext {
@@ -367,7 +376,8 @@ export async function drawApprovalChain(args: DrawApprovalChainArgs): Promise<{ 
     if (isApproved) {
       dotColor = STATUS_OK;
       pillColor = STATUS_OK;
-      pillLabel = 'APPROVED';
+      // Reviewer-flagged actors show REVIEWED; default APPROVED (R5).
+      pillLabel = approval.actorType === 'reviewer' ? 'REVIEWED' : 'APPROVED';
     } else if (isRejected) {
       dotColor = STATUS_REJECTED;
       pillColor = STATUS_REJECTED;

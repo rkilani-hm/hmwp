@@ -9,6 +9,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
+import { useAuth } from '@/contexts/AuthContext';
+import { approveVerb } from '@/utils/actorVerb';
 
 export type ApprovalAuth =
   | { authMethod: 'password'; password: string }
@@ -29,6 +31,8 @@ interface ApproveGatePassArgs {
 
 export function useSecureApproveGatePass() {
   const queryClient = useQueryClient();
+  // Current user's actor_type → displayed approve verb in the toast (R5).
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (args: ApproveGatePassArgs) => {
@@ -66,7 +70,7 @@ export function useSecureApproveGatePass() {
       queryClient.invalidateQueries({ queryKey: ['gate-pass', vars.gatePassId] });
       toast.success(
         vars.approved
-          ? 'Gate pass approved with verified signature!'
+          ? `Gate pass ${approveVerb(profile?.actor_type, 'past').toLowerCase()} with verified signature!`
           : 'Gate pass rejected',
       );
     },

@@ -505,11 +505,37 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
       .from('gate_pass_approvals')
-      .select('role_name, status, approver_name, approved_at, signature, comments')
+      .select('role_name, status, approver_user_id, approver_name, approved_at, signature, comments')
       .eq('gate_pass_id', gatePassId);
 
     if (approvalsErr) {
       console.error('gate_pass_approvals fetch error:', approvalsErr);
+    }
+
+    // Resolve actor_type per approver so the chain pill reads "APPROVED"
+    // vs "REVIEWED" from the acting user (spec R5). Defaults to approver.
+    const actorTypeByUser = new Map<string, string>();
+    {
+      const approverIds = Array.from(
+        new Set(
+          (approvalRows ?? [])
+            .map((r: any) => r.approver_user_id)
+            .filter((id: unknown): id is string => !!id),
+        ),
+      );
+      if (approverIds.length > 0) {
+        const { data: actorRows, error: actorErr } = await supabaseAdmin
+          .from('profiles')
+          .select('id, actor_type')
+          .in('id', approverIds);
+        if (actorErr) {
+          console.error('actor_type fetch error (defaulting to approver):', actorErr);
+        } else {
+          for (const a of actorRows ?? []) {
+            actorTypeByUser.set((a as any).id, (a as any).actor_type ?? 'approver');
+          }
+        }
+      }
     }
 
     if (approvalRows && approvalRows.length > 0) {
@@ -525,6 +551,9 @@ const handler = async (req: Request): Promise<Response> => {
         date: r.approved_at,
         signature: r.signature,
         comments: r.comments,
+        actorType: r.approver_user_id
+          ? (actorTypeByUser.get(r.approver_user_id) === 'reviewer' ? 'reviewer' : 'approver')
+          : 'approver',
         stepOrder: ROLE_ORDER_INDEX[r.role_name] ?? 999,
       }));
     } else {

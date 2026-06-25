@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { PermitStatus } from '@/types/workPermit';
 import { humanRoleName } from '@/utils/roleDisplay';
+import { approveVerb } from '@/utils/actorVerb';
 import {
   ArrowLeft,
   Building2,
@@ -51,6 +52,7 @@ import {
   Users,
 } from 'lucide-react';
 import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
+import { PermitComments } from '@/components/PermitComments';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
 import { PermitActivityLog } from '@/components/PermitActivityLog';
 import { motion } from 'framer-motion';
@@ -96,7 +98,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { roles, user } = useAuth();
+  const { roles, user, profile } = useAuth();
+  // Current user's actor_type → displayed approve verb (cosmetic, R5).
+  const approveLabel = approveVerb(profile?.actor_type, 'imperative');
   const isTenantOnly = useIsTenantOnly();
   const [comments, setComments] = useState('');
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
@@ -337,7 +341,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 disabled={secureApprove.isPending}
               >
                 <CheckCircle className="w-4 h-4" />
-                Approve
+                {approveLabel}
               </Button>
             </div>
           )}
@@ -674,7 +678,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                       disabled={secureApprove.isPending}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve
+                      {approveLabel}
                     </Button>
                   </div>
                 </div>
@@ -686,10 +690,19 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             isOpen={approvalDialogOpen}
             onClose={() => setApprovalDialogOpen(false)}
             onConfirm={handleSecureApproval}
-            title={approvalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
-            description={`You are about to ${approvalAction} permit ${permit.permit_no}. Please verify your identity.`}
+            title={
+              approvalAction === 'approve'
+                ? `Confirm ${approveVerb(profile?.actor_type, 'imperative')}`
+                : 'Confirm Rejection'
+            }
+            description={`You are about to ${
+              approvalAction === 'approve'
+                ? approveVerb(profile?.actor_type, 'imperative').toLowerCase()
+                : 'reject'
+            } permit ${permit.permit_no}. Please verify your identity.`}
             actionType={approvalAction}
             isLoading={secureApprove.isPending}
+            approveLabel={approveLabel}
             authBinding={{ permitId: permit.id, role: getApprovalRole() }}
           />
           <ForwardPermitDialog
@@ -711,6 +724,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             permitId={permit.id}
             permitNo={permit.permit_no}
           />
+
+          {/* Comments — three-tier visibility (confidential/internal/public).
+              Server-side RLS decides which rows each viewer can read; this
+              component renders what it gets and badges the tier. Separate
+              from the legacy per-step permit_approvals.comments shown in the
+              approval timeline. */}
+          <PermitComments permitId={permit.id} />
         </div>
 
         {/* Workflow Timeline Sidebar */}

@@ -130,11 +130,17 @@ export function useUpdateUserProfile() {
       fullName,
       phone,
       companyName,
+      departmentId,
+      actorType,
     }: {
       userId: string;
       fullName?: string | null;
       phone?: string | null;
       companyName?: string | null;
+      // department_id (nullable FK → departments) + actor_type
+      // ('approver' | 'reviewer') per departments-and-reviewer-flag.md (R4).
+      departmentId?: string | null;
+      actorType?: 'approver' | 'reviewer';
     }) => {
       // Build the update payload from only the fields the caller provided
       // (allowing partial updates without clobbering unrelated columns).
@@ -142,14 +148,19 @@ export function useUpdateUserProfile() {
       if (fullName !== undefined) update.full_name = fullName;
       if (phone !== undefined) update.phone = phone;
       if (companyName !== undefined) update.company_name = companyName;
+      if (departmentId !== undefined) update.department_id = departmentId;
+      if (actorType !== undefined) update.actor_type = actorType;
 
       if (Object.keys(update).length === 0) {
         return; // nothing to do
       }
 
+      // department_id / actor_type are not in the generated supabase types
+      // yet, so cast the update payload to `any` at the call site (the
+      // codebase casts un-generated columns this way elsewhere).
       const { error } = await supabase
         .from('profiles')
-        .update(update)
+        .update(update as any)
         .eq('id', userId);
 
       if (error) throw error;
