@@ -140,6 +140,13 @@ export type Database = {
             foreignKeyName: "approval_delegations_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "approval_delegations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -247,6 +254,13 @@ export type Database = {
             foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
             columns: ["gate_pass_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
             referencedRelation: "gate_passes"
             referencedColumns: ["id"]
           },
@@ -255,6 +269,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
             referencedColumns: ["role_id"]
           },
           {
@@ -309,6 +330,13 @@ export type Database = {
           serial_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "gate_pass_items_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
           {
             foreignKeyName: "gate_pass_items_gate_pass_id_fkey"
             columns: ["gate_pass_id"]
@@ -554,6 +582,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string
+          gate_pass_id: string | null
           id: string
           is_read: boolean | null
           message: string | null
@@ -564,6 +593,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          gate_pass_id?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
@@ -574,6 +604,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          gate_pass_id?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
@@ -583,6 +614,20 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
+          {
+            foreignKeyName: "notifications_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_permit_id_fkey"
             columns: ["permit_id"]
@@ -708,6 +753,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -797,6 +849,71 @@ export type Database = {
             columns: ["permit_id"]
             isOneToOne: false
             referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permit_step_forwards: {
+        Row: {
+          created_at: string
+          forwarded_by: string
+          forwarded_to: string
+          id: string
+          is_active: boolean
+          permit_id: string
+          role_id: string
+          role_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          forwarded_by: string
+          forwarded_to: string
+          id?: string
+          is_active?: boolean
+          permit_id: string
+          role_id: string
+          role_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          forwarded_by?: string
+          forwarded_to?: string
+          id?: string
+          is_active?: boolean
+          permit_id?: string
+          role_id?: string
+          role_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_step_forwards_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_step_forwards_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_step_forwards_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_step_forwards_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -1068,6 +1185,13 @@ export type Database = {
             foreignKeyName: "role_permissions_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -1166,6 +1290,13 @@ export type Database = {
             foreignKeyName: "signature_audit_logs_gate_pass_id_fkey"
             columns: ["gate_pass_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
+          {
+            foreignKeyName: "signature_audit_logs_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
             referencedRelation: "gate_passes"
             referencedColumns: ["id"]
           },
@@ -1240,6 +1371,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
             referencedColumns: ["role_id"]
           },
           {
@@ -2037,6 +2175,13 @@ export type Database = {
             foreignKeyName: "workflow_steps_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -2163,6 +2308,22 @@ export type Database = {
         }
         Relationships: []
       }
+      gate_pass_active_approvers: {
+        Row: {
+          gate_pass_id: string | null
+          has_high_value_asset: boolean | null
+          pass_created_at: string | null
+          pass_no: string | null
+          pass_status: string | null
+          pass_type: string | null
+          pass_updated_at: string | null
+          requester_id: string | null
+          requester_name: string | null
+          role_id: string | null
+          role_name: string | null
+        }
+        Relationships: []
+      }
       gate_pass_pending_approvals: {
         Row: {
           approved_at: string | null
@@ -2197,6 +2358,13 @@ export type Database = {
             foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
             columns: ["gate_pass_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
             referencedRelation: "gate_passes"
             referencedColumns: ["id"]
           },
@@ -2205,6 +2373,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "approver_setup_audit"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
             referencedColumns: ["role_id"]
           },
           {
@@ -2277,6 +2452,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -2343,6 +2525,13 @@ export type Database = {
             foreignKeyName: "permit_approvals_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "permit_approvals_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -2368,10 +2557,16 @@ export type Database = {
         Args: { p_delegator: string; p_role_id: string }
         Returns: string
       }
-      authorize_permit_approval: {
-        Args: { p_role_name: string; p_user: string }
-        Returns: Json
+      active_forward_for: {
+        Args: { p_permit_id: string; p_role_id: string }
+        Returns: string
       }
+      authorize_permit_approval:
+        | {
+            Args: { p_permit_id: string; p_role_name: string; p_user: string }
+            Returns: Json
+          }
+        | { Args: { p_role_name: string; p_user: string }; Returns: Json }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       current_user_account_status: { Args: never; Returns: string }
       ensure_pending_status_for_role: {
@@ -2390,15 +2585,42 @@ export type Database = {
         }
         Returns: Json
       }
+      forward_permit_to_user: {
+        Args: { p_permit_id: string; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       get_delegation_origin: {
         Args: { acting_role_name: string; acting_user_id: string }
         Returns: string
       }
       get_emails_for_role: { Args: { p_role_name: string }; Returns: Json }
+      get_forward_origin: {
+        Args: {
+          acting_role_name: string
+          acting_user_id: string
+          p_permit_id: string
+        }
+        Returns: string
+      }
+      get_my_action_role: { Args: { p_permit_id: string }; Returns: string }
       get_my_effective_roles: {
         Args: never
         Returns: {
           role_name: string
+        }[]
+      }
+      get_my_gate_pass_inbox: {
+        Args: never
+        Returns: {
+          gate_pass_id: string
+          pass_created_at: string
+        }[]
+      }
+      get_my_inbox_permits: {
+        Args: never
+        Returns: {
+          permit_id: string
+          sla_deadline: string
         }[]
       }
       get_pending_status_for_role: {
@@ -2424,6 +2646,7 @@ export type Database = {
       is_approver: { Args: { _user_id: string }; Returns: boolean }
       is_gate_pass_approver: { Args: { _user_id: string }; Returns: boolean }
       is_non_tenant_staff: { Args: { p_user: string }; Returns: boolean }
+      is_tenant_only: { Args: { p_user: string }; Returns: boolean }
       is_tenant_user: { Args: { _user_id: string }; Returns: boolean }
       list_delegatable_employees: {
         Args: never
@@ -2433,10 +2656,37 @@ export type Database = {
           id: string
         }[]
       }
+      list_work_types_for_caller: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          name: string
+          requires_bdcr: boolean
+          requires_ecovert_supervisor: boolean | null
+          requires_fitout: boolean
+          requires_it: boolean
+          requires_mpr: boolean
+          requires_pd: boolean
+          requires_pm: boolean
+          requires_pmd_coordinator: boolean | null
+          workflow_template_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_types"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       next_gate_pass_number: { Args: { target_date: string }; Returns: string }
       next_gate_pass_number_today: { Args: never; Returns: string }
       next_permit_number: { Args: { target_date: string }; Returns: string }
       next_permit_number_today: { Args: never; Returns: string }
+      notify_gate_pass_active_approvers: {
+        Args: { p_gate_pass_id: string; p_notification_type?: string }
+        Returns: Json
+      }
       notify_pending_approvers_backfill: { Args: never; Returns: number }
       notify_permit_active_approvers: {
         Args: { p_notification_type?: string; p_permit_id: string }
@@ -2465,6 +2715,10 @@ export type Database = {
         Returns: boolean
       }
       sync_profile_emails_from_auth: { Args: never; Returns: Json }
+      work_type_is_internal: {
+        Args: { p_work_type_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:

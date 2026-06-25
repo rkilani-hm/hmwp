@@ -64,20 +64,18 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Check if user is admin using service role
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: { user }, error: userError } = await serviceClient.auth.getUser(token);
     if (userError || !user) {
+      console.error("Auth failed:", userError);
       return new Response(JSON.stringify({ error: "Authentication failed" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-
-    // Check if user is admin using service role
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: adminCheck } = await serviceClient
       .from("user_roles")
