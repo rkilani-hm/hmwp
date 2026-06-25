@@ -222,6 +222,22 @@ export const BILINGUAL_LABELS: Record<string, { en: string; ar: string }> = {
   "Permit No.":           { en: "Permit No.",           ar: "رقم التصريح" },
   "Urgency":              { en: "Urgency",              ar: "الأولوية" },
   "Issued":               { en: "Issued",               ar: "تاريخ الإصدار" },
+  "Gate Pass No.":        { en: "Gate Pass No.",        ar: "رقم تصريح الخروج" },
+  "Pass Type":            { en: "Pass Type",            ar: "نوع التصريح" },
+
+  // Gate Pass subsection banners + field labels
+  "1. Pass Type":                    { en: "1. Pass Type",                    ar: "١. نوع التصريح" },
+  "2. Requestor Details":            { en: "2. Requestor Details",            ar: "٢. بيانات مقدم الطلب" },
+  "3. Transfer Schedule":            { en: "3. Transfer Schedule",            ar: "٣. جدول النقل" },
+  "4. Item Details":                 { en: "4. Item Details",                 ar: "٤. تفاصيل المواد" },
+  "4. Item Details (continued)":     { en: "4. Item Details (continued)",     ar: "٤. تفاصيل المواد (تابع)" },
+  "5. Purpose of Material Shifting": { en: "5. Purpose of Material Shifting", ar: "٥. الغرض من نقل المواد" },
+  "Category":             { en: "Category",             ar: "الفئة" },
+  "Delivery":             { en: "Delivery",             ar: "التسليم" },
+  "Client":               { en: "Client",               ar: "العميل" },
+  "Client Rep":           { en: "Client Rep",           ar: "ممثل العميل" },
+  "Vehicle":              { en: "Vehicle",              ar: "المركبة" },
+  "Shifting Method":      { en: "Shifting Method",      ar: "طريقة النقل" },
 
   // Top-right location checkboxes
   "Business Tower":       { en: "Business Tower",       ar: "البرج التجاري" },
