@@ -24,10 +24,9 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Printer, CheckCircle, XCircle, Clock, FileDown, Loader2, Mail } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import GatePassPrintView from '@/components/GatePassPrintView';
 import { useGenerateGatePassPdf } from '@/hooks/useGenerateGatePassPdf';
 
 const statusColors: Record<string, string> = {
@@ -62,8 +61,6 @@ export default function GatePassDetail() {
 
   const [comments, setComments] = useState('');
   const [cctvConfirmed, setCctvConfirmed] = useState(false);
-  const [showPrint, setShowPrint] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
   const { generatePdf, isGenerating } = useGenerateGatePassPdf();
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailTo, setEmailTo] = useState('');
@@ -115,12 +112,13 @@ export default function GatePassDetail() {
     setComments('');
   };
 
-  const handlePrint = () => {
-    setShowPrint(true);
-    setTimeout(() => {
-      window.print();
-      setShowPrint(false);
-    }, 400);
+  const handlePrint = async () => {
+    // Use the redesigned edge-function PDF (parity with WP — single source of
+    // truth). Opens in a new tab; the user prints from the PDF viewer. The old
+    // client-side GatePassPrintView (legacy "Department Verification" layout)
+    // is gone so the print output matches the new design.
+    const url = await generatePdf(gp.id);
+    if (url) window.open(url, '_blank');
   };
 
   const handleDownloadPdf = async () => {
@@ -193,13 +191,6 @@ export default function GatePassDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Print view */}
-      {showPrint && (
-        <div className="gate-pass-print-area">
-          <GatePassPrintView gatePass={gp} ref={printRef} />
-        </div>
-      )}
-
       <div className="print:hidden space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
