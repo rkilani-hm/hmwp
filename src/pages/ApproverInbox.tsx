@@ -48,6 +48,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { GatePassesPendingWidget } from '@/components/dashboard/GatePassesPendingWidget';
 
 // Role resolution for permit approval in this inbox:
 //
@@ -373,6 +374,9 @@ export default function ApproverInbox() {
           </Tooltip>
         </TooltipProvider>
       </div>
+
+      {/* Gate Passes pending my action — same resolution as WP (unified inbox) */}
+      <GatePassesPendingWidget />
 
       {/* Filters */}
       <Card>

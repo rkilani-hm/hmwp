@@ -25,6 +25,7 @@ import { motion } from 'framer-motion';
 import { ClientDashboard } from '@/components/dashboard/ClientDashboard';
 import { StuckPermitsWidget } from '@/components/dashboard/StuckPermitsWidget';
 import { PendingWithMeWidget } from '@/components/dashboard/PendingWithMeWidget';
+import { GatePassesPendingWidget } from '@/components/dashboard/GatePassesPendingWidget';
 
 type UserRole = string;
 
@@ -259,6 +260,9 @@ export default function Dashboard({ currentRole }: DashboardProps) {
         <motion.div variants={itemVariants} className="space-y-6">
           {/* Approvers: Pending with Me Widget */}
           {currentRole !== 'tenant' && <PendingWithMeWidget />}
+
+          {/* Approvers: Gate Passes pending my action (WP-parity, hidden when empty) */}
+          {currentRole !== 'tenant' && <GatePassesPendingWidget />}
 
           {/* Admin: Stuck Permits Widget */}
           {currentRole === 'admin' && <StuckPermitsWidget />}
