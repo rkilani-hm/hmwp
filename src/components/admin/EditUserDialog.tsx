@@ -90,8 +90,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         fullName: fullName.trim() || null,
         phone: normalizedPhone,
         companyName: companyName.trim() || null,
+        // Tenants are never assigned a department; for internal users the
         // NO_DEPARTMENT sentinel maps back to NULL (clearing the link).
-        departmentId: departmentId === NO_DEPARTMENT ? null : departmentId,
+        // (A DB trigger also enforces tenant -> NULL as defense in depth.)
+        departmentId: !isInternal || departmentId === NO_DEPARTMENT ? null : departmentId,
         actorType,
       },
       {
@@ -149,9 +151,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             </p>
           </div>
 
-          {/* Department — single-select from the departments table.
-              Allows clearing (NULL). Internal users with no department are
-              flagged so admins can complete assignment (spec E1). */}
+          {/* Department — internal staff only. Tenants are never assigned a
+              department (the selector is hidden for them, and a DB trigger
+              enforces it). Internal users with no department are flagged so
+              admins can complete assignment (spec E1). */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="edit-department">Department</Label>
@@ -165,23 +168,31 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 </Badge>
               )}
             </div>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger id="edit-department">
-                <SelectValue placeholder="No department" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isUnassignedInternal && (
-              <p className="text-xs text-warning">
-                This internal user has no department assigned. Assign one to
-                complete their setup.
+            {isInternal ? (
+              <>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger id="edit-department">
+                    <SelectValue placeholder="No department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isUnassignedInternal && (
+                  <p className="text-xs text-warning">
+                    This internal user has no department assigned. Assign one to
+                    complete their setup.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Tenants are not assigned to departments.
               </p>
             )}
           </div>
