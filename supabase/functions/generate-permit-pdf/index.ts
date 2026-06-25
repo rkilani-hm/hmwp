@@ -516,11 +516,38 @@ const serve_handler = async (req: Request): Promise<Response> => {
 
     const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
       .from('permit_approvals')
-      .select('role_name, status, approver_name, approved_at, signature, comments, workflow_step_id, workflow_steps(step_order)')
+      .select('role_name, status, approver_user_id, approver_name, approved_at, signature, comments, workflow_step_id, workflow_steps(step_order)')
       .eq('permit_id', permitId);
 
     if (approvalsErr) {
       console.error('permit_approvals fetch error:', approvalsErr);
+    }
+
+    // Resolve actor_type for each approver so the approval-chain pill can
+    // read "APPROVED" vs "REVIEWED" per the acting user (spec R5). One
+    // extra query; defaults to approver wording when unresolved.
+    const actorTypeByUser = new Map<string, string>();
+    {
+      const approverIds = Array.from(
+        new Set(
+          (approvalRows ?? [])
+            .map((r: any) => r.approver_user_id)
+            .filter((id: unknown): id is string => !!id),
+        ),
+      );
+      if (approverIds.length > 0) {
+        const { data: actorRows, error: actorErr } = await supabaseAdmin
+          .from('profiles')
+          .select('id, actor_type')
+          .in('id', approverIds);
+        if (actorErr) {
+          console.error('actor_type fetch error (defaulting to approver):', actorErr);
+        } else {
+          for (const a of actorRows ?? []) {
+            actorTypeByUser.set((a as any).id, (a as any).actor_type ?? 'approver');
+          }
+        }
+      }
     }
 
     if (approvalRows && approvalRows.length > 0) {
@@ -534,6 +561,9 @@ const serve_handler = async (req: Request): Promise<Response> => {
         date: r.approved_at,
         signature: r.signature,
         comments: r.comments,
+        actorType: r.approver_user_id
+          ? (actorTypeByUser.get(r.approver_user_id) === 'reviewer' ? 'reviewer' : 'approver')
+          : 'approver',
         stepOrder: ((Array.isArray(r.workflow_steps) ? r.workflow_steps[0]?.step_order : r.workflow_steps?.step_order)
           ?? ROLE_ORDER_INDEX[r.role_name] ?? 999),
       }));

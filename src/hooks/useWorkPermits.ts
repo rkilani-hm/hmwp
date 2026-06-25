@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { sendEmailNotification, getEmailsForRole } from '@/utils/emailNotifications';
 import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
+import { approveVerb } from '@/utils/actorVerb';
 
 // Helper function to get the first workflow step for a work type
 async function getFirstWorkflowStep(workTypeId: string): Promise<{ roleName: string; status: string } | null> {
@@ -856,11 +857,14 @@ export function useApprovePermit() {
         console.warn('Delegation lookup failed (non-fatal):', delegationErr);
       }
 
-      // Log activity
+      // Log activity. Approve verb derives from the acting user's
+      // actor_type (spec R5) — cosmetic only; stored status is unchanged.
+      // Defaults to "Approved" when actor_type is missing (fail safe).
+      const approvedVerb = profile?.actor_type === 'reviewer' ? 'Reviewed' : 'Approved';
       await supabase.from('activity_logs').insert({
         permit_id: permitId,
         action:
-          (approved ? `${role} Approved` : `${role} Rejected`) +
+          (approved ? `${role} ${approvedVerb}` : `${role} Rejected`) +
           delegationNote,
         performed_by: (profile?.full_name || user?.email || 'Unknown') + delegationNote,
         performed_by_id: user?.id,
@@ -947,6 +951,9 @@ export type ApprovalAuth =
 
 export function useSecureApprovePermit() {
   const queryClient = useQueryClient();
+  // Current user's actor_type drives the displayed approve verb in the
+  // success toast (Approve/Approved vs Review/Reviewed) — cosmetic only.
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -1006,7 +1013,7 @@ export function useSecureApprovePermit() {
       queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
       toast.success(
         variables.approved
-          ? 'Permit approved with verified signature!'
+          ? `Permit ${approveVerb(profile?.actor_type, 'past').toLowerCase()} with verified signature!`
           : 'Permit rejected',
       );
     },

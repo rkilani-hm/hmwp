@@ -11,6 +11,9 @@ export interface UserWithRoles {
   phone: string | null;
   is_active: boolean;
   roles: string[];
+  /** Department + actor-type (spec: departments-and-reviewer-flag.md, R4). */
+  department_id: string | null;
+  actor_type: 'approver' | 'reviewer';
 }
 
 export interface WorkTypeData {
@@ -58,6 +61,12 @@ export function useUsersWithRoles() {
         company_name: profile.company_name,
         phone: profile.phone,
         is_active: profile.is_active !== false,
+        // department_id + actor_type are not in the generated supabase
+        // types yet, so read them via an `any` cast off the profile row.
+        department_id: (profile as any).department_id ?? null,
+        actor_type:
+          ((profile as any).actor_type === 'reviewer' ? 'reviewer' : 'approver') as
+            'approver' | 'reviewer',
         roles: userRoles
           .filter((ur) => ur.user_id === profile.id)
           .map((ur) => (ur.roles as any)?.name)

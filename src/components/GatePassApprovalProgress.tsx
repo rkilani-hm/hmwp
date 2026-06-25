@@ -35,6 +35,8 @@ import {
   materialAction,
   type GatePassApproval,
 } from '@/hooks/useGatePassApprovals';
+import { useActorTypes } from '@/hooks/useActorTypes';
+import { approveVerb } from '@/utils/actorVerb';
 
 type RenderStatus = 'approved' | 'rejected' | 'pending' | 'upcoming';
 
@@ -70,6 +72,13 @@ export function GatePassApprovalProgress({
 }: Props) {
   const { t } = useTranslation();
   const { data: approvals, isLoading } = useGatePassApprovals(gatePassId);
+
+  // Resolve actor_type per approving user so each completed row shows
+  // "Approved" vs "Reviewed" from who actually acted (R5/E4). Defaults to
+  // approver wording when the actor or its type can't be resolved.
+  const { data: actorTypes } = useActorTypes(
+    (approvals ?? []).map((a) => a.approver_user_id),
+  );
 
   const rows: Row[] = useMemo(() => {
     const approvalByRole = new Map<string, GatePassApproval>();
@@ -155,6 +164,10 @@ export function GatePassApprovalProgress({
             label={row.roleLabel}
             status={row.status}
             approval={row.approval}
+            approvedLabel={approveVerb(
+              actorTypes?.get(row.approval?.approver_user_id ?? ''),
+              'past',
+            )}
           />
         ))}
       </div>
@@ -184,10 +197,16 @@ function ApprovalCard({
   label,
   status,
   approval,
+  approvedLabel,
 }: {
   label: string;
   status: RenderStatus;
   approval: GatePassApproval | null;
+  /**
+   * Verb shown on an APPROVED chip — "Approved" or "Reviewed" per the
+   * acting user's actor_type (R5). Ignored for non-approved statuses.
+   */
+  approvedLabel?: string;
 }) {
   const { t, i18n } = useTranslation();
   const visual = statusVisual(status);
@@ -217,7 +236,9 @@ function ApprovalCard({
             {label}
           </span>
           <span className={cn('text-xs px-2 py-0.5 rounded-full', visual.chip)}>
-            {t(statusLabelKey(status))}
+            {status === 'approved' && approvedLabel
+              ? approvedLabel
+              : t(statusLabelKey(status))}
           </span>
           {approval?.auth_method === 'webauthn' && (
             <Fingerprint

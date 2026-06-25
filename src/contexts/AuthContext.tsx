@@ -25,6 +25,15 @@ interface Profile {
    */
   unit: string | null;
   floor: string | null;
+  /**
+   * Department + actor-type (spec: departments-and-reviewer-flag.md).
+   * department_id is NULL for tenants and for internal users not yet
+   * assigned. actor_type is NOT NULL in the DB (default 'approver') and
+   * drives ONLY the displayed approve verb (Approve/Approved vs
+   * Review/Reviewed) — never workflow routing or authority.
+   */
+  department_id: string | null;
+  actor_type: 'approver' | 'reviewer';
 }
 
 interface AuthContextType {
@@ -117,7 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (profileData) {
-        setProfile(profileData as Profile);
+        // department_id / actor_type aren't in the generated supabase types
+        // yet, so cast through unknown (the row genuinely carries them).
+        setProfile(profileData as unknown as Profile);
       } else {
         // Profile row missing: create it so updates actually persist
         const email = authUser.email;
@@ -160,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error('Error creating missing profile:', createError);
             setProfile(null);
           } else {
-            setProfile((createdProfile as Profile) ?? null);
+            setProfile((createdProfile as unknown as Profile) ?? null);
           }
         }
       }

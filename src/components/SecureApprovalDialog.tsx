@@ -38,6 +38,12 @@ interface SecureApprovalDialogProps {
   actionType: 'approve' | 'reject';
   isLoading: boolean;
   /**
+   * Overrides the submit-button label for the APPROVE action so the
+   * acting user's actor_type can swap "Approve" → "Review" (spec R5).
+   * Reject label is unaffected. Defaults to the translated "Approve".
+   */
+  approveLabel?: string;
+  /**
    * Binding for the biometric path — the server issues a challenge bound
    * to these fields so the assertion cannot be replayed on another resource.
    * Exactly one of permitId / gatePassId must be provided.
@@ -69,6 +75,7 @@ export function SecureApprovalDialog({
   actionType,
   isLoading,
   authBinding,
+  approveLabel,
 }: SecureApprovalDialogProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -183,7 +190,7 @@ export function SecureApprovalDialog({
 
   const submitLabel =
     actionType === 'approve'
-      ? t('permits.approve.approveButton')
+      ? (approveLabel ?? t('permits.approve.approveButton'))
       : t('permits.approve.rejectButton');
 
   return (

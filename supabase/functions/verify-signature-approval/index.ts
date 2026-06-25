@@ -539,8 +539,15 @@ const handler = async (req: Request): Promise<Response> => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: profile } = await serviceClient
-      .from("profiles").select("full_name").eq("id", user.id).single();
+      .from("profiles").select("full_name, actor_type").eq("id", user.id).single();
     const userName = profile?.full_name || user.email || "Unknown";
+    // Displayed approve verb from the acting user's actor_type (spec R5).
+    // Cosmetic only — stored status stays 'approved'. Defaults to approver
+    // wording when actor_type is missing/unknown (fail safe).
+    const approvedVerb =
+      (profile as { actor_type?: string } | null)?.actor_type === "reviewer"
+        ? "Reviewed"
+        : "Approved";
 
     const { error: auditError } = await serviceClient
       .from("signature_audit_logs")
@@ -637,10 +644,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     await serviceClient.from("activity_logs").insert({
       permit_id: permitId,
-      action: (approved ? `${role} Approved` : `${role} Rejected`) + delegationNote,
+      action: (approved ? `${role} ${approvedVerb}` : `${role} Rejected`) + delegationNote,
       performed_by: userName + delegationNote,
       performed_by_id: user.id,
-      details: (comments || `${approved ? "Approved" : "Rejected"} with verified signature (${authMethod})`)
+      details: (comments || `${approved ? approvedVerb : "Rejected"} with verified signature (${authMethod})`)
         + (onBehalfOfName ? ` — acting on behalf of ${onBehalfOfName}` : ""),
     });
 
