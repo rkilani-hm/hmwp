@@ -26,6 +26,10 @@ import { ClientDashboard } from '@/components/dashboard/ClientDashboard';
 import { StuckPermitsWidget } from '@/components/dashboard/StuckPermitsWidget';
 import { PendingWithMeWidget } from '@/components/dashboard/PendingWithMeWidget';
 import { GatePassesPendingWidget } from '@/components/dashboard/GatePassesPendingWidget';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useGatePasses, useGatePassStats } from '@/hooks/useGatePasses';
+import { gatePassTypeLabels, gatePassStatusLabels } from '@/types/gatePass';
+import { PackageCheck } from 'lucide-react';
 
 type UserRole = string;
 
@@ -102,6 +106,9 @@ export default function Dashboard({ currentRole }: DashboardProps) {
   const navigate = useNavigate();
   const { data: permits, isLoading } = useWorkPermits();
   const stats = usePermitStats();
+  const gpStats = useGatePassStats();
+  const { data: gatePasses } = useGatePasses();
+  const recentGatePasses = gatePasses?.slice(0, 4) || [];
 
   // Use dedicated tenant dashboard for tenant role
   if (currentRole === 'tenant') {
@@ -173,6 +180,13 @@ export default function Dashboard({ currentRole }: DashboardProps) {
         </Button>
       </motion.div>
 
+      <Tabs defaultValue="work-permits" className="w-full">
+        <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <TabsTrigger value="work-permits">Work Permits</TabsTrigger>
+          <TabsTrigger value="gate-passes">Gate Passes</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="work-permits" className="space-y-8 mt-6">
       {/* Stats Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <StatsCard
@@ -377,6 +391,102 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           </Card>
         </motion.div>
       </div>
+        </TabsContent>
+
+        {/* ----- Gate Passes tab: same card design as WP, GP numbers ----- */}
+        <TabsContent value="gate-passes" className="space-y-8 mt-6">
+          {/* GP Stats Grid */}
+          <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatsCard title="Total Gate Passes" value={gpStats.total} icon={FileText} variant="primary" href="/gate-passes" />
+            <StatsCard title="Draft" value={gpStats.draft} icon={FileEdit} variant="default" href="/gate-passes" />
+            <StatsCard title="Pending" value={gpStats.pending} icon={Clock} variant="warning" href="/gate-passes/approvals" />
+            <StatsCard title="Approved" value={gpStats.approved} icon={CheckCircle} variant="success" href="/gate-passes" />
+            <StatsCard title="Rejected" value={gpStats.rejected} icon={XCircle} variant="destructive" href="/gate-passes" />
+            <StatsCard title="Completed" value={gpStats.completed} icon={Archive} variant="default" href="/gate-passes" />
+          </motion.div>
+
+          {/* GP Main Content Grid */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Recent Gate Passes */}
+            <motion.div variants={itemVariants} className="lg:col-span-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
+                  <CardTitle className="font-display text-lg flex items-center gap-2">
+                    <PackageCheck className="w-5 h-5 text-accent" />
+                    Recent Gate Passes
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/gate-passes" className="text-accent">
+                      View all
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentGatePasses.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No gate passes yet</p>
+                  ) : (
+                    recentGatePasses.map((gp) => (
+                      <div
+                        key={gp.id}
+                        className="flex items-center justify-between p-3 bg-card rounded-lg border cursor-pointer hover:border-accent/30 transition-colors"
+                        onClick={() => navigate(`/gate-passes/${gp.id}`)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{gp.pass_no}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {gatePassTypeLabels[gp.pass_type] || gp.pass_type} • {gp.requester_name}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="ml-3 shrink-0">
+                          {gatePassStatusLabels[gp.status] || gp.status}
+                        </Badge>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* GP Quick Actions & Pending */}
+            <motion.div variants={itemVariants} className="space-y-6">
+              {currentRole !== 'tenant' && <GatePassesPendingWidget />}
+
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="font-display text-lg flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-accent" />
+                    This Month
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Total</span>
+                      <span className="text-sm font-medium">{gpStats.total}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Completed</span>
+                      <span className="text-sm font-medium">{gpStats.approved + gpStats.completed}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">In Progress</span>
+                      <span className="text-sm font-medium">{gpStats.pending}</span>
+                    </div>
+                    <div className="h-px bg-border my-2" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Approval Rate</span>
+                      <span className="text-sm font-medium text-success">
+                        {gpStats.total > 0 ? Math.round((gpStats.approved / gpStats.total) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }
