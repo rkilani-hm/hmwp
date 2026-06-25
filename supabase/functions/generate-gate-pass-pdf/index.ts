@@ -1,12 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
 import {
   loadArabicFont,
   drawArabic,
   arabicLabel,
 } from "../_shared/pdf-bilingual.ts";
+import {
+  BRAND_RED,
+  BRAND_DARK,
+  createPdfLayout,
+  drawApprovalChain,
+  type ApprovalRow,
+} from "../_shared/pdf-layout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -142,65 +149,55 @@ const handler = async (req: Request): Promise<Response> => {
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // Phase 4b: Arabic font for bilingual labels.
+    // Phase 4b: Arabic font for bilingual labels. On failure (network,
+    // invalid font, library missing) we fall back to English-only — parity
+    // with the WP generator — rather than crashing the whole PDF.
     const arabicFonts = await loadArabicFont(pdfDoc);
-    const pageWidth = 612;
-    const pageHeight = 792;
-    const margin = 50;
+    if (!arabicFonts) {
+      console.warn("[generate-gate-pass-pdf] ARABIC FONT UNAVAILABLE — rendering English-only.");
+    }
+
+    // A4 page size to match the Work Permit design system.
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 22;
 
     const createPage = () => {
       const page = pdfDoc.addPage([pageWidth, pageHeight]);
       return { page, yPos: pageHeight - margin };
     };
 
-    const drawText = (page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont = helvetica, color = rgb(0, 0, 0)) => {
-      const safeText = String(text || "").replace(/[^\x00-\x7F]/g, "");
-      if (safeText && y > 30) {
-        page.drawText(safeText, { x, y, size, font, color });
-      }
+    // ---- Brand design system (shared) -------------------------------------
+    // Brand constants + the section/subsection/field/doc-id-strip helpers
+    // live in ../_shared/pdf-layout.ts so the Work Permit and Gate Pass PDFs
+    // share one source of truth and cannot visually drift.
+    const layout = createPdfLayout({
+      pdfDoc, pageWidth, pageHeight, margin, helvetica, helveticaBold, arabicFonts,
+    });
+    const {
+      drawText,
+      drawBrandLine,
+      drawSectionHeader,
+      drawSubsectionHeader,
+      drawField,
+      drawDocIdStrip,
+    } = layout;
+
+    const pad2 = (n: number) => n.toString().padStart(2, '0');
+    const formatDate = (date: string | null | undefined) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    };
+    const formatDateTime = (date: string | null | undefined) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'N/A';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     };
 
-    const drawLine = (page: PDFPage, y: number) => {
-      page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
-    };
-
-    // ---- Phase 4a: Al Hamra brand constants ----
-    // See generate-permit-pdf/index.ts for the canonical comment.
-    const BRAND_RED   = rgb(0.804, 0.090, 0.098);
-    const BRAND_GREY  = rgb(0.698, 0.698, 0.698);
-    const BRAND_DARK  = rgb(0.114, 0.114, 0.106);
-
-    const drawBrandLine = (page: PDFPage, y: number) => {
-      page.drawLine({
-        start: { x: margin, y },
-        end: { x: pageWidth - margin, y },
-        thickness: 1.5,
-        color: BRAND_RED,
-      });
-    };
-
-    const drawSectionHeader = async (page: PDFPage, text: string, y: number, size = 11) => {
-      drawText(page, text, margin, y, size, helveticaBold, BRAND_RED);
-      const ar = arabicLabel(text);
-      if (arabicFonts && ar) {
-        await drawArabic(page, ar, pageWidth - margin, y, {
-          font: arabicFonts.bold,
-          size,
-          color: BRAND_RED,
-        });
-      }
-      page.drawLine({
-        start: { x: margin, y: y - 4 },
-        end: { x: pageWidth - margin, y: y - 4 },
-        thickness: 0.75,
-        color: BRAND_GREY,
-      });
-    };
-
-    const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString() : "N/A";
-    const formatDateTime = (d: string | null) => d ? new Date(d).toLocaleString() : "N/A";
-
-    // Load company logo
+    // Load company logo (parity with WP; render without it if missing).
     let companyLogo: any = null;
     try {
       const { data: logoData, error: logoError } = await supabaseAdmin.storage.from("company-assets").download("company-logo.jpg");
@@ -216,7 +213,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Logo load error:", e);
     }
 
-    // QR code
+    // QR code — points to the GP verification URL via HMWP_BASE_URL.
     let qrCode: any = null;
     try {
       const passNo = String(gp.pass_no || "").trim();
@@ -231,191 +228,203 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("QR error:", e);
     }
 
-    // ===== PAGE 1 =====
+    // ===== PAGE 1: Gate Pass Details =====
     let { page, yPos } = createPage();
 
-    // Header with logo
+    // ---- Top-right chrome: company logo (parity with WP) ----
+    const chromeTopY = yPos;
+    let chromeBottomY = chromeTopY;
     if (companyLogo) {
-      const maxH = 50, maxW = 120;
-      const s = Math.min(maxW / companyLogo.width, maxH / companyLogo.height, 1);
+      const maxLogoHeight = 40;
+      const maxLogoWidth = 100;
+      const logoScale = Math.min(maxLogoWidth / companyLogo.width, maxLogoHeight / companyLogo.height, 1);
+      const logoWidth = companyLogo.width * logoScale;
+      const logoHeight = companyLogo.height * logoScale;
       page.drawImage(companyLogo, {
-        x: pageWidth - margin - companyLogo.width * s,
-        y: yPos - companyLogo.height * s + 10,
-        width: companyLogo.width * s,
-        height: companyLogo.height * s,
+        x: pageWidth - margin - logoWidth,
+        y: chromeTopY - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
       });
+      chromeBottomY = chromeTopY - logoHeight;
     }
 
-    // Title — Phase 4a/4b: brand-red title with Arabic translation.
-    const title = categoryLabels[gp.pass_category] || "MATERIAL GATE PASS";
-    drawText(page, title.toUpperCase(), margin, yPos, 20, helveticaBold, BRAND_RED);
+    // ---- Bilingual title block (left column) ----
+    // GP-specific title — "Material Gate Pass", NOT "Work Permit".
+    const titleEn = categoryLabels[gp.pass_category] || "Material Gate Pass";
+    const titleArKey = "MATERIAL GATE PASS";
     if (arabicFonts) {
-      // Map English title to Arabic via the bilingual labels table.
-      const arTitle = arabicLabel(title.toUpperCase());
+      const arTitle = arabicLabel(titleArKey);
       if (arTitle) {
-        await drawArabic(page, arTitle, pageWidth - margin, yPos, {
+        await drawArabic(page, arTitle, margin + 180, yPos, {
           font: arabicFonts.bold,
-          size: 20,
-          color: BRAND_RED,
+          size: 26,
+          color: BRAND_DARK,
         });
       }
     }
-    yPos -= 25;
-    drawText(page, gp.pass_no, margin, yPos, 14, helveticaBold, BRAND_DARK);
+    yPos -= 26;
+    drawText(page, titleEn, margin, yPos, 20, helveticaBold, BRAND_DARK);
+    yPos -= 18;
+    drawText(page, gp.pass_no || '', margin, yPos, 14, helveticaBold, BRAND_RED);
     yPos -= 8;
     drawBrandLine(page, yPos);
-    yPos -= 14;
+    yPos -= 16;
 
-    // Status
+    // Don't let the doc-ID strip collide with the right-column logo.
+    if (yPos > chromeBottomY) yPos = chromeBottomY;
+    yPos -= 8;
+
+    // ---- Doc-ID strip (Gate Pass No. / Pass Type / Date / Issued) ----
+    const passTypeLabel = typeLabels[gp.pass_type] || gp.pass_type || '—';
+    await drawDocIdStrip(page, yPos, [
+      { labelEn: 'Gate Pass No.', value: gp.pass_no || '—' },
+      { labelEn: 'Pass Type',     value: passTypeLabel },
+      { labelEn: 'Date',          value: formatDate(gp.valid_from) },
+      { labelEn: 'Issued',        value: formatDate(gp.created_at) },
+    ]);
+    yPos -= 50;
+
+    // Status badge.
     const statusText = (gp.status || "unknown").toUpperCase().replace(/_/g, " ");
     const statusColor = gp.status === "approved" || gp.status === "completed" ? rgb(0.13, 0.77, 0.37)
       : gp.status === "rejected" ? BRAND_RED : rgb(0.42, 0.45, 0.5);
-    drawText(page, "Status: " + statusText, margin, yPos, 11, helveticaBold, statusColor);
-    yPos -= 15;
+    drawText(page, "Status: " + statusText, margin, yPos, 9, helveticaBold, statusColor);
+    yPos -= 18;
 
-    // Pass type checkboxes
-    const passType = typeLabels[gp.pass_type] || gp.pass_type;
-    drawText(page, "Type: " + passType, margin, yPos, 10, helvetica, BRAND_DARK);
-    yPos -= 25;
-    drawLine(page, yPos);
-    yPos -= 20;
+    const contentW = pageWidth - margin * 2;
+    const gridGap = 12;
+    const col3W = (contentW - gridGap * 2) / 3;
+    const c1x = margin;
+    const c2x = margin + col3W + gridGap;
+    const c3x = margin + (col3W + gridGap) * 2;
+    const halfW2 = (contentW - gridGap) / 2;
 
-    // Two-column info — section headers in brand red
-    const col1 = margin;
-    const col2 = pageWidth / 2 + 10;
+    // ====================================================================
+    // SECTION A — GATE PASS DETAILS
+    // ====================================================================
+    await drawSectionHeader(page, 'SECTION A — PERMIT DETAILS', yPos, 11);
+    yPos -= 26;
 
-    drawText(page, "REQUESTOR INFORMATION", col1, yPos, 11, helveticaBold, BRAND_RED);
-    drawText(page, "LOCATION & DETAILS", col2, yPos, 11, helveticaBold, BRAND_RED);
-    if (arabicFonts) {
-      await drawArabic(page, arabicLabel('REQUESTOR INFORMATION') ?? '', col1 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-      await drawArabic(page, arabicLabel('LOCATION & DETAILS') ?? '', col2 + 175, yPos - 9, {
-        font: arabicFonts.regular, size: 8, color: BRAND_RED,
-      });
-    }
-    yPos -= 16;
-    drawText(page, "Name: " + (gp.requester_name || "N/A"), col1, yPos, 9, helvetica);
-    drawText(page, "Unit/Floor: " + (gp.unit_floor || "N/A"), col2, yPos, 9, helvetica);
-    yPos -= 13;
-    drawText(page, "Email: " + (gp.requester_email || "N/A"), col1, yPos, 9, helvetica);
-    drawText(page, "Delivery Area: " + (gp.delivery_area || "N/A"), col2, yPos, 9, helvetica);
-    yPos -= 13;
-    if (gp.client_contractor_name) {
-      drawText(page, "Client/Contractor: " + gp.client_contractor_name, col1, yPos, 9, helvetica);
-      yPos -= 13;
-    }
-    if (gp.client_rep_name) {
-      drawText(page, "Client Rep: " + gp.client_rep_name, col1, yPos, 9, helvetica);
-      drawText(page, "Contact: " + (gp.client_rep_contact || "N/A"), col2, yPos, 9, helvetica);
-      yPos -= 13;
-    }
-    if (gp.delivery_type) {
-      drawText(page, "Delivery Type: " + (deliveryLabels[gp.delivery_type] || gp.delivery_type), col1, yPos, 9, helvetica);
-      yPos -= 13;
-    }
-    yPos -= 10;
-    drawLine(page, yPos);
-    yPos -= 20;
+    // ---- Subsection 1: Pass Type ----
+    await drawSubsectionHeader(page, '1. Pass Type', yPos, 10);
+    yPos -= 22;
+    const categoryDisplay = categoryLabels[gp.pass_category] || gp.pass_category || 'N/A';
+    await drawField(page, { labelEn: 'Type',     value: passTypeLabel,                                                 x: c1x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Category', value: categoryDisplay,                                               x: c2x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Delivery', value: gp.delivery_type ? (deliveryLabels[gp.delivery_type] || gp.delivery_type) : 'N/A', x: c3x, y: yPos, width: col3W });
+    yPos -= 32;
 
-    // Transfer Schedule
-    await drawSectionHeader(page, "TRANSFER SCHEDULE", yPos, 11);
-    yPos -= 16;
-    drawText(page, "From Date: " + formatDate(gp.valid_from), col1, yPos, 9, helvetica);
-    drawText(page, "To Date: " + formatDate(gp.valid_to), col2, yPos, 9, helvetica);
-    yPos -= 13;
-    drawText(page, "Time: " + (gp.time_from || "N/A") + " - " + (gp.time_to || "N/A"), col1, yPos, 9, helvetica);
-    yPos -= 13;
-    if (gp.vehicle_make_model) {
-      drawText(page, "Vehicle: " + gp.vehicle_make_model + " (" + (gp.vehicle_license_plate || "") + ")", col1, yPos, 9, helvetica);
-      yPos -= 13;
+    // ---- Subsection 2: Requestor Information ----
+    await drawSubsectionHeader(page, '2. Requestor Details', yPos, 10);
+    yPos -= 22;
+    await drawField(page, { labelEn: 'Name',  value: gp.requester_name  || 'N/A', x: c1x,                    y: yPos, width: halfW2 });
+    await drawField(page, { labelEn: 'Email', value: gp.requester_email || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
+    yPos -= 32;
+    await drawField(page, { labelEn: 'Unit',          value: gp.unit_floor     || 'N/A', x: c1x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Location',      value: gp.delivery_area  || 'N/A', x: c2x, y: yPos, width: col3W });
+    await drawField(page, { labelEn: 'Client',        value: gp.client_contractor_name || 'N/A', x: c3x, y: yPos, width: col3W });
+    yPos -= 32;
+    if (gp.client_rep_name || gp.client_rep_contact) {
+      await drawField(page, { labelEn: 'Client Rep', value: gp.client_rep_name    || 'N/A', x: c1x,                    y: yPos, width: halfW2 });
+      await drawField(page, { labelEn: 'Contact',    value: gp.client_rep_contact || 'N/A', x: c1x + halfW2 + gridGap, y: yPos, width: halfW2 });
+      yPos -= 32;
     }
-    if (gp.shifting_method) {
-      drawText(page, "Shifting Method: " + (shiftingLabels[gp.shifting_method] || gp.shifting_method), col1, yPos, 9, helvetica);
-      yPos -= 13;
+    if (gp.vehicle_make_model || gp.vehicle_license_plate) {
+      const vehicleVal = (gp.vehicle_make_model || '') + (gp.vehicle_license_plate ? ` (${gp.vehicle_license_plate})` : '');
+      await drawField(page, { labelEn: 'Vehicle', value: vehicleVal || 'N/A', x: c1x, y: yPos, width: contentW });
+      yPos -= 32;
     }
-    yPos -= 10;
-    drawLine(page, yPos);
-    yPos -= 20;
 
-    // Items Table
+    // ---- Subsection 3: Transfer Schedule ----
+    await drawSubsectionHeader(page, '3. Transfer Schedule', yPos, 10);
+    yPos -= 22;
+    const dateValue = `${formatDate(gp.valid_from)}  -  ${formatDate(gp.valid_to)}`;
+    const timeValue = `${gp.time_from || 'N/A'}  -  ${gp.time_to || 'N/A'}`;
+    const halfW = (contentW - gridGap) / 2;
+    await drawField(page, { labelEn: 'Date', value: dateValue, x: c1x,                   y: yPos, width: halfW });
+    await drawField(page, { labelEn: 'Time', value: timeValue, x: c1x + halfW + gridGap, y: yPos, width: halfW });
+    yPos -= 32;
+    await drawField(page, {
+      labelEn: 'Shifting Method',
+      value: gp.shifting_method ? (shiftingLabels[gp.shifting_method] || gp.shifting_method) : 'N/A',
+      x: c1x, y: yPos, width: contentW,
+    });
+    yPos -= 36;
+
+    // ---- Subsection 4: Item Details (table) ----
     const passItems = items || [];
     if (passItems.length > 0) {
-      await drawSectionHeader(page, "ITEM DETAILS", yPos, 11);
-      yPos -= 18;
+      await drawSubsectionHeader(page, '4. Item Details', yPos, 10);
+      yPos -= 20;
 
-      // Table header
       const tableLeft = margin;
-      const colWidths = [35, 200, 60, 60, 150]; // SR, Details, Qty, High Value, Remarks
+      const colWidths = [32, 230, 55, 60, contentW - 32 - 230 - 55 - 60]; // SR, Details, Qty, High Val, Remarks
       const tableWidth = colWidths.reduce((a, b) => a + b, 0);
 
       // Header row
       page.drawRectangle({ x: tableLeft, y: yPos - 15, width: tableWidth, height: 18, color: rgb(0.93, 0.93, 0.93) });
-      let xOff = tableLeft + 3;
+      let xOff = tableLeft + 4;
       const headers = ["SR", "Details of Item", "Qty", "High Val", "Remarks"];
       for (let h = 0; h < headers.length; h++) {
-        drawText(page, headers[h], xOff, yPos - 12, 8, helveticaBold);
+        drawText(page, headers[h], xOff, yPos - 11, 8, helveticaBold, BRAND_DARK);
         xOff += colWidths[h];
       }
       yPos -= 18;
 
-      // Draw rows
       for (const item of passItems) {
-        if (yPos < 120) {
+        if (yPos < 110) {
           const np = createPage();
           page = np.page;
           yPos = np.yPos;
-          drawText(page, "ITEM DETAILS (continued)", margin, yPos, 11, helveticaBold);
-          yPos -= 18;
+          await drawSubsectionHeader(page, '4. Item Details (continued)', yPos, 10);
+          yPos -= 20;
         }
 
-        // Row border
         page.drawRectangle({
           x: tableLeft, y: yPos - 15, width: tableWidth, height: 18,
           borderColor: rgb(0.85, 0.85, 0.85), borderWidth: 0.5,
         });
 
-        xOff = tableLeft + 3;
-        drawText(page, String(item.serial_number), xOff, yPos - 12, 8, helvetica);
+        xOff = tableLeft + 4;
+        drawText(page, String(item.serial_number ?? ''), xOff, yPos - 11, 8, helvetica, BRAND_DARK);
         xOff += colWidths[0];
 
-        const details = String(item.item_details || "").substring(0, 40);
-        drawText(page, details, xOff, yPos - 12, 8, helvetica);
+        const details = String(item.item_details || "").substring(0, 48);
+        drawText(page, details, xOff, yPos - 11, 8, helvetica, BRAND_DARK);
         xOff += colWidths[1];
 
-        drawText(page, String(item.quantity || "1"), xOff, yPos - 12, 8, helvetica);
+        drawText(page, String(item.quantity || "1"), xOff, yPos - 11, 8, helvetica, BRAND_DARK);
         xOff += colWidths[2];
 
-        drawText(page, item.is_high_value ? "Yes" : "No", xOff, yPos - 12, 8, helvetica,
+        drawText(page, item.is_high_value ? "Yes" : "No", xOff, yPos - 11, 8, helvetica,
           item.is_high_value ? BRAND_RED : rgb(0.3, 0.3, 0.3));
         xOff += colWidths[3];
 
-        const remarks = String(item.remarks || "-").substring(0, 30);
-        drawText(page, remarks, xOff, yPos - 12, 8, helvetica);
+        const remarks = String(item.remarks || "-").substring(0, 34);
+        drawText(page, remarks, xOff, yPos - 11, 8, helvetica, BRAND_DARK);
 
         yPos -= 18;
       }
-      yPos -= 10;
+      yPos -= 14;
     }
 
-    // Purpose
+    // ---- Subsection 5: Purpose of Material Shifting ----
     if (gp.purpose) {
-      if (yPos < 120) {
+      if (yPos < 140) {
         const np = createPage();
         page = np.page;
         yPos = np.yPos;
       }
-      drawLine(page, yPos);
-      yPos -= 20;
-      await drawSectionHeader(page, "PURPOSE OF MATERIAL SHIFTING", yPos, 11);
-      yPos -= 16;
-      const purposeText = String(gp.purpose).substring(0, 300);
+      await drawSubsectionHeader(page, '5. Purpose of Material Shifting', yPos, 10);
+      yPos -= 18;
+      const purposeText = String(gp.purpose).substring(0, 600);
       const words = purposeText.split(" ");
       let line = "";
       for (const word of words) {
         const test = line + word + " ";
-        if (test.length > 85) {
-          drawText(page, line.trim(), margin, yPos, 9, helvetica);
+        if (test.length > 95) {
+          drawText(page, line.trim(), margin, yPos, 9, helvetica, BRAND_DARK);
           yPos -= 13;
           line = word + " ";
         } else {
@@ -423,45 +432,68 @@ const handler = async (req: Request): Promise<Response> => {
         }
       }
       if (line.trim()) {
-        drawText(page, line.trim(), margin, yPos, 9, helvetica);
+        drawText(page, line.trim(), margin, yPos, 9, helvetica, BRAND_DARK);
         yPos -= 13;
       }
       yPos -= 10;
     }
 
-    // Forklift warning
+    // Forklift warning (restyled, brand red).
     if (gp.shifting_method === "forklift") {
+      if (yPos < 80) {
+        const np = createPage();
+        page = np.page;
+        yPos = np.yPos;
+      }
       drawText(page, "NOTE: Materials shifting using forklift in Al Hamra premises shall obtain a valid Work Permit.", margin, yPos, 8, helveticaBold, BRAND_RED);
-      yPos -= 15;
+      yPos -= 16;
     }
 
-    // ===== SIGNATURES SECTION =====
-    if (yPos < 250) {
+    // CCTV confirmation (restyled).
+    if (gp.security_cctv_confirmed) {
+      drawText(page, "CCTV Monitoring Confirmed", margin, yPos, 9, helveticaBold, rgb(0.13, 0.77, 0.37));
+      yPos -= 16;
+    }
+
+    yPos -= 6;
+
+    // ====================================================================
+    // SECTION B — APPROVAL CHAIN  (sourced from gate_pass_approvals)
+    // ====================================================================
+    if (yPos < 120) {
       const np = createPage();
       page = np.page;
       yPos = np.yPos;
     }
-    drawLine(page, yPos);
-    yPos -= 25;
-    await drawSectionHeader(page, "APPROVALS & SIGNATURES", yPos, 12);
-    yPos -= 25;
+    await drawSectionHeader(page, 'SECTION B — APPROVAL CHAIN', yPos, 11);
+    yPos -= 26;
 
-    // ---- Phase 2c-4: approvals sourced from gate_pass_approvals ----
-    // Populated by Phase 2b dual-write. Replaces the hardcoded 3-block
-    // array that read store_manager_*, finance_*, security_* columns
-    // directly off the gate pass row. Titles + render order preserved.
-    const ROLE_BLOCK_TITLES: Record<string, string> = {
-      store_manager:   "Approved By (Store Manager)",
-      finance:         "Department Verification (Finance)",
-      security:        "Security Sign-off",
-      // PMD-workflow passes — legacy never rendered these so they only
-      // appear when gate_pass_approvals has rows for them.
-      security_pmd:    "Security (PMD)",
-      cr_coordinator:  "CR Coordinator",
-      head_cr:         "Head CR",
-      hm_security_pmd: "HM Security (PMD)",
+    // ---- Gate-pass role display-name maps (EN + AR) ----
+    // Mirrors the WP ROLE_DISPLAY_NAMES / ROLE_DISPLAY_NAMES_AR / render order,
+    // using the actual gate_pass_approvals role keys (see verify-gate-pass-approval
+    // roleColumns: store_manager, finance, security, security_pmd, cr_coordinator,
+    // head_cr, hm_security_pmd). Unmapped keys fall back to a humanized name.
+    const ROLE_DISPLAY_NAMES: Record<string, string> = {
+      store_manager: 'Store Manager',
+      finance: 'Finance',
+      security: 'Security',
+      security_pmd: 'Security (PMD)',
+      cr_coordinator: 'CR Coordinator',
+      head_cr: 'Head of CR',
+      hm_security_pmd: 'HM Security (PMD)',
     };
-    const ROLE_RENDER_ORDER = [
+
+    const ROLE_DISPLAY_NAMES_AR: Record<string, string> = {
+      store_manager: 'مدير المخزن',
+      finance: 'المالية',
+      security: 'الأمن',
+      security_pmd: 'الأمن (إدارة المرافق)',
+      cr_coordinator: 'منسق علاقات العملاء',
+      head_cr: 'رئيس علاقات العملاء',
+      hm_security_pmd: 'أمن الحمراء (إدارة المرافق)',
+    };
+
+    const ROLE_RENDER_ORDER: string[] = [
       'store_manager', 'finance', 'security',
       'security_pmd', 'cr_coordinator', 'head_cr', 'hm_security_pmd',
     ];
@@ -469,16 +501,7 @@ const handler = async (req: Request): Promise<Response> => {
       ROLE_RENDER_ORDER.map((r, i) => [r, i]),
     );
 
-    type SigBlock = {
-      title: string;
-      roleKey: string;
-      name: string | null;
-      date: string | null;
-      comments: string | null;
-      signature: string | null;
-    };
-
-    let sigBlocks: SigBlock[] = [];
+    let approvals: ApprovalRow[] = [];
 
     const { data: approvalRows, error: approvalsErr } = await supabaseAdmin
       .from('gate_pass_approvals')
@@ -490,184 +513,143 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (approvalRows && approvalRows.length > 0) {
-      sigBlocks = approvalRows
-        .filter((r) => r.status === 'approved' || r.status === 'rejected')
-        .map((r): SigBlock => ({
-          title: ROLE_BLOCK_TITLES[r.role_name] ?? r.role_name,
-          roleKey: r.role_name,
-          name: r.approver_name,
-          date: r.approved_at,
-          signature: r.signature,
-          comments: r.comments,
-        }));
+      // Render ALL rows (approved / rejected / pending) so the chain shows
+      // the full audit trail, exactly like the WP approval chain.
+      approvals = approvalRows.map((r: any): ApprovalRow => ({
+        name: ROLE_DISPLAY_NAMES[r.role_name]
+          ?? String(r.role_name || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        nameAr: ROLE_DISPLAY_NAMES_AR[r.role_name] ?? null,
+        roleKey: r.role_name,
+        status: r.status,
+        approver: r.approver_name,
+        date: r.approved_at,
+        signature: r.signature,
+        comments: r.comments,
+        stepOrder: ROLE_ORDER_INDEX[r.role_name] ?? 999,
+      }));
     } else {
       // Fallback for pre-Phase-2b passes that never got reconciled. Builds
-      // the same shape from legacy columns so the PDF still renders.
-      // Removable in the cleanup phase once legacy columns are dropped.
+      // the same shape from legacy columns so the chain still renders.
       const rec = gp as Record<string, unknown>;
       const legacyRoles: string[] = ['store_manager', 'finance', 'security'];
       for (const roleKey of legacyRoles) {
         const name = (rec[`${roleKey}_name`] as string | null) ?? null;
         const date = (rec[`${roleKey}_date`] as string | null) ?? null;
-        if (!name && !date) continue;
-        sigBlocks.push({
-          title: ROLE_BLOCK_TITLES[roleKey],
+        const sig = (rec[`${roleKey}_signature`] as string | null) ?? null;
+        // Treat presence of any actioned data as approved; otherwise pending.
+        const status = (name || date || sig) ? 'approved' : 'pending';
+        approvals.push({
+          name: ROLE_DISPLAY_NAMES[roleKey],
+          nameAr: ROLE_DISPLAY_NAMES_AR[roleKey] ?? null,
           roleKey,
-          name,
+          status,
+          approver: name,
           date,
+          signature: sig,
           comments: (rec[`${roleKey}_comments`] as string | null) ?? null,
-          signature: (rec[`${roleKey}_signature`] as string | null) ?? null,
+          stepOrder: ROLE_ORDER_INDEX[roleKey] ?? 999,
         });
       }
     }
 
-    // Stable sort by render order so grid layout is byte-identical for
-    // identical input data.
-    sigBlocks.sort((a, b) => {
-      const oa = ROLE_ORDER_INDEX[a.roleKey] ?? Number.POSITIVE_INFINITY;
-      const ob = ROLE_ORDER_INDEX[b.roleKey] ?? Number.POSITIVE_INFINITY;
-      return oa - ob;
-    });
+    // Stable sort by render order so the chain layout is deterministic.
+    approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
-    // Filter to only show blocks that have been actioned (existing
-    // behavior preserved — pending blocks never appeared on the PDF).
-    const activeSigs = sigBlocks.filter(s => s.name || s.date);
-
-    const sigColCount = 3;
-    const sigColWidth = (pageWidth - 2 * margin) / sigColCount;
-    const sigRowHeight = 130;
-
-    for (let i = 0; i < activeSigs.length; i++) {
-      const sig = activeSigs[i];
-      const colIdx = i % sigColCount;
-      const xPos = margin + colIdx * sigColWidth;
-
-      if (colIdx === 0 && i > 0) {
-        yPos -= sigRowHeight;
-        if (yPos < 120) {
-          const np = createPage();
-          page = np.page;
-          yPos = np.yPos;
-        }
-      }
-
-      const cellY = yPos;
-
-      // Box border
-      page.drawRectangle({
-        x: xPos, y: cellY - sigRowHeight + 10,
-        width: sigColWidth - 10, height: sigRowHeight - 5,
-        borderColor: rgb(0.85, 0.85, 0.85), borderWidth: 0.5,
+    // Shared row renderer — identical to the WP approval chain (numbered rows,
+    // EN/AR roles, signer + timestamp, status pill, embedded signature / dashed
+    // PENDING SIGNATURE placeholder, halo on first pending, page-break handling).
+    {
+      const res = await drawApprovalChain({
+        ctx: { pdfDoc, pageWidth, pageHeight, margin, helvetica, helveticaBold, arabicFonts },
+        layout,
+        approvals,
+        page,
+        yPos,
+        createPage,
+        formatDateTime,
       });
-
-      let cy = cellY - 14;
-      drawText(page, sig.title, xPos + 5, cy, 8, helveticaBold);
-      cy -= 16;
-      drawText(page, "Name: " + (sig.name || "N/A"), xPos + 5, cy, 8, helvetica, rgb(0.3, 0.3, 0.3));
-      cy -= 12;
-      drawText(page, "Date: " + formatDateTime(sig.date), xPos + 5, cy, 7, helvetica, rgb(0.5, 0.5, 0.5));
-      cy -= 12;
-
-      if (sig.comments && sig.comments.trim()) {
-        const comment = sig.comments.trim().substring(0, 40);
-        drawText(page, '"' + comment + '"', xPos + 5, cy, 6, helvetica, rgb(0.4, 0.4, 0.4));
-        cy -= 10;
-      }
-
-      // Embed signature image
-      if (sig.signature && sig.signature.startsWith("data:image")) {
-        try {
-          const base64Data = sig.signature.split(",")[1];
-          if (base64Data) {
-            const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-            let sigImage;
-            if (sig.signature.includes("image/png")) {
-              sigImage = await pdfDoc.embedPng(sigBytes);
-            } else {
-              sigImage = await pdfDoc.embedJpg(sigBytes);
-            }
-            if (sigImage) {
-              const maxW = 90, maxSH = 35;
-              const sc = Math.min(maxW / sigImage.width, maxSH / sigImage.height, 1);
-              page.drawImage(sigImage, {
-                x: xPos + 5, y: cy - sigImage.height * sc,
-                width: sigImage.width * sc, height: sigImage.height * sc,
-              });
-            }
-          }
-        } catch (sigErr) {
-          console.error("Signature embed error:", sigErr);
-        }
-      }
+      page = res.page;
+      yPos = res.yPos;
     }
 
-    // CCTV confirmation
-    if (gp.security_cctv_confirmed) {
-      yPos -= sigRowHeight + 10;
-      drawText(page, "CCTV Monitoring Confirmed", margin, yPos, 9, helveticaBold, rgb(0.13, 0.77, 0.37));
-      yPos -= 15;
-    }
+    // Footer + QR + page numbers are drawn uniformly on EVERY page below.
 
-    // Add page numbers, watermark, logo, QR to all pages
+    // ---- Per-page footer / QR / page numbers (parity with WP) ----
     const pages = pdfDoc.getPages();
     const totalPages = pages.length;
+    const generatedOnText = 'Generated on ' + formatDateTime(new Date().toISOString());
     for (let i = 0; i < totalPages; i++) {
-      const cp = pages[i];
+      const currentPage = pages[i];
 
-      // Watermark
-      cp.drawText("CONFIDENTIAL", {
-        x: pageWidth / 2 - 150, y: pageHeight / 2 - 20,
-        size: 60, font: helveticaBold, color: rgb(0.9, 0.9, 0.9),
-        rotate: degrees(45), opacity: 0.3,
+      // Footer divider + left-aligned text (every page)
+      currentPage.drawLine({
+        start: { x: margin, y: margin + 28 },
+        end:   { x: pageWidth - margin, y: margin + 28 },
+        thickness: 0.5,
+        color: rgb(0.8, 0.8, 0.8),
+      });
+      currentPage.drawText('This is an official gate pass document.', {
+        x: margin, y: margin + 13, size: 8, font: helvetica, color: rgb(0.5, 0.5, 0.5),
+      });
+      currentPage.drawText(generatedOnText, {
+        x: margin, y: margin + 3, size: 8, font: helvetica, color: rgb(0.5, 0.5, 0.5),
       });
 
-      // Logo on subsequent pages
-      if (companyLogo && i > 0) {
-        const maxH = 50, maxW = 120;
-        const s = Math.min(maxW / companyLogo.width, maxH / companyLogo.height, 1);
-        cp.drawImage(companyLogo, {
-          x: pageWidth - margin - companyLogo.width * s,
-          y: pageHeight - margin - companyLogo.height * s + 10,
-          width: companyLogo.width * s, height: companyLogo.height * s,
-        });
-      }
-
-      // QR code
+      // QR code (right side) on all pages
       if (qrCode) {
         const qrSize = 45;
         const qrX = pageWidth - margin - qrSize;
         const qrY = 20;
+
         const moduleCount = qrCode.getModuleCount();
         const cellSize = qrSize / moduleCount;
+
         for (let row = 0; row < moduleCount; row++) {
           for (let col = 0; col < moduleCount; col++) {
             if (qrCode.isDark(row, col)) {
-              cp.drawRectangle({
+              currentPage.drawRectangle({
                 x: qrX + col * cellSize,
                 y: qrY + (moduleCount - 1 - row) * cellSize,
-                width: cellSize, height: cellSize, color: rgb(0, 0, 0),
+                width: cellSize,
+                height: cellSize,
+                color: rgb(0, 0, 0),
               });
             }
           }
         }
+
         const qrLabel = "Scan for gate pass";
-        const labelW = helvetica.widthOfTextAtSize(qrLabel, 6);
-        cp.drawText(qrLabel, { x: qrX + (qrSize - labelW) / 2, y: qrY - 8, size: 6, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
-        const passNoW = helvetica.widthOfTextAtSize(gp.pass_no, 5);
-        cp.drawText(gp.pass_no, { x: qrX + (qrSize - passNoW) / 2, y: qrY - 15, size: 5, font: helvetica, color: rgb(0.3, 0.3, 0.3) });
+        const labelWidth = helvetica.widthOfTextAtSize(qrLabel, 6);
+        currentPage.drawText(qrLabel, {
+          x: qrX + (qrSize - labelWidth) / 2,
+          y: qrY - 8,
+          size: 6,
+          font: helvetica,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+
+        const passNo = gp.pass_no || "";
+        const passNoWidth = helvetica.widthOfTextAtSize(passNo, 5);
+        currentPage.drawText(passNo, {
+          x: qrX + (qrSize - passNoWidth) / 2,
+          y: qrY - 15,
+          size: 5,
+          font: helvetica,
+          color: rgb(0.3, 0.3, 0.3),
+        });
       }
 
-      // Page number
+      // Page number (center)
       const pageNumText = `Page ${i + 1} of ${totalPages}`;
-      const tw = helvetica.widthOfTextAtSize(pageNumText, 9);
-      cp.drawText(pageNumText, { x: (pageWidth - tw) / 2, y: 20, size: 9, font: helvetica, color: rgb(0.5, 0.5, 0.5) });
+      const textWidth = helvetica.widthOfTextAtSize(pageNumText, 9);
+      currentPage.drawText(pageNumText, {
+        x: (pageWidth - textWidth) / 2,
+        y: 20,
+        size: 9,
+        font: helvetica,
+        color: rgb(0.5, 0.5, 0.5),
+      });
     }
-
-    // Footer on first page
-    const firstPage = pages[0];
-    drawLine(firstPage, 50);
-    drawText(firstPage, "Generated on " + new Date().toLocaleString(), margin, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
-    drawText(firstPage, "Al Hamra - Material Gate Pass", pageWidth - margin - 160, 35, 8, helvetica, rgb(0.5, 0.5, 0.5));
 
     // Save & upload
     const pdfBytes = await pdfDoc.save();
