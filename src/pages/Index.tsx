@@ -13,6 +13,7 @@ import PendingApprovals from './admin/PendingApprovals';
 import WorkTypesManagement from './admin/WorkTypesManagement';
 import WorkLocationsManagement from './admin/WorkLocationsManagement';
 import RolesManagement from './admin/RolesManagement';
+import DepartmentsManagement from './admin/DepartmentsManagement';
 import ApproverAudit from './admin/ApproverAudit';
 import PermissionsManagement from './admin/PermissionsManagement';
 import WorkflowBuilder from './admin/WorkflowBuilder';
@@ -75,9 +76,13 @@ const Index = () => {
           path="work-locations" 
           element={isAdmin ? <WorkLocationsManagement /> : <Navigate to="/" replace />} 
         />
-        <Route 
-          path="roles" 
-          element={isAdmin ? <RolesManagement /> : <Navigate to="/" replace />} 
+        <Route
+          path="roles"
+          element={isAdmin ? <RolesManagement /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="departments"
+          element={isAdmin ? <DepartmentsManagement /> : <Navigate to="/" replace />}
         />
         <Route 
           path="permissions" 
