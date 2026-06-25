@@ -27,6 +27,11 @@ const typeIcons: Record<string, string> = {
   sla_breach: '🚨',
   permit_approved: '✅',
   permit_rejected: '❌',
+  // Gate pass
+  gatepass_submitted: '📦',
+  gatepass_pending: '⏳',
+  gatepass_approved: '✅',
+  gatepass_rejected: '❌',
 };
 
 const typeColors: Record<string, string> = {
@@ -37,6 +42,11 @@ const typeColors: Record<string, string> = {
   sla_breach: 'border-l-destructive',
   permit_approved: 'border-l-success',
   permit_rejected: 'border-l-destructive',
+  // Gate pass
+  gatepass_submitted: 'border-l-primary',
+  gatepass_pending: 'border-l-warning',
+  gatepass_approved: 'border-l-success',
+  gatepass_rejected: 'border-l-destructive',
 };
 
 export function NotificationBell() {
@@ -48,11 +58,15 @@ export function NotificationBell() {
   const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
 
-  const handleNotificationClick = (notification: { id: string; permit_id: string | null; is_read: boolean }) => {
+  const handleNotificationClick = (notification: { id: string; permit_id: string | null; gate_pass_id: string | null; is_read: boolean }) => {
     if (!notification.is_read) {
       markRead.mutate(notification.id);
     }
-    if (notification.permit_id) {
+    // Gate pass notifications deep-link to the pass (WP parity).
+    if (notification.gate_pass_id) {
+      setOpen(false);
+      navigate(`/gate-passes/${notification.gate_pass_id}`);
+    } else if (notification.permit_id) {
       setOpen(false);
       navigate(`/permits/${notification.permit_id}`);
     }

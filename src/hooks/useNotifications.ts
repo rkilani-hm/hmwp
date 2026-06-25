@@ -7,6 +7,7 @@ export interface Notification {
   id: string;
   user_id: string;
   permit_id: string | null;
+  gate_pass_id: string | null;
   type: string;
   title: string;
   message: string | null;
