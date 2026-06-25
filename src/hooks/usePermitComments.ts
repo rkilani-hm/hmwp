@@ -31,7 +31,8 @@ export interface PermitComment {
   tier: CommentTier;
   body: string;
   created_at: string;
-  /** Resolved client-side from profiles for display; not a DB column. */
+  /** Author display name, snapshotted onto the row by the insert trigger
+   *  (profiles RLS blocks reading other users' profiles client-side). */
   author_name?: string | null;
 }
 
@@ -52,29 +53,9 @@ export function usePermitComments(permitId: string | undefined) {
 
       if (error) throw error;
 
-      const rows = (data ?? []) as PermitComment[];
-      if (rows.length === 0) return [];
-
-      // Resolve author display names. `profiles` is selectable by any
-      // authenticated user (select id, full_name).
-      const authorIds = Array.from(new Set(rows.map((r) => r.author_id).filter(Boolean)));
-      const nameById = new Map<string, string | null>();
-      if (authorIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', authorIds);
-        if (profilesError) {
-          // Non-fatal: fall back to no names rather than failing the list.
-          console.error('Failed to resolve comment author names:', profilesError);
-        } else {
-          for (const p of (profiles ?? []) as { id: string; full_name: string | null }[]) {
-            nameById.set(p.id, p.full_name);
-          }
-        }
-      }
-
-      return rows.map((r) => ({ ...r, author_name: nameById.get(r.author_id) ?? null }));
+      // author_name is denormalized onto the row by the insert trigger, so no
+      // profiles lookup is needed (and profiles RLS would block it anyway).
+      return (data ?? []) as PermitComment[];
     },
   });
 }
