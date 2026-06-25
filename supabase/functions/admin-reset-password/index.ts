@@ -79,10 +79,10 @@ const handler = async (req: Request): Promise<Response> => {
     
     const { data: adminCheck } = await serviceClient
       .from("user_roles")
-      .select("role")
+      .select("role_id, roles!inner(name)")
       .eq("user_id", user.id)
-      .eq("role", "admin")
-      .single();
+      .eq("roles.name", "admin")
+      .maybeSingle();
 
     if (!adminCheck) {
       console.error("User is not admin:", user.id);
