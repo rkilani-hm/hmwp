@@ -250,18 +250,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // ---- Bilingual title block (left column) ----
-    // GP-specific title — "Material Gate Pass", NOT "Work Permit".
-    const titleEn = categoryLabels[gp.pass_category] || "Material Gate Pass";
-    const titleArKey = "MATERIAL GATE PASS";
+    // Single fixed title for ALL gate pass types/categories (not derived from
+    // the category), per product decision.
+    const titleEn = "Generic Gate Pass";
+    const titleAr = "تصريح دخول/خروج عام";
     if (arabicFonts) {
-      const arTitle = arabicLabel(titleArKey);
-      if (arTitle) {
-        await drawArabic(page, arTitle, margin + 180, yPos, {
-          font: arabicFonts.bold,
-          size: 26,
-          color: BRAND_DARK,
-        });
-      }
+      await drawArabic(page, titleAr, margin + 180, yPos, {
+        font: arabicFonts.bold,
+        size: 26,
+        color: BRAND_DARK,
+      });
     }
     yPos -= 26;
     drawText(page, titleEn, margin, yPos, 20, helveticaBold, BRAND_DARK);
