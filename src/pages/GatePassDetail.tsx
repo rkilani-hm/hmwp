@@ -25,12 +25,13 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Printer, CheckCircle, XCircle, Clock, FileDown, Loader2, Mail } from 'lucide-react';
+import { ArrowLeft, Printer, Eye, CheckCircle, XCircle, Clock, FileDown, Loader2, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useGenerateGatePassPdf } from '@/hooks/useGenerateGatePassPdf';
+import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -71,6 +72,8 @@ export default function GatePassDetail() {
   const [emailTo, setEmailTo] = useState('');
   const [emailName, setEmailName] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
 
   // Secure approval dialog state
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
@@ -130,6 +133,16 @@ export default function GatePassDetail() {
     const url = await generatePdf(gp.id);
     if (url) {
       window.open(url, '_blank');
+    }
+  };
+
+  const handlePreviewPdf = async () => {
+    // Generate the PDF and show it in the in-app preview dialog (zoom +
+    // open-in-new-tab to print + download) instead of jumping straight to a tab.
+    const url = await generatePdf(gp.id);
+    if (url) {
+      setPreviewPdfUrl(url);
+      setPdfPreviewOpen(true);
     }
   };
 
@@ -208,6 +221,10 @@ export default function GatePassDetail() {
           <div className="flex items-center gap-2">
             <Badge className={statusColors[gp.status] || 'bg-warning/10 text-warning'}>{gatePassStatusLabels[gp.status] || gp.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
             <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+            <Button variant="outline" onClick={handlePreviewPdf} disabled={isGenerating}>
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
+              Print Preview
+            </Button>
             {isAdmin && !isGPArchived && (
               <AdminDeleteDialog
                 title="Archive Gate Pass"
@@ -464,6 +481,16 @@ export default function GatePassDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PDF preview dialog (Print Preview): in-app preview with zoom,
+          open-in-new-tab to print, and download. */}
+      <PdfPreviewDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        pdfUrl={previewPdfUrl}
+        fileName={`${(gp.pass_no || 'gate-pass').replace(/\//g, '-')}.pdf`}
+        onDownload={handleDownloadPdf}
+      />
     </div>
   );
 }
