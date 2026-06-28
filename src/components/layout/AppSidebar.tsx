@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import alHamraLogo from '@/assets/al-hamra-logo.jpg';
+import alHamraLogo from '@/assets/al-hamra-logo.png';
 import {
   LayoutDashboard,
   FileText,
