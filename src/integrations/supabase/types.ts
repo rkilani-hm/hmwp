@@ -176,6 +176,24 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       gate_pass_approvals: {
         Row: {
           approved_at: string | null
@@ -297,6 +315,78 @@ export type Database = {
             columns: ["workflow_step_id"]
             isOneToOne: false
             referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gate_pass_comments: {
+        Row: {
+          approval_id: string | null
+          author_department_id: string | null
+          author_id: string
+          author_name: string | null
+          body: string
+          created_at: string
+          gate_pass_id: string
+          id: string
+          tier: string
+        }
+        Insert: {
+          approval_id?: string | null
+          author_department_id?: string | null
+          author_id: string
+          author_name?: string | null
+          body: string
+          created_at?: string
+          gate_pass_id: string
+          id?: string
+          tier?: string
+        }
+        Update: {
+          approval_id?: string | null
+          author_department_id?: string | null
+          author_id?: string
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          gate_pass_id?: string
+          id?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_pass_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_pending_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_comments_author_department_id_fkey"
+            columns: ["author_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_pass_comments_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_pass_active_approvers"
+            referencedColumns: ["gate_pass_id"]
+          },
+          {
+            foreignKeyName: "gate_pass_comments_gate_pass_id_fkey"
+            columns: ["gate_pass_id"]
+            isOneToOne: false
+            referencedRelation: "gate_passes"
             referencedColumns: ["id"]
           },
         ]
@@ -853,6 +943,78 @@ export type Database = {
           },
         ]
       }
+      permit_comments: {
+        Row: {
+          approval_id: string | null
+          author_department_id: string | null
+          author_id: string
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          permit_id: string
+          tier: string
+        }
+        Insert: {
+          approval_id?: string | null
+          author_department_id?: string | null
+          author_id: string
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          permit_id: string
+          tier?: string
+        }
+        Update: {
+          approval_id?: string | null
+          author_department_id?: string | null
+          author_id?: string
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          permit_id?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "permit_active_approvers"
+            referencedColumns: ["approval_id"]
+          },
+          {
+            foreignKeyName: "permit_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "permit_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_comments_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "permit_pending_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_comments_author_department_id_fkey"
+            columns: ["author_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permit_comments_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_step_forwards: {
         Row: {
           created_at: string
@@ -1026,11 +1188,13 @@ export type Database = {
           account_rejection_reason: string | null
           account_reviewed_by: string | null
           account_status: string
+          actor_type: string
           auth_preference: string | null
           company_id: string | null
           company_logo: string | null
           company_name: string | null
           created_at: string
+          department_id: string | null
           email: string
           floor: string | null
           full_name: string | null
@@ -1049,11 +1213,13 @@ export type Database = {
           account_rejection_reason?: string | null
           account_reviewed_by?: string | null
           account_status?: string
+          actor_type?: string
           auth_preference?: string | null
           company_id?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
+          department_id?: string | null
           email: string
           floor?: string | null
           full_name?: string | null
@@ -1072,11 +1238,13 @@ export type Database = {
           account_rejection_reason?: string | null
           account_reviewed_by?: string | null
           account_status?: string
+          actor_type?: string
           auth_preference?: string | null
           company_id?: string | null
           company_logo?: string | null
           company_name?: string | null
           created_at?: string
+          department_id?: string | null
           email?: string
           floor?: string | null
           full_name?: string | null
@@ -1095,6 +1263,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -2636,6 +2811,7 @@ export type Database = {
           work_date_to: string
         }[]
       }
+      get_user_department: { Args: { p_user: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
