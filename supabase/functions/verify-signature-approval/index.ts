@@ -651,6 +651,12 @@ const handler = async (req: Request): Promise<Response> => {
         + (onBehalfOfName ? ` — acting on behalf of ${onBehalfOfName}` : ""),
     });
 
+    // ---- Post-approval delivery runs AFTER the response (performance) ----
+    // The DB writes above ARE the approval. Requester/next-approver
+    // notifications, email/push, and (especially) the multi-second PDF
+    // regeneration must NOT block the approver — that's what made the spinner
+    // hang. EdgeRuntime.waitUntil finishes them in the background.
+    const deliverPostApproval = async () => {
     if (updatedPermit.requester_id) {
       // Determine notification type. Tenants only receive notifications
       // for submission, FINAL approval, and rejection — never for
@@ -876,6 +882,16 @@ const handler = async (req: Request): Promise<Response> => {
         });
       } catch (e) { console.error("PDF regen error (non-blocking):", e); }
     }
+    };
+
+    // Fire post-approval delivery (notifications + PDF regen) in the background
+    // so the approver's response returns immediately instead of waiting on email
+    // providers and a multi-second PDF regeneration.
+    try {
+      const er = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+      if (er?.waitUntil) er.waitUntil(deliverPostApproval());
+      else deliverPostApproval().catch((e) => console.error("post-approval delivery error:", e));
+    } catch (e) { console.error("post-approval scheduling error:", e); }
 
     return new Response(
       JSON.stringify({

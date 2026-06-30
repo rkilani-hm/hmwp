@@ -416,12 +416,15 @@ serve(async (req) => {
       extra,
     });
 
-    // Fire downstream notifications (best-effort).
-    //
-    // Tenant requesters only receive emails for FINAL approval or
-    // rejection — intermediate step updates are suppressed to align
-    // with the three-event tenant notification rule.
-    try {
+    // ---- Downstream notifications run AFTER the response (performance) ----
+    // The DB writes above ARE the approval. Email/push delivery and the
+    // per-holder delegation lookups are slow (external providers + N round
+    // trips) and must NOT block the approver — that's what made the spinner
+    // hang. EdgeRuntime.waitUntil finishes them in the background so the
+    // approver gets an instant response.
+    const deliverNotifications = async () => {
+     // Tenant requesters only receive emails for FINAL approval or rejection.
+     try {
       const isFinal = !approved || updated.status === "approved" || updated.status === "rejected";
       let requesterIsTenant = false;
       if (updated.requester_id) {
@@ -502,7 +505,15 @@ serve(async (req) => {
           }
         }
       } catch (e) { console.error("GP next-step notify error (non-blocking):", e); }
-    }
+      }
+    };
+
+    // Fire notifications in the background; the approver's response returns now.
+    try {
+      const er = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+      if (er?.waitUntil) er.waitUntil(deliverNotifications());
+      else deliverNotifications().catch((e) => console.error("notify error:", e));
+    } catch (e) { console.error("notify scheduling error:", e); }
 
     return new Response(JSON.stringify({
       success: true,
