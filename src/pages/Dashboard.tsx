@@ -272,11 +272,9 @@ export default function Dashboard({ currentRole }: DashboardProps) {
 
         {/* Quick Actions & Pending */}
         <motion.div variants={itemVariants} className="space-y-6">
-          {/* Approvers: Pending with Me Widget */}
+          {/* Approvers: Pending with Me Widget (Work Permits). Gate Passes
+              pending live on the Gate Passes tab. */}
           {currentRole !== 'tenant' && <PendingWithMeWidget />}
-
-          {/* Approvers: Gate Passes pending my action (WP-parity, hidden when empty) */}
-          {currentRole !== 'tenant' && <GatePassesPendingWidget />}
 
           {/* Admin: Stuck Permits Widget */}
           {currentRole === 'admin' && <StuckPermitsWidget />}
@@ -448,9 +446,10 @@ export default function Dashboard({ currentRole }: DashboardProps) {
               </Card>
             </motion.div>
 
-            {/* GP Quick Actions & Pending */}
+            {/* GP Quick Actions & Pending — always shows (empty state) so the
+                GP "Pending with Me" is a permanent part of the tab. */}
             <motion.div variants={itemVariants} className="space-y-6">
-              {currentRole !== 'tenant' && <GatePassesPendingWidget />}
+              {currentRole !== 'tenant' && <GatePassesPendingWidget showEmptyState />}
 
               <Card>
                 <CardHeader className="pb-4">
