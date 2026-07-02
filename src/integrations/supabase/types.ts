@@ -2736,6 +2736,10 @@ export type Database = {
         Args: { p_permit_id: string; p_role_id: string }
         Returns: string
       }
+      authorize_gate_pass_approval: {
+        Args: { p_gate_pass_id: string; p_role_name: string; p_user: string }
+        Returns: boolean
+      }
       authorize_permit_approval:
         | {
             Args: { p_permit_id: string; p_role_name: string; p_user: string }
