@@ -62,7 +62,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const { email, redirectTo } = await req.json().catch(() => ({}));
+    const { email } = await req.json().catch(() => ({}));
     if (!email || typeof email !== "string") {
       // Malformed request — still generic so we don't hint at validation.
       return ok();
@@ -70,23 +70,32 @@ serve(async (req: Request): Promise<Response> => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Canonical production domain for the link. Set the APP_URL secret to
+    // override (e.g. https://hmwp.alhamra.com.kw).
+    const appUrl = (Deno.env.get("APP_URL") || "https://hmwp.alhamra.com.kw").replace(/\/$/, "");
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Generate the recovery link. This does NOT send an email — it returns the
-    // action_link for us to deliver ourselves via Graph.
+    // Generate the recovery token. We use the returned hashed_token (NOT the
+    // auto-verifying action_link) to build a link to OUR page. Why:
+    //   - action_link (/auth/v1/verify?token=…) is consumed on any GET, so
+    //     Outlook Safe Links / antivirus prefetch burns the one-time token and
+    //     the human then sees "otp_expired". A token_hash link is only consumed
+    //     when our page's JS calls verifyOtp(), which scanners don't run.
+    //   - The domain is fully ours (no dependency on Supabase Site URL /
+    //     redirect allowlist), so the link is always on the production domain.
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: redirectTo ? { redirectTo } : undefined,
     });
 
-    if (error || !data?.properties?.action_link) {
+    const tokenHash = data?.properties?.hashed_token;
+    if (error || !tokenHash) {
       // Unknown email or generation error — stay generic (no enumeration).
-      console.warn("send-password-reset: no link generated for request:", error?.message);
+      console.warn("send-password-reset: no token generated for request:", error?.message);
       return ok();
     }
 
-    const resetUrl = data.properties.action_link;
+    const resetUrl = `${appUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
 
     // Deliver via the Graph pipeline (send-email-notification, service-role auth).
     try {
