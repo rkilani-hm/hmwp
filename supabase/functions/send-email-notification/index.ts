@@ -495,11 +495,46 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { to, subject, body, permitId, notificationType, permitNo, details } = await req.json();
 
+    // ---- Delivery audit logging ----
+    // Best-effort recording of every send outcome into email_delivery_logs so
+    // admins can verify tenants/approvers actually receive notifications.
+    // Inserts use the service-role key (RLS-exempt) and are wrapped so a
+    // logging failure can NEVER affect whether the email is sent or the
+    // response returned to the caller.
+    const recipients: string[] = Array.isArray(to) ? to : (to ? [to] : []);
+    const logDelivery = async (
+      status: "sent" | "failed",
+      errorMessage: string | null,
+      durationMs: number | null,
+    ): Promise<void> => {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const client = createClient(supabaseUrl, serviceKey);
+        await client.from("email_delivery_logs").insert({
+          notification_type: notificationType ?? null,
+          recipients,
+          recipient_count: recipients.length,
+          subject: subject ?? null,
+          permit_id: permitId ?? null,
+          permit_no: permitNo ?? null,
+          status,
+          error_message: errorMessage ? errorMessage.slice(0, 2000) : null,
+          provider: "microsoft_graph",
+          duration_ms: durationMs,
+        });
+      } catch (logErr) {
+        // Swallow — auditing must never break the send path.
+        console.error("Failed to write email_delivery_logs entry:", logErr);
+      }
+    };
+
     // Rate limit by permit ID or a global key for system emails
     const rateLimitKey = permitId || "system";
     const rateLimitResult = checkEmailRateLimit(rateLimitKey);
     if (!rateLimitResult.allowed) {
       console.warn("Rate limit exceeded for email sending:", rateLimitKey);
+      await logDelivery("failed", `Rate limited (retry after ${rateLimitResult.retryAfter}s)`, null);
       return new Response(
         JSON.stringify({ error: "Too many email requests. Please wait before sending more." }),
         { 
@@ -515,16 +550,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending ${notificationType} email to:`, to);
 
-    // Get Microsoft access token
-    const accessToken = await getMicrosoftToken();
+    // Time the provider interaction so the audit log can surface slow sends.
+    const sendStartedAt = Date.now();
+    try {
+      // Get Microsoft access token
+      const accessToken = await getMicrosoftToken();
 
-    // Generate email body if not provided
-    const emailBody = body || generateEmailHtml(notificationType, permitNo || 'N/A', details || {});
+      // Generate email body if not provided
+      const emailBody = body || generateEmailHtml(notificationType, permitNo || 'N/A', details || {});
 
-    // Send the email
-    await sendEmail(accessToken, to, subject, emailBody);
+      // Send the email
+      await sendEmail(accessToken, to, subject, emailBody);
+    } catch (sendErr: any) {
+      // Record the failure before surfacing it, so admins see the miss.
+      await logDelivery("failed", sendErr?.message ?? String(sendErr), Date.now() - sendStartedAt);
+      throw sendErr;
+    }
 
     console.log("Email sent successfully");
+    await logDelivery("sent", null, Date.now() - sendStartedAt);
 
     // Log to activity if permitId provided
     if (permitId) {
