@@ -1536,6 +1536,38 @@ export type Database = {
           },
         ]
       }
+      tenant_units: {
+        Row: {
+          created_at: string
+          floor: string
+          id: string
+          tenant_id: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          floor?: string
+          id?: string
+          tenant_id: string
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          floor?: string
+          id?: string
+          tenant_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_units_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activity_logs: {
         Row: {
           action_type: string
