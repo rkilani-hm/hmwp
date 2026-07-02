@@ -141,14 +141,41 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (sendResetEmail) {
-      // Send password reset email using admin client
-      const { error: resetError } = await serviceClient.auth.admin.generateLink({
+      // generateLink RETURNS the recovery link but does NOT send an email.
+      // (The previous code discarded the link and reported success, so no
+      // email was ever delivered.) We generate the link, then deliver it via
+      // the Microsoft Graph pipeline (send-email-notification) like every
+      // other notification.
+      const appUrl = (Deno.env.get("APP_URL") || "https://www.hmwp.alhamra.com.kw").replace(/\/$/, "");
+      const { data: linkData, error: resetError } = await serviceClient.auth.admin.generateLink({
         type: "recovery",
         email: targetProfile.email,
+        options: { redirectTo: `${appUrl}/reset-password` },
       });
 
-      if (resetError) {
-        console.error("Reset email error:", resetError);
+      if (resetError || !linkData?.properties?.action_link) {
+        console.error("Reset link generation error:", resetError);
+        return new Response(JSON.stringify({ error: "Failed to generate reset link" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const emailResp = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [targetProfile.email],
+          notificationType: "password_reset",
+          subject: "Reset your Al Hamra Work Permit password",
+          details: { resetUrl: linkData.properties.action_link },
+        }),
+      });
+
+      if (!emailResp.ok) {
+        console.error("Reset email dispatch failed:", emailResp.status, await emailResp.text());
         return new Response(JSON.stringify({ error: "Failed to send reset email" }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
