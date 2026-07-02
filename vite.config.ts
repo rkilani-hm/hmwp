@@ -48,6 +48,15 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff,woff2}"],
+        // Force returning clients onto the newest build without a manual cache
+        // clear: the new service worker activates immediately (skipWaiting),
+        // takes control of open tabs (clientsClaim), and purges the previous
+        // build's precached assets (cleanupOutdatedCaches). Combined with
+        // registerType:"autoUpdate" above, a stale client updates on its next
+        // visit (with at most one auto-reload) — no incognito needed.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*supabase\.co\/.*/i,

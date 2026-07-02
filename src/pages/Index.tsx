@@ -110,7 +110,7 @@ const Index = () => {
           element={isAdmin ? <ApproverPerformance /> : <Navigate to="/" replace />} 
         />
         <Route path="scan-verify" element={<ScanVerify />} />
-        <Route path="delegations" element={<MyDelegations />} />
+        <Route path="delegations" element={isApprover ? <MyDelegations /> : <Navigate to="/" replace />} />
         <Route path="settings" element={<Settings />} />
         <Route 
           path="vapid-keys" 
