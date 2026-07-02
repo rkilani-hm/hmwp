@@ -116,7 +116,8 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: Cog,
         items: [
           { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
-          { icon: Share2, label: 'My Delegations', path: '/delegations' },
+          // Delegation hands off APPROVAL authority — an approver-only concept.
+          // Tenants have none, so it's omitted from the tenant menu.
           { icon: BookOpen, label: 'User Manuals', path: '/user-manuals' },
           { icon: Settings, label: 'Settings', path: '/settings' },
         ],
