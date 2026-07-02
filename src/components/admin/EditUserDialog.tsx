@@ -19,11 +19,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeKuwaitPhone } from '@/lib/validation/phone';
 import { useUpdateUserProfile } from '@/hooks/useUserManagement';
 import { useDepartments } from '@/hooks/useDepartments';
+import {
+  useTenantUnits,
+  useAddTenantUnit,
+  useDeleteTenantUnit,
+  formatUnit,
+} from '@/hooks/useTenantUnits';
 import type { UserWithRoles } from '@/hooks/useAdmin';
 
 // Sentinel for the "no department" option (Radix Select can't use "" as a
@@ -58,6 +64,27 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const isInternal = !!user && (user.roles ?? []).some((r) => r !== 'tenant');
   const isUnassignedInternal = isInternal && departmentId === NO_DEPARTMENT;
 
+  // Tenant units — a tenant may occupy several units, each selectable when
+  // they create a permit or gate pass. Managed here for tenant accounts only.
+  const { data: units } = useTenantUnits(user?.id);
+  const addUnit = useAddTenantUnit();
+  const deleteUnit = useDeleteTenantUnit();
+  const [newUnit, setNewUnit] = useState('');
+  const [newFloor, setNewFloor] = useState('');
+
+  const handleAddUnit = () => {
+    if (!user || !newUnit.trim()) return;
+    addUnit.mutate(
+      { tenantId: user.id, unit: newUnit, floor: newFloor },
+      {
+        onSuccess: () => {
+          setNewUnit('');
+          setNewFloor('');
+        },
+      },
+    );
+  };
+
   // Reset form when the user prop changes (different row clicked)
   useEffect(() => {
     if (user) {
@@ -66,6 +93,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       setCompanyName(user.company_name ?? '');
       setDepartmentId(user.department_id ?? NO_DEPARTMENT);
       setActorType(user.actor_type ?? 'approver');
+      setNewUnit('');
+      setNewFloor('');
     }
   }, [user]);
 
@@ -207,12 +236,82 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               </div>
             </>
           ) : (
-            <div className="space-y-1">
-              <Label className="text-muted-foreground">Department &amp; actor type</Label>
-              <p className="text-xs text-muted-foreground">
-                Only apply to internal staff — not tenant accounts.
-              </p>
-            </div>
+            <>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Department &amp; actor type</Label>
+                <p className="text-xs text-muted-foreground">
+                  Only apply to internal staff — not tenant accounts.
+                </p>
+              </div>
+
+              {/* Units manager — tenant accounts only. Each unit is selectable
+                  when the tenant creates a permit or gate pass. Add/remove are
+                  saved immediately. */}
+              <div className="space-y-2">
+                <Label>Units</Label>
+                {units && units.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {units.map((u) => (
+                      <div
+                        key={u.id}
+                        className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm"
+                      >
+                        <span>{formatUnit(u)}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground"
+                          onClick={() => user && deleteUnit.mutate({ id: u.id, tenantId: user.id })}
+                          disabled={deleteUnit.isPending}
+                          aria-label={`Remove ${formatUnit(u)}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No units registered yet.</p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    placeholder="Unit e.g. 1205"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddUnit();
+                      }
+                    }}
+                  />
+                  <Input
+                    value={newFloor}
+                    onChange={(e) => setNewFloor(e.target.value)}
+                    placeholder="Floor"
+                    className="w-24 shrink-0"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddUnit();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={handleAddUnit}
+                    disabled={addUnit.isPending || !newUnit.trim()}
+                    aria-label="Add unit"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
 
           <DialogFooter>
