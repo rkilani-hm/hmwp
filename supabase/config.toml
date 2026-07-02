@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.extract-id-document]
 verify_jwt = false
+
+[functions.ai-copilot]
+verify_jwt = false
