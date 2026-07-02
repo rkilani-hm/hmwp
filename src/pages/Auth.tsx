@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
-import { Loader2, Info, CheckCircle, Mail, Clock } from 'lucide-react';
+import { Loader2, Info, CheckCircle, Mail, Clock, Plus, X } from 'lucide-react';
 import alHamraLogo from '@/assets/al-hamra-logo.jpg';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
@@ -48,11 +49,20 @@ export default function Auth() {
   const [signUpName, setSignUpName] = useState('');
   const [signUpPhone, setSignUpPhone] = useState('');
   const [signUpCompany, setSignUpCompany] = useState('');
-  // Tenant master data — captured at signup, stored on profile,
-  // re-used as defaults in the work-permit + gate-pass wizards.
-  // Optional; tenants can leave them blank and fill in later.
-  const [signUpUnit, setSignUpUnit] = useState('');
-  const [signUpFloor, setSignUpFloor] = useState('');
+  // Tenant master data — captured at signup, stored on profile + tenant_units,
+  // re-used as defaults in the work-permit + gate-pass wizards. A tenant can
+  // register more than one unit (e.g. two units in the tower). Optional; rows
+  // can be left blank and filled in later. Always at least one row on screen.
+  const [signUpUnits, setSignUpUnits] = useState<{ unit: string; floor: string }[]>([
+    { unit: '', floor: '' },
+  ]);
+
+  const updateUnitRow = (i: number, field: 'unit' | 'floor', value: string) => {
+    setSignUpUnits((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
+  };
+  const addUnitRow = () => setSignUpUnits((rows) => [...rows, { unit: '', floor: '' }]);
+  const removeUnitRow = (i: number) =>
+    setSignUpUnits((rows) => (rows.length <= 1 ? rows : rows.filter((_, idx) => idx !== i)));
   const [signUpErrors, setSignUpErrors] = useState<{ email?: string; password?: string; name?: string; phone?: string; company?: string }>({});
 
   const validateSignIn = () => {
@@ -134,8 +144,7 @@ export default function Auth() {
     const { error } = await signUp(signUpEmail, signUpPassword, signUpName, {
       phone: normalizeKuwaitPhone(signUpPhone) ?? signUpPhone,
       companyName: signUpCompany,
-      unit: signUpUnit,
-      floor: signUpFloor,
+      units: signUpUnits,
     });
     setIsLoading(false);
     
@@ -160,8 +169,7 @@ export default function Auth() {
     setSignUpName('');
     setSignUpPhone('');
     setSignUpCompany('');
-    setSignUpUnit('');
-    setSignUpFloor('');
+    setSignUpUnits([{ unit: '', floor: '' }]);
     setSignUpEmail('');
   };
 
@@ -439,9 +447,8 @@ export default function Auth() {
                         Forgot password?
                       </button>
                     </div>
-                    <Input
+                    <PasswordInput
                       id="signin-password"
-                      type="password"
                       placeholder="••••••••"
                       value={signInPassword}
                       onChange={(e) => setSignInPassword(e.target.value)}
@@ -535,37 +542,65 @@ export default function Auth() {
                       <p className="text-sm text-destructive">{signUpErrors.company}</p>
                     )}
                   </div>
-                  {/* Unit + Floor: optional tenant master data. Stored on
-                      the profile and used as defaults in the permit and
-                      gate-pass wizards. Side-by-side on a single row to
-                      keep the form compact. */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Units: optional tenant master data. A tenant can register
+                      more than one unit — each becomes a tenant_units row and
+                      is selectable when creating a work permit or gate pass.
+                      The first unit is also stored as the profile's primary
+                      unit for backward compatibility. */}
+                  <div className="space-y-2">
+                    <Label>Unit(s)</Label>
+                    <p className="text-xs text-muted-foreground -mt-1">
+                      Add each unit you occupy. You'll pick which unit a permit or
+                      gate pass is for when you create it.
+                    </p>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-unit">Unit</Label>
-                      <Input
-                        id="signup-unit"
-                        type="text"
-                        placeholder="e.g. 1205"
-                        value={signUpUnit}
-                        onChange={(e) => setSignUpUnit(e.target.value)}
-                      />
+                      {signUpUnits.map((row, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            type="text"
+                            placeholder="Unit e.g. 1205"
+                            aria-label={`Unit ${i + 1}`}
+                            value={row.unit}
+                            onChange={(e) => updateUnitRow(i, 'unit', e.target.value)}
+                          />
+                          <Input
+                            type="text"
+                            placeholder="Floor e.g. 12"
+                            aria-label={`Floor ${i + 1}`}
+                            className="w-28 shrink-0"
+                            value={row.floor}
+                            onChange={(e) => updateUnitRow(i, 'floor', e.target.value)}
+                          />
+                          {signUpUnits.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0 text-muted-foreground"
+                              onClick={() => removeUnitRow(i)}
+                              aria-label={`Remove unit ${i + 1}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-floor">Floor</Label>
-                      <Input
-                        id="signup-floor"
-                        type="text"
-                        placeholder="e.g. 12"
-                        value={signUpFloor}
-                        onChange={(e) => setSignUpFloor(e.target.value)}
-                      />
-                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addUnitRow}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add another unit
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="signup-password"
-                      type="password"
                       placeholder="••••••••"
                       value={signUpPassword}
                       onChange={(e) => setSignUpPassword(e.target.value)}

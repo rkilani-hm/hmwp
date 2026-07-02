@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
+import { useTenantUnits, unitFloorString } from '@/hooks/useTenantUnits';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
@@ -27,6 +28,7 @@ export default function GatePassFormWizard() {
   const createGatePass = useCreateGatePass();
   const { user, profile } = useAuth();
   const isTenantOnly = useIsTenantOnly();
+  const { data: tenantUnits } = useTenantUnits(user?.id);
   const [step, setStep] = useState(0);
 
   // Form state
@@ -276,7 +278,22 @@ export default function GatePassFormWizard() {
       </div>
       <div className="space-y-2">
         <Label>Unit / Floor</Label>
-        <Input value={unitFloor} onChange={e => setUnitFloor(e.target.value)} />
+        {tenantUnits && tenantUnits.length > 0 ? (
+          // Tenant picks from their registered units; the combined
+          // "unit / floor" string is what the gate pass stores.
+          <Select value={unitFloor} onValueChange={setUnitFloor}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select unit" />
+            </SelectTrigger>
+            <SelectContent>
+              {tenantUnits.map((u) => (
+                <SelectItem key={u.id} value={unitFloorString(u)}>{unitFloorString(u)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input value={unitFloor} onChange={e => setUnitFloor(e.target.value)} />
+        )}
       </div>
       <div className="space-y-2">
         <Label>Authorized Delivery Area</Label>

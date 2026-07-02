@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 import { useWorkTypes, useCreatePermit } from '@/hooks/useWorkPermits';
 import { useWorkLocations } from '@/hooks/useWorkLocations';
+import { useTenantUnits } from '@/hooks/useTenantUnits';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { RequesterStep } from './permit-steps/RequesterStep';
@@ -62,6 +63,7 @@ export function PermitFormWizard() {
   const { user, profile } = useAuth();
   const { data: workTypes, isLoading: workTypesLoading } = useWorkTypes();
   const { data: workLocations, isLoading: workLocationsLoading } = useWorkLocations();
+  const { data: tenantUnits } = useTenantUnits(user?.id);
   const createPermit = useCreatePermit();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -260,6 +262,7 @@ export function PermitFormWizard() {
                   workTypesLoading={workTypesLoading}
                   workLocations={workLocations}
                   workLocationsLoading={workLocationsLoading}
+                  tenantUnits={tenantUnits}
                 />
               )}
               {currentStep === 3 && (

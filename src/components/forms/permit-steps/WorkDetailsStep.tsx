@@ -14,6 +14,7 @@ import {
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
+import { formatUnit, type TenantUnit } from '@/hooks/useTenantUnits';
 import type { PermitFormData, UpdateField } from './types';
 
 interface WorkType {
@@ -28,6 +29,9 @@ interface Props {
   workTypesLoading: boolean;
   workLocations: WorkLocation[] | undefined;
   workLocationsLoading: boolean;
+  /** The tenant's registered units. When present, the Unit field becomes a
+   *  picker sourced from these instead of a free-text box. */
+  tenantUnits?: TenantUnit[];
 }
 
 /**
@@ -42,8 +46,24 @@ export function WorkDetailsStep({
   workTypesLoading,
   workLocations,
   workLocationsLoading,
+  tenantUnits,
 }: Props) {
   const { t } = useTranslation();
+
+  // When the tenant has registered units, offer them as a picker. Selecting a
+  // unit fills both unit + floor. Falls back to free-text (internal users, or
+  // tenants who never registered a unit).
+  const hasUnitPicker = !!tenantUnits && tenantUnits.length > 0;
+  const selectUnit = (unitId: string) => {
+    const u = tenantUnits?.find((x) => x.id === unitId);
+    if (!u) return;
+    updateField('unit', u.unit);
+    updateField('floor', u.floor ?? '');
+  };
+  // Match the currently-entered unit/floor back to a registered unit for the
+  // Select's controlled value (so a pre-filled primary unit shows as selected).
+  const selectedUnitId =
+    tenantUnits?.find((u) => u.unit === data.unit && (u.floor ?? '') === (data.floor ?? ''))?.id ?? '';
   // Tenants don't see the workflow steps panel — workflow routing is
   // an internal concern. Approvers/admins (incl. users who are both
   // tenant + approver) continue to see it.
@@ -97,13 +117,26 @@ export function WorkDetailsStep({
         {!data.backOfHouse && (
           <div className="space-y-2">
             <Label htmlFor="unit">{t('permits.form.unit')} *</Label>
-            <Input
-              id="unit"
-              value={data.unit}
-              onChange={(e) => updateField('unit', e.target.value)}
-              placeholder={t('permits.form.unitPlaceholder') ?? ''}
-              dir="ltr"
-            />
+            {hasUnitPicker ? (
+              <Select value={selectedUnitId} onValueChange={selectUnit}>
+                <SelectTrigger id="unit">
+                  <SelectValue placeholder={t('permits.form.unitPlaceholder') ?? 'Select unit'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantUnits!.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{formatUnit(u)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id="unit"
+                value={data.unit}
+                onChange={(e) => updateField('unit', e.target.value)}
+                placeholder={t('permits.form.unitPlaceholder') ?? ''}
+                dir="ltr"
+              />
+            )}
           </div>
         )}
         <div className="space-y-2">

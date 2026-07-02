@@ -47,7 +47,13 @@ interface AuthContextType {
     email: string,
     password: string,
     fullName: string,
-    extra?: { phone?: string; companyName?: string; unit?: string; floor?: string },
+    extra?: {
+      phone?: string;
+      companyName?: string;
+      unit?: string;
+      floor?: string;
+      units?: { unit: string; floor?: string }[];
+    },
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   /**
@@ -306,10 +312,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     fullName: string,
-    extra?: { phone?: string; companyName?: string; unit?: string; floor?: string },
+    extra?: {
+      phone?: string;
+      companyName?: string;
+      unit?: string;
+      floor?: string;
+      // A tenant may register several units at onboarding. The handle_new_user
+      // trigger reads this array and creates one tenant_units row per entry.
+      units?: { unit: string; floor?: string }[];
+    },
   ) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
+
+      // Normalize the units list: trim, drop blanks, dedupe. The first unit is
+      // also mirrored onto profiles.unit/floor (the "primary" unit) so existing
+      // single-unit consumers and PDF templates keep working unchanged.
+      const cleanUnits = (extra?.units ?? [])
+        .map((u) => ({ unit: (u.unit ?? '').trim(), floor: (u.floor ?? '').trim() }))
+        .filter((u) => u.unit !== '');
+      const seen = new Set<string>();
+      const dedupedUnits = cleanUnits.filter((u) => {
+        const key = `${u.unit}|${u.floor}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const primaryUnit = dedupedUnits[0]?.unit ?? (extra?.unit ?? '');
+      const primaryFloor = dedupedUnits[0]?.floor ?? (extra?.floor ?? '');
 
       const { error } = await supabase.auth.signUp({
         email,
@@ -320,12 +350,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             full_name: fullName,
             phone: extra?.phone ?? '',
             company_name: extra?.companyName ?? '',
-            // Unit + Floor: tenant master data. handle_new_user trigger
-            // reads these from raw_user_meta_data and stores them on
-            // public.profiles. Trimmed to empty string then nulled-out
-            // by the trigger; safe to pass whatever the form has.
-            unit: extra?.unit ?? '',
-            floor: extra?.floor ?? '',
+            // Primary unit/floor mirror (trigger stores these on profiles).
+            unit: primaryUnit,
+            floor: primaryFloor,
+            // Full unit list — trigger creates a tenant_units row per entry.
+            units: dedupedUnits,
           },
         },
       });
