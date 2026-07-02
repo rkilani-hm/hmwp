@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
@@ -228,9 +228,8 @@ export default function ResetPassword() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New password</Label>
-                    <Input
+                    <PasswordInput
                       id="new-password"
-                      type="password"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -245,9 +244,8 @@ export default function ResetPassword() {
 
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm new password</Label>
-                    <Input
+                    <PasswordInput
                       id="confirm-password"
-                      type="password"
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
