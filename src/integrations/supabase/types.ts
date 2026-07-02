@@ -194,6 +194,51 @@ export type Database = {
         }
         Relationships: []
       }
+      email_delivery_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          notification_type: string | null
+          permit_id: string | null
+          permit_no: string | null
+          provider: string
+          recipient_count: number
+          recipients: string[]
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          notification_type?: string | null
+          permit_id?: string | null
+          permit_no?: string | null
+          provider?: string
+          recipient_count?: number
+          recipients?: string[]
+          status: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          notification_type?: string | null
+          permit_id?: string | null
+          permit_no?: string | null
+          provider?: string
+          recipient_count?: number
+          recipients?: string[]
+          status?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
       gate_pass_approvals: {
         Row: {
           approved_at: string | null
@@ -2961,6 +3006,7 @@ export type Database = {
         | "pending_head_of_fit_out_unit"
         | "pending_head_of_civil"
         | "pending_bdcr_manager"
+        | "pending_head_of_marketing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3150,6 +3196,7 @@ export const Constants = {
         "pending_head_of_fit_out_unit",
         "pending_head_of_civil",
         "pending_bdcr_manager",
+        "pending_head_of_marketing",
       ],
     },
   },
