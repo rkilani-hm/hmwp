@@ -69,4 +69,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Split heavy third-party libs into their own cached vendor chunks so the
+    // main bundle stays small and long-term-cacheable across deploys.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+          "vendor-query": ["@tanstack/react-query"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 900,
+  },
 }));

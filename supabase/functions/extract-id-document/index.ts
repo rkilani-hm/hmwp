@@ -50,6 +50,23 @@ const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // occupies less than half the frame.
 const MODEL = "google/gemini-2.5-flash";
 
+// ---- Abuse protection -----------------------------------------------------
+// This endpoint proxies to a PAID AI gateway and must stay callable in the
+// pre-login public permit flow, so it can't require a JWT. Bound abuse with a
+// per-IP in-memory rate limit + a hard image-size cap so it can't be used as
+// an open OCR/vision proxy that burns the gateway quota.
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 8; // extractions per minute per IP
+const MAX_IMAGE_B64 = 11 * 1024 * 1024; // ~8 MB decoded
+const rlBucket = new Map<string, number[]>();
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (rlBucket.get(ip) || []).filter((t) => now - t < RL_WINDOW_MS);
+  hits.push(now);
+  rlBucket.set(ip, hits);
+  return hits.length > RL_MAX;
+}
+
 // Simplified prompt: ONLY two fields (English name + expiry date)
 // per user request. Less surface area to fail; faster response.
 const EXTRACTION_PROMPT = `You are reading a Kuwait Civil ID card or a Kuwait Driving License from a photograph.
@@ -149,6 +166,15 @@ serve(async (req) => {
   }
 
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("cf-connecting-ip") || "unknown";
+    if (rateLimited(ip)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "rate_limited", message: "Too many extraction requests. Please wait a minute and try again." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       console.warn("LOVABLE_API_KEY not configured");
@@ -172,6 +198,12 @@ serve(async (req) => {
     }
 
     const { base64, mimeType: detectedMime } = stripDataUrlPrefix(body.imageBase64);
+    if (base64.length > MAX_IMAGE_B64) {
+      return new Response(
+        JSON.stringify({ success: false, error: "image_too_large", message: "Image exceeds the maximum size." }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const mimeType = body.mimeType || detectedMime || "image/jpeg";
 
     // Construct the OpenAI-compatible vision request expected by the

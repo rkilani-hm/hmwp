@@ -281,6 +281,21 @@ serve(async (req) => {
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
+    // Authorize the SPECIFIC role for THIS pass: the caller must hold `role`
+    // (or be its active delegate / admin) AND it must be this role's current
+    // step. Without this, any gate-pass approver could forge another role's
+    // sign-off from the client-supplied `role`. (Parity with WP's
+    // authorize_permit_approval.)
+    const { data: authorized, error: authzErr } = await adminClient.rpc(
+      "authorize_gate_pass_approval",
+      { p_user: user.id, p_gate_pass_id: gatePassId, p_role_name: role },
+    );
+    if (authzErr || !authorized) {
+      return new Response(
+        JSON.stringify({ error: `You are not authorized to act as ${role} on this gate pass at its current step.` }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } });
+    }
+
     // Verify auth
     let webauthnCredentialRowId: string | null = null;
     if (authMethod === "password") {
