@@ -151,25 +151,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             </p>
           </div>
 
-          {/* Department — internal staff only. Tenants are never assigned a
-              department (the selector is hidden for them, and a DB trigger
-              enforces it). Internal users with no department are flagged so
-              admins can complete assignment (spec E1). */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="edit-department">Department</Label>
-              {isUnassignedInternal && (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-warning/40 text-warning"
-                >
-                  <AlertTriangle className="h-3 w-3" />
-                  Unassigned
-                </Badge>
-              )}
-            </div>
-            {isInternal ? (
-              <>
+          {/* Department + Actor type are INTERNAL-staff concepts only. Tenants
+              get neither (a DB trigger also nulls department_id for tenant-role
+              users, and actor_type is irrelevant since tenants never act on a
+              workflow step). */}
+          {isInternal ? (
+            <>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="edit-department">Department</Label>
+                  {isUnassignedInternal && (
+                    <Badge variant="outline" className="gap-1 border-warning/40 text-warning">
+                      <AlertTriangle className="h-3 w-3" />
+                      Unassigned
+                    </Badge>
+                  )}
+                </div>
                 <Select value={departmentId} onValueChange={setDepartmentId}>
                   <SelectTrigger id="edit-department">
                     <SelectValue placeholder="No department" />
@@ -177,9 +174,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   <SelectContent>
                     <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
                     {departments.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name}
-                      </SelectItem>
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -189,41 +184,36 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     complete their setup.
                   </p>
                 )}
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Tenants are not assigned to departments.
-              </p>
-            )}
-          </div>
+              </div>
 
-          {/* Actor type — Approver | Reviewer (exactly one). Cosmetic only:
-              changes the displayed approve verb, never workflow authority. */}
-          <div className="space-y-2">
-            <Label>Actor type</Label>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={actorType}
-              onValueChange={(v) => {
-                // ToggleGroup emits '' if the active item is re-clicked;
-                // ignore that so exactly one stays selected.
-                if (v === 'approver' || v === 'reviewer') setActorType(v);
-              }}
-              className="justify-start"
-            >
-              <ToggleGroupItem value="approver" className="px-4">
-                Approver
-              </ToggleGroupItem>
-              <ToggleGroupItem value="reviewer" className="px-4">
-                Reviewer
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <p className="text-xs text-muted-foreground">
-              Controls the displayed verb only (Approve/Approved vs
-              Review/Reviewed). Both have identical workflow authority.
-            </p>
-          </div>
+              <div className="space-y-2">
+                <Label>Actor type</Label>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  value={actorType}
+                  onValueChange={(v) => {
+                    if (v === 'approver' || v === 'reviewer') setActorType(v);
+                  }}
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="approver" className="px-4">Approver</ToggleGroupItem>
+                  <ToggleGroupItem value="reviewer" className="px-4">Reviewer</ToggleGroupItem>
+                </ToggleGroup>
+                <p className="text-xs text-muted-foreground">
+                  Controls the displayed verb only (Approve/Approved vs
+                  Review/Reviewed). Both have identical workflow authority.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Department &amp; actor type</Label>
+              <p className="text-xs text-muted-foreground">
+                Only apply to internal staff — not tenant accounts.
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button
