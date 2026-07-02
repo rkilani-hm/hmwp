@@ -140,7 +140,10 @@ function drawLabeledRow(
 // can show "who will approve this". Falls back to empty array on any
 // error — the preview still renders, just without the workflow block.
 async function getWorkflowPreview(
-  supabase: ReturnType<typeof createClient>,
+  // Loosely typed: the Deno supabase-js client infers `never` for untyped
+  // table selects under `deno check`, which trips TS2339 on the row fields.
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   workTypeId: string | undefined,
 ): Promise<WorkflowStepPreview[]> {
   if (!workTypeId) return [];

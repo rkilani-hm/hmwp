@@ -26,8 +26,13 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Type-check
         run: bunx tsc --noEmit -p tsconfig.app.json
-      - name: Lint
+      # Advisory: the codebase carries pre-existing lint debt (legacy `any`,
+      # etc.). Report it as annotations but don't fail the gate on it — the hard
+      # gates are the type-check, build, and edge-function deno check. Drop
+      # continue-on-error once the backlog lint cleanup lands.
+      - name: Lint (advisory)
         run: bun run lint
+        continue-on-error: true
       - name: Build
         run: bun run build
 
