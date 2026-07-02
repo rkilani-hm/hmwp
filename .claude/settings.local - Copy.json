@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git clone https://github.com/rkilani-hm/hmwp.git \"C:\\\\Users\\\\rkilani.CORP\\\\Documents\\\\Claude\\\\Projects\\\\HM-WP\" 2>&1)",
+      "PowerShell($ErrorActionPreference='Continue')",
+      "PowerShell($src=\"C:\\\\Users\\\\rkilani.CORP\\\\Downloads\\\\hmwp-loops-extract\"; $dst=\"C:\\\\Users\\\\rkilani.CORP\\\\Documents\\\\Claude\\\\Projects\\\\HM-WP\\\\.claude\\\\skills\"; New-Item -ItemType Directory -Force -Path $dst | Out-Null; foreach \\($s in @\\('spec','build','review'\\)\\) { New-Item -ItemType Directory -Force -Path \"$dst\\\\$s\" | Out-Null; Copy-Item \"$src\\\\$s\\\\SKILL.md\" \"$dst\\\\$s\\\\SKILL.md\" -Force }; Get-ChildItem $dst -Recurse | Select-Object FullName)",
+      "PowerShell(Write-Output \"=== recent Downloads \\(last 15, newest first\\) ===\"; Get-ChildItem \"C:\\\\Users\\\\rkilani.CORP\\\\Downloads\" -File | Sort-Object LastWriteTime -Descending | Select-Object -First 15 Name, LastWriteTime, Length | Format-Table -AutoSize; Write-Output \"=== current branch ===\"; $d=\"C:\\\\Users\\\\rkilani.CORP\\\\Documents\\\\Claude\\\\Projects\\\\HM-WP\"; git -C $d branch --show-current; Write-Output \"=== specs/ dir ===\"; if\\(Test-Path \"$d\\\\specs\"\\){ Get-ChildItem \"$d\\\\specs\" } else { Write-Output \"specs/ does not exist yet\" })",
+      "mcp__08b0efaa-967f-4631-8f8f-d58da0741021__query_database",
+      "Bash(git add *)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

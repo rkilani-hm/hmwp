@@ -35,7 +35,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { usePermitApprovals, type PermitApproval } from '@/hooks/usePermitApprovals';
+import { usePermitApprovals, type PermitApproval } from '@/hooks/useEntityApprovals';
 import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
 import { useActorTypes } from '@/hooks/useActorTypes';
 import { approveVerb } from '@/utils/actorVerb';
