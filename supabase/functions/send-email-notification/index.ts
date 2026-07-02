@@ -49,7 +49,8 @@ interface EmailRequest {
     // Tenant account-lifecycle notifications (no permit context)
     | 'account_pending_review'  // → admins: a new tenant has signed up
     | 'account_approved'        // → tenant: admin approved your account
-    | 'account_rejected';       // → tenant: admin rejected your account
+    | 'account_rejected'        // → tenant: admin rejected your account
+    | 'password_reset';         // → user: password recovery link
 }
 
 // True for account-status notification types: these don't reference a
@@ -57,7 +58,8 @@ interface EmailRequest {
 function isAccountNotification(type: EmailRequest['notificationType']): boolean {
   return type === 'account_pending_review'
       || type === 'account_approved'
-      || type === 'account_rejected';
+      || type === 'account_rejected'
+      || type === 'password_reset';
 }
 
 // Get Microsoft Graph access token
@@ -312,6 +314,21 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       color: BRAND_RED,
       // No CTA — the contact link is in the body. ctaEn omitted means
       // the CTA row renders empty (handled in HTML below).
+    },
+    password_reset: {
+      titleEn: "Reset Your Password",
+      titleAr: "إعادة تعيين كلمة المرور",
+      contentEn: `We received a request to reset the password for your Al Hamra Work Permit account. ` +
+        `Click the button below to choose a new password. This link expires in 60 minutes.<br><br>` +
+        `If you didn't request this, you can safely ignore this email — your password won't change.`,
+      contentAr: `تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في نظام تصاريح العمل في الحمراء. ` +
+        `اضغط على الزر أدناه لاختيار كلمة مرور جديدة. تنتهي صلاحية هذا الرابط خلال 60 دقيقة.<br><br>` +
+        `إذا لم تطلب ذلك، يمكنك تجاهل هذا البريد بأمان — لن تتغير كلمة المرور الخاصة بك.`,
+      color: INFO,
+      ctaEn: "Reset password",
+      ctaAr: "إعادة تعيين كلمة المرور",
+      // The recovery link is supplied per-request in details.resetUrl.
+      ctaUrlOverride: details.resetUrl || `${baseUrl}/reset-password`,
     },
   };
 

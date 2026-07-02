@@ -386,22 +386,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       const redirectUrl = `${window.location.origin}/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
+      // Route through our Graph-backed edge function (send-password-reset)
+      // rather than Supabase's built-in mailer, which isn't configured here.
+      // The function is enumeration-safe and always returns success, so we
+      // don't reveal whether the email is registered.
+      const { error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email, redirectTo: redirectUrl },
       });
 
-      // Email-not-found errors come back as "User not found" or
-      // status 400. Swallow them so we don't reveal account presence.
       if (error) {
-        const looksLikeUnknownEmail =
-          error.status === 400 ||
-          /user not found|not registered|invalid/i.test(error.message);
-        if (looksLikeUnknownEmail) {
-          return { error: null };
-        }
-        // Genuine errors (network, rate limit) bubble up
+        // Network/edge errors bubble up; account-existence is never leaked
+        // (the function returns success for unknown emails).
         toast.error(error.message);
-        return { error };
+        return { error: error as unknown as Error };
       }
       return { error: null };
     } catch (error) {
