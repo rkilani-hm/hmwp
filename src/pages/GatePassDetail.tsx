@@ -7,8 +7,8 @@ import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGatePassEffectiveWorkflow } from '@/hooks/useGatePassTypeWorkflows';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { GatePassApprovalProgress } from '@/components/GatePassApprovalProgress';
-import { GatePassActivityLog } from '@/components/GatePassActivityLog';
-import { GatePassComments } from '@/components/GatePassComments';
+import { EntityActivityLog } from '@/components/EntityActivityLog';
+import { EntityComments } from '@/components/EntityComments';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { AuthPayload } from '@/components/SecureApprovalDialog';
 import { useAuth } from '@/contexts/AuthContext';
@@ -298,9 +298,10 @@ export default function GatePassDetail() {
         )}
 
         {/* Activity Log — screen-only timeline (created + approvals + audit). */}
-        <GatePassActivityLog
-          gatePassId={gp.id}
-          gatePassCreatedAt={gp.created_at}
+        <EntityActivityLog
+          entity="gate_pass"
+          id={gp.id}
+          createdAt={gp.created_at}
           requesterName={gp.requester_name}
         />
 
@@ -375,7 +376,7 @@ export default function GatePassDetail() {
         )}
 
         {/* Comments — three-tier (server-side RLS authoritative). */}
-        <GatePassComments gatePassId={gp.id} />
+        <EntityComments entity="gate_pass" id={gp.id} />
 
         {/* Approval Actions */}
         {(approvalRoles.some(r => canApproveAs(r)) || canComplete) && (

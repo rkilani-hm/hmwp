@@ -52,9 +52,9 @@ import {
   Users,
 } from 'lucide-react';
 import { PermitAttachmentsTab } from '@/components/permit-detail/PermitAttachmentsTab';
-import { PermitComments } from '@/components/PermitComments';
+import { EntityComments } from '@/components/EntityComments';
 import { PermitVersionHistory } from '@/components/PermitVersionHistory';
-import { PermitActivityLog } from '@/components/PermitActivityLog';
+import { EntityActivityLog } from '@/components/EntityActivityLog';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -601,9 +601,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
-              <PermitActivityLog
-                permitId={permit.id}
-                permitCreatedAt={permit.created_at}
+              <EntityActivityLog
+                entity="permit"
+                id={permit.id}
+                createdAt={permit.created_at}
                 requesterName={permit.requester_name}
               />
             </TabsContent>
@@ -730,7 +731,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               component renders what it gets and badges the tier. Separate
               from the legacy per-step permit_approvals.comments shown in the
               approval timeline. */}
-          <PermitComments permitId={permit.id} />
+          <EntityComments entity="permit" id={permit.id} />
         </div>
 
         {/* Workflow Timeline Sidebar */}

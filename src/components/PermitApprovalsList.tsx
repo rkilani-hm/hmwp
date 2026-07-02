@@ -8,7 +8,7 @@ import {
   usePermitApprovals,
   type PermitApproval,
   type PermitApprovalStatus,
-} from '@/hooks/usePermitApprovals';
+} from '@/hooks/useEntityApprovals';
 
 interface Props {
   permitId: string;

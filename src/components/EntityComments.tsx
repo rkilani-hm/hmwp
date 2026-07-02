@@ -16,17 +16,19 @@ import { Lock, Users, Globe, Loader2, MessageSquare, Trash2, Send } from 'lucide
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import {
-  useGatePassComments,
-  useAddGatePassComment,
-  useDeleteGatePassComment,
+  useEntityComments,
+  useAddEntityComment,
+  useDeleteEntityComment,
+  type CommentEntity,
   type CommentTier,
-  type GatePassComment,
-} from '@/hooks/useGatePassComments';
+  type EntityComment,
+} from '@/hooks/useEntityComments';
 import { cn } from '@/lib/utils';
 
 /**
- * GatePassComments — list + composer for the three-tier comment model
- * (spec: comment-visibility-tiers.md). Gate passes.
+ * EntityComments — entity-parameterized merge of PermitComments and
+ * GatePassComments (audit item D1). List + composer for the three-tier
+ * comment model (spec: comment-visibility-tiers.md).
  *
  * Visibility is enforced SERVER-SIDE by RLS: the list renders exactly the
  * rows the DB returns for the current user, with no client-side security
@@ -34,6 +36,11 @@ import { cn } from '@/lib/utils';
  *   - tenants: no tier selector, comments are forced tier='public';
  *   - non-tenant with no department: the Confidential option is disabled.
  */
+
+const ENTITY_NOUN: Record<CommentEntity, string> = {
+  permit: 'permit',
+  gate_pass: 'gate pass',
+};
 
 interface TierMeta {
   label: string;
@@ -84,7 +91,7 @@ function CommentRow({
   onDelete,
   deleting,
 }: {
-  comment: GatePassComment;
+  comment: EntityComment;
   canDelete: boolean;
   onDelete: () => void;
   deleting: boolean;
@@ -126,7 +133,7 @@ function CommentRow({
   );
 }
 
-export function GatePassComments({ gatePassId }: { gatePassId: string }) {
+export function EntityComments({ entity, id }: { entity: CommentEntity; id: string }) {
   const { user, profile, roles } = useAuth();
   const isTenantOnly = useIsTenantOnly();
   const isAdmin = roles.includes('admin');
@@ -135,14 +142,17 @@ export function GatePassComments({ gatePassId }: { gatePassId: string }) {
   const hasDepartment = !!profile?.department_id;
   const canPostConfidential = !isTenantOnly && hasDepartment;
 
-  const { data: comments = [], isLoading } = useGatePassComments(gatePassId);
-  const addComment = useAddGatePassComment();
-  const deleteComment = useDeleteGatePassComment();
+  const { data: comments = [], isLoading } = useEntityComments(entity, id);
+  const addComment = useAddEntityComment(entity);
+  const deleteComment = useDeleteEntityComment(entity);
 
   const [body, setBody] = useState('');
   // Tenants are forced to 'public'; everyone else defaults to 'internal'.
   const [tier, setTier] = useState<CommentTier>('internal');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const noun = ENTITY_NOUN[entity];
+  const textareaId = `${entity === 'gate_pass' ? 'gate-pass' : 'permit'}-comment-body`;
 
   const effectiveTier: CommentTier = isTenantOnly ? 'public' : tier;
   const canSubmit = body.trim().length > 0 && !addComment.isPending;
@@ -150,7 +160,7 @@ export function GatePassComments({ gatePassId }: { gatePassId: string }) {
   const handleSubmit = () => {
     if (!canSubmit) return;
     addComment.mutate(
-      { gatePassId, tier: effectiveTier, body },
+      { id, tier: effectiveTier, body },
       {
         onSuccess: () => {
           setBody('');
@@ -160,10 +170,10 @@ export function GatePassComments({ gatePassId }: { gatePassId: string }) {
     );
   };
 
-  const handleDelete = (id: string) => {
-    setDeletingId(id);
+  const handleDelete = (commentId: string) => {
+    setDeletingId(commentId);
     deleteComment.mutate(
-      { id, gatePassId },
+      { commentId, id },
       { onSettled: () => setDeletingId(null) },
     );
   };
@@ -176,7 +186,7 @@ export function GatePassComments({ gatePassId }: { gatePassId: string }) {
           Comments
         </CardTitle>
         <CardDescription>
-          Discuss this gate pass. Each comment has a visibility tier — the server decides
+          Discuss this {noun}. Each comment has a visibility tier — the server decides
           who can see it.
         </CardDescription>
       </CardHeader>
@@ -205,9 +215,9 @@ export function GatePassComments({ gatePassId }: { gatePassId: string }) {
         {/* Composer */}
         <div className="space-y-3 border-t pt-4">
           <div className="space-y-2">
-            <Label htmlFor="gate-pass-comment-body">Add a comment</Label>
+            <Label htmlFor={textareaId}>Add a comment</Label>
             <Textarea
-              id="gate-pass-comment-body"
+              id={textareaId}
               placeholder="Write a comment..."
               value={body}
               onChange={(e) => setBody(e.target.value)}

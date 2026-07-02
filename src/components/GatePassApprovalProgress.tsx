@@ -34,7 +34,7 @@ import {
   cctvConfirmed,
   materialAction,
   type GatePassApproval,
-} from '@/hooks/useGatePassApprovals';
+} from '@/hooks/useEntityApprovals';
 import { useActorTypes } from '@/hooks/useActorTypes';
 import { approveVerb } from '@/utils/actorVerb';
 
