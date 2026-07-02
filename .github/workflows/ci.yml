@@ -1,0 +1,69 @@
+name: CI
+
+# Pre-merge safety net. Make this a REQUIRED status check in
+# Settings → Branches → Branch protection for `main` so nothing merges that
+# fails type-check, lint, build, or edge-function type-check.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (type-check · lint · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Type-check
+        run: bunx tsc --noEmit -p tsconfig.app.json
+      - name: Lint
+        run: bun run lint
+      - name: Build
+        run: bun run build
+
+  edge-functions:
+    name: Edge functions (deno check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: deno check every function
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in supabase/functions/*/index.ts; do
+            echo "::group::deno check $f"
+            deno check "$f" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+  # OPTIONAL — enable once a dedicated STAGING Supabase project exists.
+  # Add repo secrets STAGING_SUPABASE_URL + STAGING_SUPABASE_SERVICE_ROLE_KEY,
+  # then this runs the RLS security-invariant suite against staging (never prod).
+  #
+  # rls-invariants:
+  #   name: RLS security invariants (staging)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: denoland/setup-deno@v2
+  #       with: { deno-version: v2.x }
+  #     - name: Run invariant tests
+  #       env:
+  #         SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+  #       run: deno test -A supabase/functions/tests/security_invariants.test.ts
