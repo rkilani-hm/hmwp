@@ -385,13 +385,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const resetPassword = async (email: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`;
       // Route through our Graph-backed edge function (send-password-reset)
       // rather than Supabase's built-in mailer, which isn't configured here.
-      // The function is enumeration-safe and always returns success, so we
-      // don't reveal whether the email is registered.
+      // The function builds the reset link on the canonical production domain
+      // (APP_URL) and is enumeration-safe (always returns success), so we don't
+      // reveal whether the email is registered and the domain is never the
+      // preview URL the user happens to be on.
       const { error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email, redirectTo: redirectUrl },
+        body: { email },
       });
 
       if (error) {

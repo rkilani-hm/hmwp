@@ -64,25 +64,57 @@ export default function ResetPassword() {
   // (user has been signed in for a while and just clicked an old
   // link), we still allow the password change.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get('token_hash');
+    const type = params.get('type');
+    const hash = window.location.hash || '';
+
+    // Preferred flow: our emails link to /reset-password?token_hash=…&type=recovery.
+    // The token is only consumed HERE, when we call verifyOtp — so email
+    // link-scanners (Outlook Safe Links etc.) that merely GET the URL don't
+    // burn the one-time token. This is what fixes the "otp_expired on click".
+    if (tokenHash && (type === 'recovery' || type === null)) {
+      let cancelled = false;
+      supabase.auth
+        .verifyOtp({ type: 'recovery', token_hash: tokenHash })
+        .then(({ error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error('Recovery verifyOtp failed:', error);
+            setState('invalid');
+          } else {
+            setState('ready');
+            // Strip the token from the address bar so it isn't re-used or
+            // left in history.
+            window.history.replaceState({}, '', '/reset-password');
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // If the URL already carries an error (legacy auto-verify link that a
+    // scanner consumed, or a genuinely expired link), show invalid at once.
+    if (/error=|error_code=/.test(hash) || params.get('error')) {
+      setState('invalid');
+      return;
+    }
+
+    // Legacy fallback: implicit-flow links where Supabase consumed the token
+    // and dropped a recovery session in the URL hash before we loaded.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setState('ready');
       } else if (event === 'SIGNED_IN' && session) {
-        // Some flows fire SIGNED_IN instead of PASSWORD_RECOVERY
-        // depending on how the link was opened. Either is fine.
         setState('ready');
       }
     });
 
-    // Fallback: if no event fires within 3 seconds, the link is
-    // either expired or the user navigated here directly without
-    // a recovery session. Show the error state.
     const timeout = setTimeout(() => {
       setState((current) => (current === 'verifying' ? 'invalid' : current));
     }, 3000);
 
-    // Check if a session already exists from a freshly-consumed
-    // recovery link in the URL hash
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setState((current) => (current === 'verifying' ? 'ready' : current));

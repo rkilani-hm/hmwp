@@ -146,14 +146,18 @@ const handler = async (req: Request): Promise<Response> => {
       // email was ever delivered.) We generate the link, then deliver it via
       // the Microsoft Graph pipeline (send-email-notification) like every
       // other notification.
-      const appUrl = (Deno.env.get("APP_URL") || "https://www.hmwp.alhamra.com.kw").replace(/\/$/, "");
+      // Use the token_hash (NOT the auto-verifying action_link) so email
+      // link-scanners can't consume the one-time token before the user clicks,
+      // and the link stays on our production domain. See send-password-reset
+      // for the full rationale.
+      const appUrl = (Deno.env.get("APP_URL") || "https://hmwp.alhamra.com.kw").replace(/\/$/, "");
       const { data: linkData, error: resetError } = await serviceClient.auth.admin.generateLink({
         type: "recovery",
         email: targetProfile.email,
-        options: { redirectTo: `${appUrl}/reset-password` },
       });
 
-      if (resetError || !linkData?.properties?.action_link) {
+      const tokenHash = linkData?.properties?.hashed_token;
+      if (resetError || !tokenHash) {
         console.error("Reset link generation error:", resetError);
         return new Response(JSON.stringify({ error: "Failed to generate reset link" }), {
           status: 500,
@@ -161,6 +165,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
+      const resetUrl = `${appUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const emailResp = await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
@@ -170,7 +175,7 @@ const handler = async (req: Request): Promise<Response> => {
           to: [targetProfile.email],
           notificationType: "password_reset",
           subject: "Reset your Al Hamra Work Permit password",
-          details: { resetUrl: linkData.properties.action_link },
+          details: { resetUrl },
         }),
       });
 
