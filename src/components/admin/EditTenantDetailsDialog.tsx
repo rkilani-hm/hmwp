@@ -10,11 +10,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Plus, X } from 'lucide-react';
 import {
   useUpdateTenantProfile,
   type PendingTenant,
 } from '@/hooks/usePendingTenants';
+import {
+  useTenantUnits,
+  useAddTenantUnit,
+  useDeleteTenantUnit,
+  formatUnit,
+} from '@/hooks/useTenantUnits';
 
 interface Props {
   tenant: PendingTenant | null;
@@ -37,11 +43,15 @@ interface Props {
  */
 export function EditTenantDetailsDialog({ tenant, onClose }: Props) {
   const update = useUpdateTenantProfile();
+  const { data: units } = useTenantUnits(tenant?.id);
+  const addUnit = useAddTenantUnit();
+  const deleteUnit = useDeleteTenantUnit();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [unit, setUnit] = useState('');
-  const [floor, setFloor] = useState('');
+  // New-unit entry row for the units manager.
+  const [newUnit, setNewUnit] = useState('');
+  const [newFloor, setNewFloor] = useState('');
 
   // Reset form whenever a different tenant is loaded
   useEffect(() => {
@@ -49,13 +59,29 @@ export function EditTenantDetailsDialog({ tenant, onClose }: Props) {
       setFullName(tenant.full_name || '');
       setPhone(tenant.phone || '');
       setCompanyName(tenant.company_name || '');
-      setUnit(tenant.unit || '');
-      setFloor(tenant.floor || '');
+      setNewUnit('');
+      setNewFloor('');
     }
   }, [tenant]);
 
+  const handleAddUnit = () => {
+    if (!tenant || !newUnit.trim()) return;
+    addUnit.mutate(
+      { tenantId: tenant.id, unit: newUnit, floor: newFloor },
+      {
+        onSuccess: () => {
+          setNewUnit('');
+          setNewFloor('');
+        },
+      },
+    );
+  };
+
   const handleSave = () => {
     if (!tenant) return;
+    // Keep the profile's primary unit/floor mirror in sync with the first
+    // registered unit (used as the default in the permit/gate-pass wizards).
+    const primary = units && units.length > 0 ? units[0] : null;
     update.mutate(
       {
         tenantId: tenant.id,
@@ -63,8 +89,8 @@ export function EditTenantDetailsDialog({ tenant, onClose }: Props) {
           full_name: fullName,
           phone,
           company_name: companyName,
-          unit,
-          floor,
+          unit: primary?.unit ?? '',
+          floor: primary?.floor ?? '',
         },
       },
       { onSuccess: () => onClose() },
@@ -119,24 +145,72 @@ export function EditTenantDetailsDialog({ tenant, onClose }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-unit">Unit</Label>
+          {/* Units manager. A tenant may occupy several units; each is
+              selectable when they create a permit or gate pass. Add/remove
+              are saved immediately. The first unit is mirrored to the
+              profile's primary unit on Save. */}
+          <div className="space-y-2">
+            <Label>Units</Label>
+            {units && units.length > 0 ? (
+              <div className="space-y-1.5">
+                {units.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm"
+                  >
+                    <span>{formatUnit(u)}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={() => deleteUnit.mutate({ id: u.id, tenantId: tenant!.id })}
+                      disabled={deleteUnit.isPending}
+                      aria-label={`Remove ${formatUnit(u)}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No units registered yet.</p>
+            )}
+            <div className="flex gap-2 pt-1">
               <Input
-                id="edit-unit"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                placeholder="e.g. 1205"
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="Unit e.g. 1205"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddUnit();
+                  }
+                }}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-floor">Floor</Label>
               <Input
-                id="edit-floor"
-                value={floor}
-                onChange={(e) => setFloor(e.target.value)}
-                placeholder="e.g. 12"
+                value={newFloor}
+                onChange={(e) => setNewFloor(e.target.value)}
+                placeholder="Floor"
+                className="w-24 shrink-0"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddUnit();
+                  }
+                }}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={handleAddUnit}
+                disabled={addUnit.isPending || !newUnit.trim()}
+                aria-label="Add unit"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
