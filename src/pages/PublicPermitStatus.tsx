@@ -150,52 +150,10 @@ const PublicPermitStatus = () => {
     });
   };
 
-  const getStatusInfo = (status: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const isApproved = status === 'approved';
-    const isClosed = status === 'closed';
-    const isRejected = status === 'rejected' || status === 'cancelled';
-    const isPending = !isApproved && !isClosed && !isRejected;
-
-    if (isApproved) {
-      return {
-        icon: ShieldCheck,
-        color: 'text-success',
-        bgColor: 'bg-success/10 border-success/30',
-        label: 'APPROVED',
-        description: 'This permit is valid and approved for work.',
-      };
-    }
-    if (isClosed) {
-      return {
-        icon: ShieldCheck,
-        color: 'text-muted-foreground',
-        bgColor: 'bg-muted border-border',
-        label: 'CLOSED',
-        description: 'This permit has been completed and closed.',
-      };
-    }
-    if (isRejected) {
-      return {
-        icon: ShieldX,
-        color: 'text-destructive',
-        bgColor: 'bg-destructive/10 border-destructive/30',
-        label: status.toUpperCase(),
-        description: 'This permit is not valid.',
-      };
-    }
-    return {
-      icon: ShieldAlert,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10 border-warning/30',
-      label: 'PENDING',
-      description: 'This permit is still under review.',
-    };
-  };
-
-  const getValidityStatus = (permit: LimitedPermitInfo) => {
+  // Single combined verdict from BOTH the approval status and the date window.
+  // Approval alone isn't enough — an approved permit whose dates have passed is
+  // "Expired", and a not-yet-approved permit is "In Approval" regardless of date.
+  const getVerdict = (permit: LimitedPermitInfo) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const fromDate = new Date(permit.work_date_from);
@@ -203,13 +161,45 @@ const PublicPermitStatus = () => {
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(0, 0, 0, 0);
 
-    if (today < fromDate) {
-      return { label: 'Not Yet Valid', color: 'text-warning' };
+    const status = permit.status;
+    const isApproved = status === 'approved';
+    const isClosed = status === 'closed';
+    const isRejected = status === 'rejected' || status === 'cancelled';
+
+    const tones = {
+      success:     { color: 'text-success',          bgColor: 'bg-success/10 border-success/30',        badge: 'bg-success' },
+      warning:     { color: 'text-warning',          bgColor: 'bg-warning/10 border-warning/30',        badge: 'bg-warning' },
+      destructive: { color: 'text-destructive',      bgColor: 'bg-destructive/10 border-destructive/30', badge: 'bg-destructive' },
+      muted:       { color: 'text-muted-foreground', bgColor: 'bg-muted border-border',                 badge: 'bg-muted-foreground' },
+    } as const;
+
+    // Refused outright.
+    if (isRejected) {
+      return { icon: ShieldX, ...tones.destructive, label: status.toUpperCase(),
+        description: 'This work permit is not valid.' };
     }
+
+    // Not approved yet (submitted / pending_* / draft / in progress).
+    if (!isApproved && !isClosed) {
+      return { icon: ShieldAlert, ...tones.warning, label: 'IN APPROVAL',
+        description: 'This work permit is still going through approval and is not yet valid for work.' };
+    }
+
+    // Approved (or closed) — the date window now decides validity.
     if (today > toDate) {
-      return { label: 'Expired', color: 'text-destructive' };
+      return { icon: ShieldX, ...tones.destructive, label: 'EXPIRED',
+        description: 'This work permit is fully approved but its work dates have passed — it is no longer valid.' };
     }
-    return { label: 'Currently Valid', color: 'text-success' };
+    if (isClosed) {
+      return { icon: ShieldCheck, ...tones.muted, label: 'CLOSED',
+        description: 'This work permit has been completed and closed.' };
+    }
+    if (today < fromDate) {
+      return { icon: ShieldAlert, ...tones.warning, label: 'APPROVED — NOT YET VALID',
+        description: 'This work permit is approved, but its start date has not arrived yet.' };
+    }
+    return { icon: ShieldCheck, ...tones.success, label: 'APPROVED & VALID',
+      description: 'This work permit is fully approved and valid for work today.' };
   };
 
   return (
@@ -328,26 +318,20 @@ const PublicPermitStatus = () => {
 
         {/* Results - Limited Info */}
         {permitInfo && (() => {
-          const statusInfo = getStatusInfo(permitInfo.status);
-          const validityStatus = getValidityStatus(permitInfo);
-          const StatusIcon = statusInfo.icon;
-          
+          const verdict = getVerdict(permitInfo);
+          const StatusIcon = verdict.icon;
+
           return (
-            <Card className={`border-2 ${statusInfo.bgColor}`}>
+            <Card className={`border-2 ${verdict.bgColor}`}>
               <CardContent className="pt-6 text-center space-y-4">
-                <StatusIcon className={`h-16 w-16 mx-auto ${statusInfo.color}`} />
-                
+                <StatusIcon className={`h-16 w-16 mx-auto ${verdict.color}`} />
+
                 <div>
-                  <Badge className={`text-lg px-4 py-1 ${
-                    statusInfo.label === 'APPROVED' ? 'bg-success' :
-                    statusInfo.label === 'CLOSED' ? 'bg-muted-foreground' :
-                    statusInfo.label === 'PENDING' ? 'bg-warning' :
-                    'bg-destructive'
-                  }`}>
-                    {statusInfo.label}
+                  <Badge className={`text-base px-4 py-1 ${verdict.badge}`}>
+                    {verdict.label}
                   </Badge>
                 </div>
-                
+
                 <div>
                   <p className="text-sm text-muted-foreground">Permit Number</p>
                   <p className="font-bold text-lg">{permitInfo.permit_no}</p>
@@ -360,12 +344,8 @@ const PublicPermitStatus = () => {
                   </span>
                 </div>
 
-                <p className={`text-sm font-medium ${validityStatus.color}`}>
-                  {validityStatus.label}
-                </p>
-
-                <p className="text-sm text-muted-foreground">
-                  {statusInfo.description}
+                <p className={`text-sm font-medium ${verdict.color}`}>
+                  {verdict.description}
                 </p>
               </CardContent>
             </Card>
