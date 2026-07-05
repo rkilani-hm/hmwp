@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -149,6 +150,15 @@ export default function Auth() {
     setIsLoading(false);
     
     if (!error) {
+      // Notify the admin team that a new tenant is waiting in the Pending
+      // Approvals queue. Best-effort + server-side (the account is 'pending'
+      // and can't sign in, so this runs unauthenticated via a public edge
+      // function that resolves admin emails and sends with the service role).
+      // Never blocks the signup confirmation.
+      supabase.functions
+        .invoke('notify-new-tenant', { body: { email: signUpEmail } })
+        .catch((e) => console.error('New-tenant admin notification failed (non-fatal):', e));
+
       // Show the confirmation card. Remember the email for the
       // signin form when the user comes back later (after admin
       // approval). Clear sensitive fields immediately.
