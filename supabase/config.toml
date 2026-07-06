@@ -45,6 +45,9 @@ verify_jwt = false
 [functions.email-gate-pass-pdf]
 verify_jwt = false
 
+[functions.email-permit-pdf]
+verify_jwt = false
+
 [functions.extract-id-document]
 verify_jwt = false
 
