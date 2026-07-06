@@ -67,17 +67,34 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    // Accept the service-role key (internal caller, e.g. the approval function)
+    // OR a valid user token.
+    let user: { id: string } | null = null;
+    const isServiceCall = token === supabaseServiceKey;
+    if (!isServiceCall) {
+      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: { user: u }, error: authError } = await supabaseUser.auth.getUser(token);
+      if (authError || !u) {
+        return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      user = u;
     }
 
-    const { gatePassId, recipientEmail, recipientName } = await req.json();
-    if (!gatePassId || !recipientEmail) {
-      return new Response(JSON.stringify({ error: "Gate pass ID and recipient email are required" }), {
+    const body = await req.json();
+    const { gatePassId, recipientEmail, recipientName } = body;
+    // Recipients may be a single recipientEmail (back-compat) or an array.
+    const recipientList: string[] = Array.from(new Set(
+      [
+        ...(Array.isArray(body.recipients) ? body.recipients : []),
+        ...(recipientEmail ? [recipientEmail] : []),
+      ]
+        .filter((e: unknown): e is string => typeof e === "string" && e.trim() !== "")
+        .map((e: string) => e.trim()),
+    ));
+    if (!gatePassId || recipientList.length === 0) {
+      return new Response(JSON.stringify({ error: "Gate pass ID and at least one recipient are required" }), {
         status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
@@ -95,14 +112,16 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Auth check
-    const isRequester = gp.requester_id === user.id;
-    const { data: isApproverResult } = await supabaseAdmin.rpc("is_gate_pass_approver", { _user_id: user.id });
-    const { data: isAdminResult } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    if (!isRequester && !isApproverResult && !isAdminResult) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    // Auth check — skipped for trusted service-role calls (internal approval flow).
+    if (!isServiceCall && user) {
+      const isRequester = gp.requester_id === user.id;
+      const { data: isApproverResult } = await supabaseAdmin.rpc("is_gate_pass_approver", { _user_id: user.id });
+      const { data: isAdminResult } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      if (!isRequester && !isApproverResult && !isAdminResult) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
     }
 
     // Download the PDF from storage
@@ -236,9 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
           contentType: "HTML",
           content: emailHtml,
         },
-        toRecipients: [
-          { emailAddress: { address: recipientEmail } },
-        ],
+        toRecipients: recipientList.map((address) => ({ emailAddress: { address } })),
         attachments: [
           {
             "@odata.type": "#microsoft.graph.fileAttachment",
@@ -269,10 +286,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to send email: ${emailResponse.status}`);
     }
 
-    console.log("Gate pass PDF emailed successfully to:", recipientEmail);
+    console.log("Gate pass PDF emailed successfully to:", recipientList.join(", "));
 
     return new Response(
-      JSON.stringify({ success: true, message: `Gate pass PDF emailed to ${recipientEmail}` }),
+      JSON.stringify({ success: true, message: `Gate pass PDF emailed to ${recipientList.length} recipient(s)` }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {

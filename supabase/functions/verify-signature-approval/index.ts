@@ -763,7 +763,11 @@ const handler = async (req: Request): Promise<Response> => {
         } catch (e) { console.error("Push error:", e); }
       }
 
-      if (allowPushAndEmail && updatedPermit.requester_email) {
+      // Final approval is handled separately below: after the PDF is generated
+      // it is emailed (as an attachment) to the tenant + helpdesk via
+      // email-permit-pdf. So here we only send the plain notification for
+      // intermediate progress updates and rejections.
+      if (allowPushAndEmail && updatedPermit.requester_email && !isFinalApproval) {
         try {
           let emailNotificationType: string;
           let emailSubject: string;
@@ -926,6 +930,45 @@ const handler = async (req: Request): Promise<Response> => {
           body: JSON.stringify({ permitId }),
         });
       } catch (e) { console.error("PDF regen error (non-blocking):", e); }
+
+      // FINAL approval only: email the approved permit PDF (attached) to the
+      // tenant + helpdesk (+ admin-configured CC). Runs after the PDF is
+      // generated above so email-permit-pdf can attach it.
+      const isFinalApproval = updatedPermit.status === "approved";
+      if (isFinalApproval) {
+        try {
+          const recipientSet = new Set<string>();
+          if (updatedPermit.requester_email) recipientSet.add(String(updatedPermit.requester_email).trim().toLowerCase());
+
+          // Helpdesk team
+          const { data: hd } = await serviceClient.rpc("get_emails_for_role", { p_role_name: "helpdesk" });
+          for (const e of (hd?.emails ?? [])) {
+            if (typeof e === "string" && e.trim()) recipientSet.add(e.trim().toLowerCase());
+          }
+
+          // Admin-configured "Approved Permit Recipients" (CC)
+          try {
+            const { data: ccRows } = await serviceClient.from("wp_approval_cc_recipients").select("user_id");
+            const ccIds = (ccRows || []).map((r: { user_id: string }) => r.user_id).filter(Boolean);
+            if (ccIds.length > 0) {
+              const { data: ccProfiles } = await serviceClient.from("profiles").select("email").in("id", ccIds);
+              for (const p of (ccProfiles || [])) {
+                if (p?.email && String(p.email).trim()) recipientSet.add(String(p.email).trim().toLowerCase());
+              }
+            }
+          } catch (e) { console.error("CC recipient lookup failed:", e); }
+
+          const recipients = Array.from(recipientSet);
+          if (recipients.length > 0) {
+            const resp = await fetch(`${supabaseUrl}/functions/v1/email-permit-pdf`, {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ permitId, recipients }),
+            });
+            if (!resp.ok) console.error("email-permit-pdf failed:", resp.status, await resp.text());
+          }
+        } catch (e) { console.error("Approved permit PDF email error (non-blocking):", e); }
+      }
     }
     };
 

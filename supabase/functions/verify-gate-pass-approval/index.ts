@@ -452,8 +452,12 @@ serve(async (req) => {
         requesterIsTenant = !!tenantRow;
       }
       const allowEmail = isFinal || !requesterIsTenant;
+      // Final approval is handled separately below (PDF emailed as attachment to
+      // tenant + helpdesk). Here we only send the plain notification for
+      // intermediate progress updates and rejections.
+      const isFinalApproved = approved && updated.status === "approved";
 
-      if (updated.requester_email && allowEmail) {
+      if (updated.requester_email && allowEmail && !isFinalApproved) {
         await fetch(`${supabaseUrl}/functions/v1/send-email-notification`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
@@ -468,6 +472,34 @@ serve(async (req) => {
             details: { approverName, reason: comments },
           }),
         });
+      }
+
+      // FINAL approval: generate the gate-pass PDF then email it (attached) to
+      // the tenant + helpdesk via email-gate-pass-pdf.
+      if (isFinalApproved) {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/generate-gate-pass-pdf`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ gatePassId }),
+          });
+
+          const recipientSet = new Set<string>();
+          if (updated.requester_email) recipientSet.add(String(updated.requester_email).trim().toLowerCase());
+          const { data: hd } = await adminClient.rpc("get_emails_for_role", { p_role_name: "helpdesk" });
+          for (const e of (hd?.emails ?? [])) {
+            if (typeof e === "string" && e.trim()) recipientSet.add(e.trim().toLowerCase());
+          }
+          const recipients = Array.from(recipientSet);
+          if (recipients.length > 0) {
+            const resp = await fetch(`${supabaseUrl}/functions/v1/email-gate-pass-pdf`, {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ gatePassId, recipients, recipientName: updated.requester_name }),
+            });
+            if (!resp.ok) console.error("email-gate-pass-pdf failed:", resp.status, await resp.text());
+          }
+        } catch (e) { console.error("Approved GP PDF email error (non-blocking):", e); }
       }
     } catch (e) {
       console.error("Gate pass email error (non-blocking):", e);
