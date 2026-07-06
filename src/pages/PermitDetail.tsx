@@ -257,7 +257,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   </span>
                 )}
               </h1>
-              <StatusBadge status={permit.status as PermitStatus} />
+              <StatusBadge status={permit.status as PermitStatus} workDateTo={(permit as any).work_date_to} />
               {/* Workflow Modified Badge */}
               {(permit as any).workflow_customized && (
                 <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
