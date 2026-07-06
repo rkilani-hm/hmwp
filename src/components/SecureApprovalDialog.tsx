@@ -41,6 +41,12 @@ export interface ScheduleChange {
   workTimeTo: string;
 }
 
+// Times come back from the DB as "HH:MM:SS" but <input type="time"> wants
+// "HH:MM"; dates may carry a time component. Normalise so the fields prefill
+// correctly and unchanged values don't read as "changed".
+const normDate = (v?: string | null) => (v ?? '').slice(0, 10);
+const normTime = (v?: string | null) => (v ?? '').slice(0, 5);
+
 interface SecureApprovalDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -123,27 +129,33 @@ export function SecureApprovalDialog({
 
   // Optional schedule adjustment (permit approvals only). Seeded from the
   // current schedule each time the dialog opens.
-  const [showScheduleEdit, setShowScheduleEdit] = useState(false);
+  // Editor is shown by default on approve so the approver clearly sees they can
+  // adjust the window (they can just leave it untouched).
+  const [showScheduleEdit, setShowScheduleEdit] = useState(true);
   const [sched, setSched] = useState<ScheduleChange>({
     workDateFrom: '', workDateTo: '', workTimeFrom: '', workTimeTo: '',
   });
+  // Reseed from the current schedule when the dialog opens. Depends on the
+  // primitive values (not the object identity) so typing doesn't get reset.
   useEffect(() => {
     if (isOpen && scheduleEdit) {
       setSched({
-        workDateFrom: scheduleEdit.workDateFrom ?? '',
-        workDateTo: scheduleEdit.workDateTo ?? '',
-        workTimeFrom: scheduleEdit.workTimeFrom ?? '',
-        workTimeTo: scheduleEdit.workTimeTo ?? '',
+        workDateFrom: normDate(scheduleEdit.workDateFrom),
+        workDateTo: normDate(scheduleEdit.workDateTo),
+        workTimeFrom: normTime(scheduleEdit.workTimeFrom),
+        workTimeTo: normTime(scheduleEdit.workTimeTo),
       });
-      setShowScheduleEdit(false);
+      setShowScheduleEdit(true);
     }
-  }, [isOpen, scheduleEdit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, scheduleEdit?.workDateFrom, scheduleEdit?.workDateTo,
+      scheduleEdit?.workTimeFrom, scheduleEdit?.workTimeTo]);
 
   const scheduleChanged = !!scheduleEdit && (
-    sched.workDateFrom !== (scheduleEdit.workDateFrom ?? '') ||
-    sched.workDateTo !== (scheduleEdit.workDateTo ?? '') ||
-    sched.workTimeFrom !== (scheduleEdit.workTimeFrom ?? '') ||
-    sched.workTimeTo !== (scheduleEdit.workTimeTo ?? '')
+    sched.workDateFrom !== normDate(scheduleEdit.workDateFrom) ||
+    sched.workDateTo !== normDate(scheduleEdit.workDateTo) ||
+    sched.workTimeFrom !== normTime(scheduleEdit.workTimeFrom) ||
+    sched.workTimeTo !== normTime(scheduleEdit.workTimeTo)
   );
 
   const showBiometricOption =
