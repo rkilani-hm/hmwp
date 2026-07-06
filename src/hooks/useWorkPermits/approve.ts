@@ -184,6 +184,7 @@ export function useSecureApprovePermit() {
       signature,
       approved,
       auth,
+      scheduleOverride,
     }: {
       permitId: string;
       role: string;
@@ -191,6 +192,15 @@ export function useSecureApprovePermit() {
       signature: string | null;
       approved: boolean;
       auth: ApprovalAuth;
+      // When an approver adjusts the work window while approving, the new
+      // schedule is sent here. The edge function applies it and logs the
+      // change (old → new) under the approver's name.
+      scheduleOverride?: {
+        workDateFrom: string;
+        workDateTo: string;
+        workTimeFrom: string;
+        workTimeTo: string;
+      };
     }) => {
       const body: Record<string, unknown> = {
         permitId,
@@ -200,6 +210,9 @@ export function useSecureApprovePermit() {
         approved,
         authMethod: auth.authMethod,
       };
+      if (scheduleOverride) {
+        body.scheduleOverride = scheduleOverride;
+      }
       if (auth.authMethod === 'password') {
         body.password = auth.password;
       } else {
