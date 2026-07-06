@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Fingerprint, KeyRound, ShieldCheck, CheckCircle2, Info } from 'lucide-react';
+import { Loader2, Fingerprint, KeyRound, ShieldCheck, CheckCircle2, Info, CalendarClock } from 'lucide-react';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,14 +29,36 @@ export type AuthPayload =
   | { authMethod: 'password'; password: string }
   | { authMethod: 'webauthn'; webauthn: { challengeId: string; assertion: unknown } };
 
+/**
+ * The permit's work schedule window. Passed in as `scheduleEdit` to let an
+ * approver adjust the dates/times while approving; the (possibly changed) set is
+ * handed back through onConfirm's third argument when something actually changed.
+ */
+export interface ScheduleChange {
+  workDateFrom: string;
+  workDateTo: string;
+  workTimeFrom: string;
+  workTimeTo: string;
+}
+
 interface SecureApprovalDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (auth: AuthPayload, signature: string | null) => Promise<void>;
+  onConfirm: (
+    auth: AuthPayload,
+    signature: string | null,
+    scheduleChange?: ScheduleChange | null,
+  ) => Promise<void>;
   title: string;
   description: string;
   actionType: 'approve' | 'reject';
   isLoading: boolean;
+  /**
+   * Current work schedule. When provided (permit approvals only), the approver
+   * can optionally adjust the dates/times before approving. Any change is
+   * recorded on the permit under the approver's name. Omit to hide the editor.
+   */
+  scheduleEdit?: ScheduleChange | null;
   /**
    * Overrides the submit-button label for the APPROVE action so the
    * acting user's actor_type can swap "Approve" → "Review" (spec R5).
@@ -76,6 +98,7 @@ export function SecureApprovalDialog({
   isLoading,
   authBinding,
   approveLabel,
+  scheduleEdit,
 }: SecureApprovalDialogProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -98,6 +121,31 @@ export function SecureApprovalDialog({
   const [isVerifying, setIsVerifying] = useState(false);
   const [showSecurityNotice, setShowSecurityNotice] = useState(false);
 
+  // Optional schedule adjustment (permit approvals only). Seeded from the
+  // current schedule each time the dialog opens.
+  const [showScheduleEdit, setShowScheduleEdit] = useState(false);
+  const [sched, setSched] = useState<ScheduleChange>({
+    workDateFrom: '', workDateTo: '', workTimeFrom: '', workTimeTo: '',
+  });
+  useEffect(() => {
+    if (isOpen && scheduleEdit) {
+      setSched({
+        workDateFrom: scheduleEdit.workDateFrom ?? '',
+        workDateTo: scheduleEdit.workDateTo ?? '',
+        workTimeFrom: scheduleEdit.workTimeFrom ?? '',
+        workTimeTo: scheduleEdit.workTimeTo ?? '',
+      });
+      setShowScheduleEdit(false);
+    }
+  }, [isOpen, scheduleEdit]);
+
+  const scheduleChanged = !!scheduleEdit && (
+    sched.workDateFrom !== (scheduleEdit.workDateFrom ?? '') ||
+    sched.workDateTo !== (scheduleEdit.workDateTo ?? '') ||
+    sched.workTimeFrom !== (scheduleEdit.workTimeFrom ?? '') ||
+    sched.workTimeTo !== (scheduleEdit.workTimeTo ?? '')
+  );
+
   const showBiometricOption =
     isMobile && webauthnSupported && platformAvailable && !checkingBiometric;
 
@@ -118,6 +166,7 @@ export function SecureApprovalDialog({
     setWebauthnPayload(null);
     setIsVerifying(false);
     setShowSecurityNotice(false);
+    setShowScheduleEdit(false);
   };
 
   const handleBiometricAuth = async () => {
@@ -172,9 +221,27 @@ export function SecureApprovalDialog({
       payload = { authMethod: 'webauthn', webauthn: webauthnPayload };
     }
 
+    // Validate an adjusted schedule (only when approving and something changed).
+    let scheduleChange: ScheduleChange | null = null;
+    if (actionType === 'approve' && scheduleChanged) {
+      if (!sched.workDateFrom || !sched.workDateTo || !sched.workTimeFrom || !sched.workTimeTo) {
+        setError('Please fill in all work date and time fields.');
+        return;
+      }
+      if (sched.workDateTo < sched.workDateFrom) {
+        setError('The end date cannot be before the start date.');
+        return;
+      }
+      if (sched.workDateFrom === sched.workDateTo && sched.workTimeTo <= sched.workTimeFrom) {
+        setError('On the same day, the end time must be after the start time.');
+        return;
+      }
+      scheduleChange = sched;
+    }
+
     try {
       setError(null);
-      await onConfirm(payload, signature);
+      await onConfirm(payload, signature, scheduleChange);
       resetState();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.serverError'));
@@ -267,6 +334,64 @@ export function SecureApprovalDialog({
                 disabled={isLoading}
                 initialValue={savedSignature?.signature ?? null}
               />
+            </div>
+          )}
+
+          {/* ==== Optional: adjust work schedule (permit approvals only) ==== */}
+          {actionType === 'approve' && scheduleEdit && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowScheduleEdit((v) => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+                aria-expanded={showScheduleEdit}
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span>Adjust work date / time (optional)</span>
+                {scheduleChanged && (
+                  <span className="ml-1 rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[10px] font-medium">
+                    changed
+                  </span>
+                )}
+              </button>
+              {showScheduleEdit && (
+                <div className="rounded-md border border-border p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="sched-date-from" className="text-xs">Start date</Label>
+                      <Input id="sched-date-from" type="date" className="h-9"
+                        value={sched.workDateFrom}
+                        onChange={(e) => setSched((s) => ({ ...s, workDateFrom: e.target.value }))}
+                        disabled={isLoading} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="sched-date-to" className="text-xs">End date</Label>
+                      <Input id="sched-date-to" type="date" className="h-9"
+                        value={sched.workDateTo}
+                        onChange={(e) => setSched((s) => ({ ...s, workDateTo: e.target.value }))}
+                        disabled={isLoading} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="sched-time-from" className="text-xs">Start time</Label>
+                      <Input id="sched-time-from" type="time" className="h-9"
+                        value={sched.workTimeFrom}
+                        onChange={(e) => setSched((s) => ({ ...s, workTimeFrom: e.target.value }))}
+                        disabled={isLoading} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="sched-time-to" className="text-xs">End time</Label>
+                      <Input id="sched-time-to" type="time" className="h-9"
+                        value={sched.workTimeTo}
+                        onChange={(e) => setSched((s) => ({ ...s, workTimeTo: e.target.value }))}
+                        disabled={isLoading} />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Any change here is applied to the permit and recorded in its history
+                    under your name (old → new).
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

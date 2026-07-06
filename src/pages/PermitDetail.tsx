@@ -10,7 +10,7 @@ import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PermitApprovalProgress } from '@/components/PermitApprovalProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
-import type { AuthPayload } from '@/components/SecureApprovalDialog';
+import type { AuthPayload, ScheduleChange } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
 import { CancelPermitDialog } from '@/components/CancelPermitDialog';
@@ -222,7 +222,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     setApprovalDialogOpen(true);
   };
 
-  const handleSecureApproval = async (auth: AuthPayload, signature: string | null) => {
+  const handleSecureApproval = async (
+    auth: AuthPayload,
+    signature: string | null,
+    scheduleChange?: ScheduleChange | null,
+  ) => {
     await secureApprove.mutateAsync({
       permitId: permit.id,
       role: getApprovalRole(),
@@ -230,6 +234,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
       signature: approvalAction === 'approve' ? signature : null,
       approved: approvalAction === 'approve',
       auth,
+      // Only send on approval when the approver actually adjusted the schedule.
+      scheduleOverride:
+        approvalAction === 'approve' && scheduleChange ? scheduleChange : undefined,
     });
     setApprovalDialogOpen(false);
     setComments('');
@@ -705,6 +712,12 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             isLoading={secureApprove.isPending}
             approveLabel={approveLabel}
             authBinding={{ permitId: permit.id, role: getApprovalRole() }}
+            scheduleEdit={{
+              workDateFrom: (permit as any).work_date_from ?? '',
+              workDateTo: (permit as any).work_date_to ?? '',
+              workTimeFrom: (permit as any).work_time_from ?? '',
+              workTimeTo: (permit as any).work_time_to ?? '',
+            }}
           />
           <ForwardPermitDialog
             open={forwardDialogOpen}

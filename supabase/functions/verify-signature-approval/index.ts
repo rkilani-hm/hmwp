@@ -87,6 +87,15 @@ const ApprovalSchema = z.object({
     challengeId: z.string().uuid(),
     assertion: z.record(z.unknown()),
   }).optional(),
+
+  // Optional: approver-adjusted work schedule (approve action only). When
+  // present, the changed fields are applied to the permit and logged old→new.
+  scheduleOverride: z.object({
+    workDateFrom: z.string().min(1).max(20),
+    workDateTo: z.string().min(1).max(20),
+    workTimeFrom: z.string().min(1).max(10),
+    workTimeTo: z.string().min(1).max(10),
+  }).optional(),
 }).superRefine((val, ctx) => {
   if (val.authMethod === "password" && !val.password) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "password is required when authMethod=password" });
@@ -415,7 +424,7 @@ const handler = async (req: Request): Promise<Response> => {
         status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-    const { permitId, role, comments, signature, approved, authMethod, password, webauthn } = parseResult.data;
+    const { permitId, role, comments, signature, approved, authMethod, password, webauthn, scheduleOverride } = parseResult.data;
 
     const ipAddress =
       req.headers.get("x-forwarded-for") ||
@@ -613,6 +622,31 @@ const handler = async (req: Request): Promise<Response> => {
       updateData.status = nextStatus;
     }
 
+    // Approver-adjusted work schedule (approve only). Apply only the fields that
+    // actually changed vs the current permit, and build a human-readable summary
+    // ("start time 08:00 → 10:00; ...") for the activity log.
+    let scheduleChangeSummary = "";
+    if (approved && scheduleOverride) {
+      const cp = currentPermit as Record<string, unknown>;
+      const fields: Array<[string, string, string]> = [
+        ["work_date_from", scheduleOverride.workDateFrom, "start date"],
+        ["work_date_to",   scheduleOverride.workDateTo,   "end date"],
+        ["work_time_from", scheduleOverride.workTimeFrom, "start time"],
+        ["work_time_to",   scheduleOverride.workTimeTo,   "end time"],
+      ];
+      const parts: string[] = [];
+      for (const [col, newVal, label] of fields) {
+        const oldStr = cp[col] == null ? "" : String(cp[col]);
+        // Compare on HH:MM / date prefix so a stored "08:00:00" vs "08:00" isn't a false diff.
+        const norm = (v: string) => v.slice(0, col.startsWith("work_time") ? 5 : 10);
+        if (newVal && norm(newVal) !== norm(oldStr)) {
+          updateData[col] = newVal;
+          parts.push(`${label} ${oldStr || "—"} → ${newVal}`);
+        }
+      }
+      if (parts.length > 0) scheduleChangeSummary = parts.join("; ");
+    }
+
     const { data: updatedPermit, error: updateError } = await serviceClient
       .from("work_permits").update(updateData).eq("id", permitId).select().single();
     if (updateError) {
@@ -650,6 +684,17 @@ const handler = async (req: Request): Promise<Response> => {
       details: (comments || `${approved ? approvedVerb : "Rejected"} with verified signature (${authMethod})`)
         + (onBehalfOfName ? ` — acting on behalf of ${onBehalfOfName}` : ""),
     });
+
+    // Separate, explicit audit line for an approver-changed work schedule.
+    if (scheduleChangeSummary) {
+      await serviceClient.from("activity_logs").insert({
+        permit_id: permitId,
+        action: "Work Schedule Changed",
+        performed_by: userName + delegationNote,
+        performed_by_id: user.id,
+        details: `${userName} changed the work schedule during ${role} approval: ${scheduleChangeSummary}`,
+      });
+    }
 
     // ---- Post-approval delivery runs AFTER the response (performance) ----
     // The DB writes above ARE the approval. Requester/next-approver
