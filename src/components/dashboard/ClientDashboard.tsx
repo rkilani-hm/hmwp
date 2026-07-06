@@ -148,7 +148,7 @@ export function ClientDashboard() {
                             V{permit.rework_version + 1}
                           </span>
                         )}
-                        <StatusBadge status={permit.status as any} />
+                        <StatusBadge status={permit.status as any} workDateTo={(permit as any).work_date_to} />
                       </div>
                       <Button size="sm" variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white">
                         Edit & Resubmit
@@ -201,7 +201,7 @@ export function ClientDashboard() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <p className="font-medium text-sm">{permit.permit_no}</p>
-                        <StatusBadge status={permit.status as any} />
+                        <StatusBadge status={permit.status as any} workDateTo={(permit as any).work_date_to} />
                       </div>
                       <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     </div>
@@ -277,7 +277,7 @@ export function ClientDashboard() {
                           {format(new Date(permit.updated_at), 'MMM d, h:mm a')}
                         </p>
                       </div>
-                      <StatusBadge status={permit.status as any} />
+                      <StatusBadge status={permit.status as any} workDateTo={(permit as any).work_date_to} />
                     </div>
                   ))}
                 </div>

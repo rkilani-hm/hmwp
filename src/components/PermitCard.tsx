@@ -60,7 +60,7 @@ export function PermitCard({ permit, onClick, className }: PermitCardProps) {
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-display font-semibold text-base">{permit.permitNo}</span>
-                <StatusBadge status={permit.status} />
+                <StatusBadge status={permit.status} workDateTo={permit.workDateTo} />
                 {permit.reworkVersion && permit.reworkVersion > 0 && (
                   <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">
                     V{permit.reworkVersion + 1}

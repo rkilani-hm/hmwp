@@ -308,7 +308,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                         {permit.contractor_name}
                       </p>
                     </div>
-                    <StatusBadge status={permit.status as any} />
+                    <StatusBadge status={permit.status as any} workDateTo={(permit as any).work_date_to} />
                   </div>
                 ))}
               </CardContent>
@@ -337,7 +337,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
                         {permit.contractor_name}
                       </p>
                     </div>
-                    <StatusBadge status={permit.status as any} />
+                    <StatusBadge status={permit.status as any} workDateTo={(permit as any).work_date_to} />
                   </div>
                 ))}
               </CardContent>

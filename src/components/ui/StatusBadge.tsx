@@ -4,7 +4,28 @@ import { PermitStatus, statusLabels } from '@/types/workPermit';
 
 interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: PermitStatus;
+  /**
+   * The permit's work end date. When supplied and the permit is APPROVED but
+   * that date is already in the past, the badge renders as "Expired" (red)
+   * instead of "Approved" — an approved permit whose work window has passed is
+   * no longer valid. Optional and backward-compatible: callers that don't pass
+   * it keep the plain status behaviour.
+   */
+  workDateTo?: string | null;
 }
+
+// True when an approved permit's work window has already ended.
+function isExpiredApproved(status: PermitStatus, workDateTo?: string | null): boolean {
+  if (status !== 'approved' || !workDateTo) return false;
+  const to = new Date(workDateTo);
+  if (isNaN(to.getTime())) return false;
+  to.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return to < today;
+}
+
+const EXPIRED_STYLE = 'bg-status-rejected/10 text-status-rejected border-status-rejected/30';
 
 const statusStyles: Record<PermitStatus, string> = {
   draft: 'bg-status-draft/10 text-status-draft border-status-draft/30',
@@ -41,13 +62,14 @@ const statusStyles: Record<PermitStatus, string> = {
 };
 
 export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
-  ({ status, className, ...props }, ref) => {
+  ({ status, workDateTo, className, ...props }, ref) => {
+    const expired = isExpiredApproved(status, workDateTo);
     return (
       <span
         ref={ref}
         className={cn(
           'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
-          statusStyles[status],
+          expired ? EXPIRED_STYLE : statusStyles[status],
           className
         )}
         {...props}
@@ -55,19 +77,20 @@ export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(
         <span
           className={cn(
             'w-1.5 h-1.5 rounded-full mr-1.5',
-            status === 'approved' && 'bg-status-approved',
-            status === 'rejected' && 'bg-status-rejected',
-            status === 'closed' && 'bg-status-closed',
-            status === 'submitted' && 'bg-status-submitted',
-            status === 'draft' && 'bg-status-draft',
-            status === 'cancelled' && 'bg-muted-foreground',
-            status === 'superseded' && 'bg-slate-500',
-            status === 'rework_needed' && 'bg-orange-500 animate-pulse-soft',
-            status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
-            status === 'under_review' && 'bg-status-review animate-pulse-soft'
+            expired && 'bg-status-rejected',
+            !expired && status === 'approved' && 'bg-status-approved',
+            !expired && status === 'rejected' && 'bg-status-rejected',
+            !expired && status === 'closed' && 'bg-status-closed',
+            !expired && status === 'submitted' && 'bg-status-submitted',
+            !expired && status === 'draft' && 'bg-status-draft',
+            !expired && status === 'cancelled' && 'bg-muted-foreground',
+            !expired && status === 'superseded' && 'bg-slate-500',
+            !expired && status === 'rework_needed' && 'bg-orange-500 animate-pulse-soft',
+            !expired && status.startsWith('pending') && 'bg-status-review animate-pulse-soft',
+            !expired && status === 'under_review' && 'bg-status-review animate-pulse-soft'
           )}
         />
-        {statusLabels[status]}
+        {expired ? 'Expired' : statusLabels[status]}
       </span>
     );
   }
