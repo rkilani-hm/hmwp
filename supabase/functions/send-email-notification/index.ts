@@ -50,7 +50,8 @@ interface EmailRequest {
     | 'account_pending_review'  // → admins: a new tenant has signed up
     | 'account_approved'        // → tenant: admin approved your account
     | 'account_rejected'        // → tenant: admin rejected your account
-    | 'password_reset';         // → user: password recovery link
+    | 'password_reset'          // → user: password recovery link
+    | 'tenant_invitation';      // → tenant: admin invited you to register
 }
 
 // True for account-status notification types: these don't reference a
@@ -59,7 +60,8 @@ function isAccountNotification(type: EmailRequest['notificationType']): boolean 
   return type === 'account_pending_review'
       || type === 'account_approved'
       || type === 'account_rejected'
-      || type === 'password_reset';
+      || type === 'password_reset'
+      || type === 'tenant_invitation';
 }
 
 // Get Microsoft Graph access token
@@ -329,6 +331,25 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       ctaAr: "إعادة تعيين كلمة المرور",
       // The recovery link is supplied per-request in details.resetUrl.
       ctaUrlOverride: details.resetUrl || `${baseUrl}/reset-password`,
+    },
+    tenant_invitation: {
+      titleEn: "You're Invited — Al Hamra Work Permit System",
+      titleAr: "دعوة للانضمام — نظام تصاريح العمل في الحمراء",
+      contentEn: `You have been invited to register on the Al Hamra Work Permit System. ` +
+        `Click below to set your password and complete your details — then you can start ` +
+        `submitting work permits and gate-pass requests for your unit(s).<br><br>` +
+        `This invitation link expires in 60 minutes. If you have any questions, contact ` +
+        `<a href="mailto:permits@alhamra.com.kw" style="color: ${INFO};">permits@alhamra.com.kw</a>.`,
+      contentAr: `تمت دعوتك للتسجيل في نظام تصاريح العمل في الحمراء. ` +
+        `اضغط أدناه لتعيين كلمة المرور وإكمال بياناتك — بعدها يمكنك البدء بتقديم ` +
+        `تصاريح العمل وطلبات تصاريح البوابة لوحدتك.<br><br>` +
+        `تنتهي صلاحية رابط الدعوة خلال 60 دقيقة. لأي استفسار، تواصل مع ` +
+        `<a href="mailto:permits@alhamra.com.kw" style="color: ${INFO};">permits@alhamra.com.kw</a>.`,
+      color: INFO,
+      ctaEn: "Accept invitation & register",
+      ctaAr: "قبول الدعوة والتسجيل",
+      // The invite link is supplied per-request in details.inviteUrl.
+      ctaUrlOverride: details.inviteUrl || `${baseUrl}/accept-invite`,
     },
   };
 
