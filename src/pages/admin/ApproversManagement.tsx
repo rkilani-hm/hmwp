@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase } from 'lucide-react';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
+import { InviteTenantDialog } from '@/components/admin/InviteTenantDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { PendingDelegationsBanner } from '@/components/PendingDelegationsBanner';
 
@@ -167,11 +168,14 @@ export default function ApproversManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-        <p className="text-muted-foreground">
-          Manage users, assign roles, and control access to the system
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+          <p className="text-muted-foreground">
+            Manage users, assign roles, and control access to the system
+          </p>
+        </div>
+        <InviteTenantDialog />
       </div>
 
       {/* Pending delegations — admin needs to grant temporary roles

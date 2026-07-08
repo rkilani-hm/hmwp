@@ -17,6 +17,7 @@ import InstallApp from "./pages/InstallApp";
 import Onboarding from "./pages/Onboarding";
 import PendingApproval from "./pages/PendingApproval";
 import ResetPassword from "./pages/ResetPassword";
+import AcceptInvite from "./pages/AcceptInvite";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="/status" element={<PublicPermitStatus />} />
             <Route
               path="/verify"

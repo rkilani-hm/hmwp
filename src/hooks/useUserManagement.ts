@@ -3,6 +3,36 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseEdgeFunctionError } from '@/utils/edgeFunctionErrors';
 
+/**
+ * Invite a tenant by email. The edge function creates the account and emails an
+ * invitation link where the tenant sets a password and completes onboarding.
+ */
+export function useInviteTenant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { email: string; fullName?: string; companyName?: string }) => {
+      const { data, error } = await supabase.functions.invoke('invite-tenant', {
+        body: {
+          email: input.email.trim(),
+          fullName: input.fullName?.trim() || undefined,
+          companyName: input.companyName?.trim() || undefined,
+        },
+      });
+      if (error) throw new Error(parseEdgeFunctionError(error, data));
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-tenants'] });
+      toast.success(`Invitation sent to ${vars.email}`);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to send invitation');
+    },
+  });
+}
+
 export function useUpdateUserStatus() {
   const queryClient = useQueryClient();
 
