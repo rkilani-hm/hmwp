@@ -41,10 +41,16 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Missing authorization header" }, 401);
 
-    // Verify caller identity + admin role.
-    const supaUser = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await supaUser.auth.getUser();
-    if (authError || !user) return json({ error: "Unauthorized" }, 401);
+    // Verify caller identity + admin role. Pass the JWT explicitly to getUser()
+    // — relying on the global Authorization header doesn't resolve the token in
+    // the edge runtime, which returned a false 401.
+    const token = authHeader.replace("Bearer ", "").trim();
+    const supaUser = createClient(supabaseUrl, anonKey);
+    const { data: { user }, error: authError } = await supaUser.auth.getUser(token);
+    if (authError || !user) {
+      console.error("invite-tenant auth failed:", authError?.message);
+      return json({ error: "Unauthorized" }, 401);
+    }
 
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: adminRole } = await admin
