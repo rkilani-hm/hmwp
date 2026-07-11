@@ -238,6 +238,22 @@ export function useCreateGatePass() {
         // Fallback to default
       }
 
+      // Contractor registry (Phase 1): find-or-create + link the contractor.
+      let contractorId: string | null = null;
+      try {
+        if (input.client_contractor_name?.trim()) {
+          const { data: cid } = await supabase.rpc('upsert_contractor' as any, {
+            p_name: input.client_contractor_name,
+            p_contact_person: input.client_rep_name,
+            p_phone: input.client_rep_contact,
+            p_email: input.client_rep_email,
+          });
+          contractorId = (cid as string) ?? null;
+        }
+      } catch (contractorErr) {
+        console.warn('Contractor upsert failed (non-fatal):', contractorErr);
+      }
+
       const { data, error } = await supabase
         .from('gate_passes')
         .insert({
@@ -248,6 +264,7 @@ export function useCreateGatePass() {
           requester_email: user?.email || '',
           status: initialStatus,
           has_high_value_asset: hasHighValue,
+          contractor_id: contractorId,
         } as any)
         .select()
         .single();

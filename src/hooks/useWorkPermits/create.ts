@@ -206,6 +206,20 @@ export function useCreatePermit() {
       // RPC reads permit_active_approvers directly). Kept only for
       // the initial status enum value above.
 
+      // Contractor registry (Phase 1): find-or-create the contractor and link it
+      // to this tenant, so contractors become reusable records visible to admin.
+      // Best-effort — a failure here must not block the permit.
+      let contractorId: string | null = null;
+      try {
+        const { data: cid } = await supabase.rpc('upsert_contractor' as any, {
+          p_name: permitData.contractor_name,
+          p_phone: permitData.contact_mobile,
+        });
+        contractorId = (cid as string) ?? null;
+      } catch (contractorErr) {
+        console.warn('Contractor upsert failed (non-fatal):', contractorErr);
+      }
+
       const { data, error } = await supabase
         .from('work_permits')
         .insert({
@@ -218,6 +232,7 @@ export function useCreatePermit() {
           urgency,
           sla_deadline: slaDeadline,
           attachments: attachmentPaths,
+          contractor_id: contractorId,
         })
         .select()
         .single();
