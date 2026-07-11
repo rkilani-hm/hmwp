@@ -199,6 +199,7 @@ export function useCreateGatePass() {
       purpose?: string;
       delivery_type?: string;
       items: GatePassItem[];
+      on_behalf_of?: { tenantId: string; tenantName: string; tenantEmail: string };
     }) => {
       // Generate gate pass number via Postgres RPC.
       // Uses Asia/Kuwait local time to determine "today".
@@ -210,7 +211,10 @@ export function useCreateGatePass() {
       }
       const passNo = rpcPassNo as string;
       const hasHighValue = input.items.some(i => i.is_high_value);
-      const { items, ...passData } = input;
+      const { items, on_behalf_of, ...passData } = input;
+      const ownerId = on_behalf_of?.tenantId || user?.id;
+      const ownerName = on_behalf_of?.tenantName || profile?.full_name || user?.email || 'Unknown';
+      const ownerEmail = on_behalf_of?.tenantEmail || user?.email || '';
 
       // Determine initial status from workflow mapping
       let initialStatus = 'pending_store_manager';
@@ -247,6 +251,7 @@ export function useCreateGatePass() {
             p_contact_person: input.client_rep_name,
             p_phone: input.client_rep_contact,
             p_email: input.client_rep_email,
+            p_tenant_id: ownerId,
           });
           contractorId = (cid as string) ?? null;
         }
@@ -259,9 +264,10 @@ export function useCreateGatePass() {
         .insert({
           ...passData,
           pass_no: passNo,
-          requester_id: user?.id,
-          requester_name: profile?.full_name || user?.email || 'Unknown',
-          requester_email: user?.email || '',
+          requester_id: ownerId,
+          requester_name: ownerName,
+          requester_email: ownerEmail,
+          created_on_behalf_by: on_behalf_of ? user?.id : null,
           status: initialStatus,
           has_high_value_asset: hasHighValue,
           contractor_id: contractorId,

@@ -36,6 +36,7 @@ import {
   FolderCog,
   Stethoscope,
   Mail,
+  PencilLine,
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -214,6 +215,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: Shield, label: 'Roles', path: '/roles' },
           { icon: Key, label: 'Permissions', path: '/permissions' },
           { icon: Stethoscope, label: 'Approver Audit', path: '/approver-audit' },
+          { icon: PencilLine, label: 'Permit Amendments', path: '/amendments' },
           { icon: Activity, label: 'Deletion Audit Log', path: '/deletion-audit-log' },
           { icon: Mail, label: 'Email Delivery Log', path: '/email-log' },
         ],

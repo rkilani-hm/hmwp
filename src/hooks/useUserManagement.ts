@@ -33,6 +33,22 @@ export function useInviteTenant() {
   });
 }
 
+/** Admin: flag/unflag a tenant as VIP (priority handling). */
+export function useSetTenantVip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ tenantId, isVip }: { tenantId: string; isVip: boolean }) => {
+      const { error } = await supabase.rpc('set_tenant_vip' as any, { p_tenant: tenantId, p_is_vip: isVip });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast.success('VIP status updated');
+    },
+    onError: (error: any) => toast.error(error.message || 'Failed to update VIP status'),
+  });
+}
+
 export function useUpdateUserStatus() {
   const queryClient = useQueryClient();
 
