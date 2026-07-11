@@ -702,6 +702,17 @@ const handler = async (req: Request): Promise<Response> => {
     // regeneration must NOT block the approver — that's what made the spinner
     // hang. EdgeRuntime.waitUntil finishes them in the background.
     const deliverPostApproval = async () => {
+    // On-behalf submissions: the staff member who created the permit is CC'd on
+    // every tenant-facing email alongside the tenant (business requirement).
+    let creatorEmail: string | null = null;
+    if ((updatedPermit as Record<string, unknown>).created_on_behalf_by) {
+      try {
+        const { data: cr } = await serviceClient.from("profiles").select("email")
+          .eq("id", (updatedPermit as Record<string, unknown>).created_on_behalf_by as string).maybeSingle();
+        creatorEmail = cr?.email ? String(cr.email).trim() : null;
+      } catch (e) { console.error("creator email lookup failed:", e); }
+    }
+
     if (updatedPermit.requester_id) {
       // Determine notification type. Tenants only receive notifications
       // for submission, FINAL approval, and rejection — never for
@@ -787,6 +798,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           // Build recipient list. For FINAL approval only, append admin-configured CC recipients.
           let recipients: string[] = [updatedPermit.requester_email];
+          if (creatorEmail) recipients.push(creatorEmail);
           let ccEmails: string[] = [];
           if (isFinalApproval) {
             try {
@@ -939,6 +951,8 @@ const handler = async (req: Request): Promise<Response> => {
         try {
           const recipientSet = new Set<string>();
           if (updatedPermit.requester_email) recipientSet.add(String(updatedPermit.requester_email).trim().toLowerCase());
+          // Creator (on-behalf submissions) gets the approved PDF too.
+          if (creatorEmail) recipientSet.add(creatorEmail.toLowerCase());
 
           // Helpdesk team
           const { data: hd } = await serviceClient.rpc("get_emails_for_role", { p_role_name: "helpdesk" });

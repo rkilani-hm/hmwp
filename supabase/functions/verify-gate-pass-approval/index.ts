@@ -438,6 +438,15 @@ serve(async (req) => {
     // hang. EdgeRuntime.waitUntil finishes them in the background so the
     // approver gets an instant response.
     const deliverNotifications = async () => {
+     // On-behalf submissions: CC the creator on tenant-facing emails.
+     let creatorEmail: string | null = null;
+     if ((updated as Record<string, unknown>).created_on_behalf_by) {
+       try {
+         const { data: cr } = await adminClient.from("profiles").select("email")
+           .eq("id", (updated as Record<string, unknown>).created_on_behalf_by as string).maybeSingle();
+         creatorEmail = cr?.email ? String(cr.email).trim() : null;
+       } catch (e) { console.error("GP creator email lookup failed:", e); }
+     }
      // Tenant requesters only receive emails for FINAL approval or rejection.
      try {
       const isFinal = !approved || updated.status === "approved" || updated.status === "rejected";
@@ -462,7 +471,7 @@ serve(async (req) => {
           method: "POST",
           headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: [updated.requester_email],
+            to: creatorEmail ? [updated.requester_email, creatorEmail] : [updated.requester_email],
             subject: `Gate Pass ${updated.pass_no} — ${approved ? "Update" : "Rejected"}`,
             notificationType: approved
               ? (updated.status === "approved" ? "approved" : "status_update")
@@ -486,6 +495,7 @@ serve(async (req) => {
 
           const recipientSet = new Set<string>();
           if (updated.requester_email) recipientSet.add(String(updated.requester_email).trim().toLowerCase());
+          if (creatorEmail) recipientSet.add(creatorEmail.toLowerCase());
           const { data: hd } = await adminClient.rpc("get_emails_for_role", { p_role_name: "helpdesk" });
           for (const e of (hd?.emails ?? [])) {
             if (typeof e === "string" && e.trim()) recipientSet.add(e.trim().toLowerCase());

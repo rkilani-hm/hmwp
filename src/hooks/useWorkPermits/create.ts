@@ -26,6 +26,12 @@ export function useCreatePermit() {
       work_time_from: string;
       work_time_to: string;
       /**
+       * When set, an authorized staff member is raising this permit on behalf of
+       * the given tenant: the tenant becomes the owner (requester) and the
+       * current user is recorded as created_on_behalf_by + CC'd on notifications.
+       */
+      on_behalf_of?: { tenantId: string; tenantName: string; tenantEmail: string };
+      /**
        * Attachments with metadata (categorization + AI-extracted ID
        * fields). Each entry: { file, documentType, extracted*, isValid }.
        * Uploaded to storage and persisted to permit_attachments table.
@@ -190,7 +196,11 @@ export function useCreatePermit() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { files, ...permitDataWithoutFiles } = permitData;
+      const { files, on_behalf_of, ...permitDataWithoutFiles } = permitData;
+      // Owner of the permit: the on-behalf tenant if provided, else the creator.
+      const ownerId = on_behalf_of?.tenantId || user?.id;
+      const ownerName = on_behalf_of?.tenantName || profile?.full_name || user?.email || 'Unknown';
+      const ownerEmail = on_behalf_of?.tenantEmail || user?.email || '';
 
       // Get the first workflow step dynamically based on work type
       const firstStep = await getFirstWorkflowStep(permitData.work_type_id);
@@ -214,6 +224,8 @@ export function useCreatePermit() {
         const { data: cid } = await supabase.rpc('upsert_contractor' as any, {
           p_name: permitData.contractor_name,
           p_phone: permitData.contact_mobile,
+          // Link the contractor to the OWNER tenant (not the staff creator).
+          p_tenant_id: ownerId,
         });
         contractorId = (cid as string) ?? null;
       } catch (contractorErr) {
@@ -225,9 +237,10 @@ export function useCreatePermit() {
         .insert({
           ...permitDataWithoutFiles,
           permit_no: permitNo,
-          requester_id: user?.id,
-          requester_name: profile?.full_name || user?.email || 'Unknown',
-          requester_email: user?.email || '',
+          requester_id: ownerId,
+          requester_name: ownerName,
+          requester_email: ownerEmail,
+          created_on_behalf_by: on_behalf_of ? user?.id : null,
           status: initialStatus as any,
           urgency,
           sla_deadline: slaDeadline,

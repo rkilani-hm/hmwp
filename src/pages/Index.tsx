@@ -35,6 +35,7 @@ import GatePassWorkflowConfig from './admin/GatePassWorkflowConfig';
 import AdminDeletionAuditLog from './admin/AdminDeletionAuditLog';
 import EmailDeliveryLog from './admin/EmailDeliveryLog';
 import ContractorsManagement from './admin/ContractorsManagement';
+import PermitAmendments from './admin/PermitAmendments';
 import ApprovedPermitRecipients from './admin/ApprovedPermitRecipients';
 import MyDelegations from './MyDelegations';
 const Index = () => {
@@ -134,6 +135,7 @@ const Index = () => {
         <Route path="deletion-audit-log" element={isAdmin ? <AdminDeletionAuditLog /> : <Navigate to="/" replace />} />
         <Route path="email-log" element={isAdmin ? <EmailDeliveryLog /> : <Navigate to="/" replace />} />
         <Route path="contractors" element={isAdmin ? <ContractorsManagement /> : <Navigate to="/" replace />} />
+        <Route path="amendments" element={isApprover ? <PermitAmendments /> : <Navigate to="/" replace />} />
         <Route path="approved-permit-recipients" element={isAdmin ? <ApprovedPermitRecipients /> : <Navigate to="/" replace />} />
         <Route
           path="pending-tenants"

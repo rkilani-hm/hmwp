@@ -11,6 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { useSetTenantVip } from '@/hooks/useUserManagement';
+import { Star } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -69,8 +72,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const { data: units } = useTenantUnits(user?.id);
   const addUnit = useAddTenantUnit();
   const deleteUnit = useDeleteTenantUnit();
+  const setVip = useSetTenantVip();
   const [newUnit, setNewUnit] = useState('');
   const [newFloor, setNewFloor] = useState('');
+  const [isVip, setIsVip] = useState(false);
 
   const handleAddUnit = () => {
     if (!user || !newUnit.trim()) return;
@@ -95,8 +100,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       setActorType(user.actor_type ?? 'approver');
       setNewUnit('');
       setNewFloor('');
+      setIsVip(!!(user as unknown as { is_vip?: boolean }).is_vip);
     }
   }, [user]);
+
+  const handleVipToggle = (v: boolean) => {
+    if (!user) return;
+    setIsVip(v);
+    setVip.mutate({ tenantId: user.id, isVip: v });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,6 +254,20 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 <p className="text-xs text-muted-foreground">
                   Only apply to internal staff — not tenant accounts.
                 </p>
+              </div>
+
+              {/* VIP flag — priority handling; staff can raise permits on their behalf. */}
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Star className={`h-4 w-4 ${isVip ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+                    VIP tenant
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Priority handling; staff can raise permits/passes on their behalf.
+                  </p>
+                </div>
+                <Switch checked={isVip} onCheckedChange={handleVipToggle} disabled={setVip.isPending} />
               </div>
 
               {/* Units manager — tenant accounts only. Each unit is selectable

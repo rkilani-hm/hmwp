@@ -10,6 +10,7 @@ import { useResendNotification } from '@/hooks/useResendNotification';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PermitApprovalProgress } from '@/components/PermitApprovalProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
+import { AmendPermitDialog } from '@/components/AmendPermitDialog';
 import type { AuthPayload, ScheduleChange } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
@@ -439,6 +440,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 <span className="hidden sm:inline">Preview PDF</span>
                 <span className="sm:hidden">Preview</span>
               </Button>
+              {permit.status === 'approved' && (
+                <AmendPermitDialog
+                  permitId={permit.id}
+                  currentDateTo={(permit as any).work_date_to}
+                  currentTimeTo={(permit as any).work_time_to}
+                />
+              )}
             </>
           )}
           {/* Friendly placeholder shown to tenant-only users while their

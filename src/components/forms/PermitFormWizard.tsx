@@ -21,6 +21,10 @@ import { cn } from '@/lib/utils';
 import { useWorkTypes, useCreatePermit } from '@/hooks/useWorkPermits';
 import { useWorkLocations } from '@/hooks/useWorkLocations';
 import { useTenantUnits } from '@/hooks/useTenantUnits';
+import { useCanSubmitOnBehalf, useOnBehalfTenants } from '@/hooks/useOnBehalf';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { UserCog } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { RequesterStep } from './permit-steps/RequesterStep';
@@ -63,8 +67,17 @@ export function PermitFormWizard() {
   const { user, profile } = useAuth();
   const { data: workTypes, isLoading: workTypesLoading } = useWorkTypes();
   const { data: workLocations, isLoading: workLocationsLoading } = useWorkLocations();
-  const { data: tenantUnits } = useTenantUnits(user?.id);
   const createPermit = useCreatePermit();
+
+  // Submit-on-behalf: staff (Client Relations / Customer Service / admin) can
+  // raise this permit for a chosen tenant (e.g. a VIP). The tenant is the owner;
+  // the creator is recorded and CC'd on notifications.
+  const { data: canOnBehalf } = useCanSubmitOnBehalf();
+  const { data: onBehalfTenants } = useOnBehalfTenants(!!canOnBehalf);
+  const [onBehalfId, setOnBehalfId] = useState<string>('');
+  const onBehalfTenant = onBehalfTenants?.find((t) => t.id === onBehalfId) || null;
+  // Units come from the on-behalf tenant when one is selected, else the user.
+  const { data: tenantUnits } = useTenantUnits(onBehalfId || user?.id);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<PermitFormData>({
@@ -177,6 +190,13 @@ export function PermitFormWizard() {
         work_time_to: formData.workTimeTo,
         files: formData.attachments,
         urgency: formData.urgency,
+        on_behalf_of: onBehalfTenant
+          ? {
+              tenantId: onBehalfTenant.id,
+              tenantName: onBehalfTenant.full_name || onBehalfTenant.email || 'Tenant',
+              tenantEmail: onBehalfTenant.email || '',
+            }
+          : undefined,
       },
       {
         onSuccess: () => {
@@ -191,6 +211,40 @@ export function PermitFormWizard() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {/* Submit on behalf of a tenant (staff only) */}
+      {canOnBehalf && (
+        <Card className="mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-2">
+              <UserCog className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Raise on behalf of a tenant</span>
+              <span className="text-xs text-muted-foreground">(optional)</span>
+            </div>
+            <Select value={onBehalfId || 'self'} onValueChange={(v) => setOnBehalfId(v === 'self' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a tenant…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="self">— Myself (not on behalf) —</SelectItem>
+                {(onBehalfTenants ?? []).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {(t.full_name || t.email || 'Tenant')}{t.company_name ? ` · ${t.company_name}` : ''}
+                    {t.is_vip ? '  ★ VIP' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {onBehalfTenant && (
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+                {onBehalfTenant.is_vip && <Badge className="bg-amber-500 text-white h-4 px-1.5 text-[10px]">VIP</Badge>}
+                Owner: <b>{onBehalfTenant.full_name || onBehalfTenant.email}</b> · you'll be recorded as the
+                creator and CC'd on all notifications.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Progress */}
       <div className="mb-8" aria-label={t('permits.form.progress') ?? 'Progress'}>
         <div className="flex items-center justify-between">

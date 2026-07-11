@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useTenantUnits, unitFloorString } from '@/hooks/useTenantUnits';
+import { useCanSubmitOnBehalf, useOnBehalfTenants } from '@/hooks/useOnBehalf';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGatePass } from '@/hooks/useGatePasses';
@@ -28,7 +29,11 @@ export default function GatePassFormWizard() {
   const createGatePass = useCreateGatePass();
   const { user, profile } = useAuth();
   const isTenantOnly = useIsTenantOnly();
-  const { data: tenantUnits } = useTenantUnits(user?.id);
+  const { data: canOnBehalf } = useCanSubmitOnBehalf();
+  const { data: onBehalfTenants } = useOnBehalfTenants(!!canOnBehalf);
+  const [onBehalfId, setOnBehalfId] = useState<string>('');
+  const onBehalfTenant = onBehalfTenants?.find((t) => t.id === onBehalfId) || null;
+  const { data: tenantUnits } = useTenantUnits(onBehalfId || user?.id);
   const [step, setStep] = useState(0);
 
   // Form state
@@ -156,6 +161,13 @@ export default function GatePassFormWizard() {
         purpose: purpose || undefined,
         delivery_type: deliveryType || undefined,
         items: items.filter(i => i.item_details.trim()),
+        on_behalf_of: onBehalfTenant
+          ? {
+              tenantId: onBehalfTenant.id,
+              tenantName: onBehalfTenant.full_name || onBehalfTenant.email || 'Tenant',
+              tenantEmail: onBehalfTenant.email || '',
+            }
+          : undefined,
       });
       draft.clear();
       navigate('/gate-passes');
@@ -461,6 +473,30 @@ export default function GatePassFormWizard() {
         <h1 className="text-2xl font-bold text-foreground">New Gate Pass</h1>
         <p className="text-muted-foreground">Fill in the details to create a new gate pass</p>
       </div>
+
+      {canOnBehalf && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-5">
+            <Label className="text-sm mb-2 block">Raise on behalf of a tenant <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Select value={onBehalfId || 'self'} onValueChange={(v) => setOnBehalfId(v === 'self' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Select a tenant…" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="self">— Myself (not on behalf) —</SelectItem>
+                {(onBehalfTenants ?? []).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {(t.full_name || t.email || 'Tenant')}{t.company_name ? ` · ${t.company_name}` : ''}{t.is_vip ? '  ★ VIP' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {onBehalfTenant && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Owner: <b>{onBehalfTenant.full_name || onBehalfTenant.email}</b> · you'll be recorded as creator and CC'd on notifications.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-center gap-2">
