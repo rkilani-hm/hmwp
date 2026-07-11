@@ -176,6 +176,51 @@ export type Database = {
         }
         Relationships: []
       }
+      contractors: {
+        Row: {
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          normalized_name: string | null
+          notes: string | null
+          phone: string | null
+          trade: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          normalized_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          trade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          normalized_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          trade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           created_at: string
@@ -523,11 +568,13 @@ export type Database = {
           client_rep_name: string | null
           completed_at: string | null
           completed_by: string | null
+          contractor_id: string | null
           cr_coordinator_comments: string | null
           cr_coordinator_date: string | null
           cr_coordinator_name: string | null
           cr_coordinator_signature: string | null
           created_at: string
+          created_on_behalf_by: string | null
           date_of_request: string
           delivery_area: string | null
           delivery_type: string | null
@@ -589,11 +636,13 @@ export type Database = {
           client_rep_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          contractor_id?: string | null
           cr_coordinator_comments?: string | null
           cr_coordinator_date?: string | null
           cr_coordinator_name?: string | null
           cr_coordinator_signature?: string | null
           created_at?: string
+          created_on_behalf_by?: string | null
           date_of_request?: string
           delivery_area?: string | null
           delivery_type?: string | null
@@ -655,11 +704,13 @@ export type Database = {
           client_rep_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          contractor_id?: string | null
           cr_coordinator_comments?: string | null
           cr_coordinator_date?: string | null
           cr_coordinator_name?: string | null
           cr_coordinator_signature?: string | null
           created_at?: string
+          created_on_behalf_by?: string | null
           date_of_request?: string
           delivery_area?: string | null
           delivery_type?: string | null
@@ -712,7 +763,22 @@ export type Database = {
           vehicle_license_plate?: string | null
           vehicle_make_model?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gate_passes_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gate_passes_created_on_behalf_by_fkey"
+            columns: ["created_on_behalf_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -1246,6 +1312,7 @@ export type Database = {
           id: string
           initials_data: string | null
           is_active: boolean | null
+          is_vip: boolean
           phone: string | null
           signature_data: string | null
           signature_updated_at: string | null
@@ -1271,6 +1338,7 @@ export type Database = {
           id: string
           initials_data?: string | null
           is_active?: boolean | null
+          is_vip?: boolean
           phone?: string | null
           signature_data?: string | null
           signature_updated_at?: string | null
@@ -1296,6 +1364,7 @@ export type Database = {
           id?: string
           initials_data?: string | null
           is_active?: boolean | null
+          is_vip?: boolean
           phone?: string | null
           signature_data?: string | null
           signature_updated_at?: string | null
@@ -1532,6 +1601,45 @@ export type Database = {
             columns: ["webauthn_credential_id"]
             isOneToOne: false
             referencedRelation: "webauthn_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_contractors: {
+        Row: {
+          contractor_id: string
+          first_used_at: string
+          last_used_at: string
+          tenant_id: string
+          usage_count: number
+        }
+        Insert: {
+          contractor_id: string
+          first_used_at?: string
+          last_used_at?: string
+          tenant_id: string
+          usage_count?: number
+        }
+        Update: {
+          contractor_id?: string
+          first_used_at?: string
+          last_used_at?: string
+          tenant_id?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_contractors_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_contractors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1905,6 +2013,7 @@ export type Database = {
           closing_incidents: string | null
           closing_remarks: string | null
           contact_mobile: string
+          contractor_id: string | null
           contractor_name: string
           cr_coordinator_approver_email: string | null
           cr_coordinator_approver_name: string | null
@@ -1913,6 +2022,7 @@ export type Database = {
           cr_coordinator_signature: string | null
           cr_coordinator_status: string | null
           created_at: string
+          created_on_behalf_by: string | null
           customer_service_approver_email: string | null
           customer_service_approver_name: string | null
           customer_service_comments: string | null
@@ -2031,6 +2141,7 @@ export type Database = {
           closing_incidents?: string | null
           closing_remarks?: string | null
           contact_mobile: string
+          contractor_id?: string | null
           contractor_name: string
           cr_coordinator_approver_email?: string | null
           cr_coordinator_approver_name?: string | null
@@ -2039,6 +2150,7 @@ export type Database = {
           cr_coordinator_signature?: string | null
           cr_coordinator_status?: string | null
           created_at?: string
+          created_on_behalf_by?: string | null
           customer_service_approver_email?: string | null
           customer_service_approver_name?: string | null
           customer_service_comments?: string | null
@@ -2157,6 +2269,7 @@ export type Database = {
           closing_incidents?: string | null
           closing_remarks?: string | null
           contact_mobile?: string
+          contractor_id?: string | null
           contractor_name?: string
           cr_coordinator_approver_email?: string | null
           cr_coordinator_approver_name?: string | null
@@ -2165,6 +2278,7 @@ export type Database = {
           cr_coordinator_signature?: string | null
           cr_coordinator_status?: string | null
           created_at?: string
+          created_on_behalf_by?: string | null
           customer_service_approver_email?: string | null
           customer_service_approver_name?: string | null
           customer_service_comments?: string | null
@@ -2266,6 +2380,20 @@ export type Database = {
           workflow_modified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_permits_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_permits_created_on_behalf_by_fkey"
+            columns: ["created_on_behalf_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_permits_parent_permit_id_fkey"
             columns: ["parent_permit_id"]
@@ -2823,7 +2951,34 @@ export type Database = {
             Returns: Json
           }
         | { Args: { p_role_name: string; p_user: string }; Returns: Json }
+      can_submit_on_behalf: { Args: { p_user: string }; Returns: boolean }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
+      contractor_overview: {
+        Args: never
+        Returns: {
+          contact_person: string
+          created_at: string
+          email: string
+          gp_count: number
+          id: string
+          last_used: string
+          name: string
+          phone: string
+          tenant_count: number
+          trade: string
+          wp_count: number
+        }[]
+      }
+      contractor_tenants: {
+        Args: { p_contractor_id: string }
+        Returns: {
+          company: string
+          last_used_at: string
+          tenant_id: string
+          tenant_name: string
+          usage_count: number
+        }[]
+      }
       current_user_account_status: { Args: never; Returns: string }
       ensure_pending_status_for_role: {
         Args: { role_name: string }
@@ -2913,6 +3068,18 @@ export type Database = {
           id: string
         }[]
       }
+      list_onbehalf_tenants: {
+        Args: never
+        Returns: {
+          company_name: string
+          email: string
+          floor: string
+          full_name: string
+          id: string
+          is_vip: boolean
+          unit: string
+        }[]
+      }
       list_work_types_for_caller: {
         Args: never
         Returns: {
@@ -2971,7 +3138,22 @@ export type Database = {
         Args: { _user_a: string; _user_b: string }
         Returns: boolean
       }
+      set_tenant_vip: {
+        Args: { p_is_vip: boolean; p_tenant: string }
+        Returns: undefined
+      }
       sync_profile_emails_from_auth: { Args: never; Returns: Json }
+      upsert_contractor: {
+        Args: {
+          p_contact_person?: string
+          p_email?: string
+          p_name: string
+          p_phone?: string
+          p_tenant_id?: string
+          p_trade?: string
+        }
+        Returns: string
+      }
       work_type_is_internal: {
         Args: { p_work_type_id: string }
         Returns: boolean
