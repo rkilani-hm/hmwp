@@ -865,6 +865,74 @@ export type Database = {
         }
         Relationships: []
       }
+      permit_amendments: {
+        Row: {
+          added_id_count: number | null
+          amendment_type: string
+          created_at: string
+          id: string
+          new_date_to: string | null
+          new_time_to: string | null
+          old_date_to: string | null
+          old_time_to: string | null
+          permit_id: string
+          reason: string | null
+          requested_by: string | null
+          requested_by_name: string | null
+          resolution_comment: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_by_name: string | null
+          status: string
+        }
+        Insert: {
+          added_id_count?: number | null
+          amendment_type: string
+          created_at?: string
+          id?: string
+          new_date_to?: string | null
+          new_time_to?: string | null
+          old_date_to?: string | null
+          old_time_to?: string | null
+          permit_id: string
+          reason?: string | null
+          requested_by?: string | null
+          requested_by_name?: string | null
+          resolution_comment?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          status?: string
+        }
+        Update: {
+          added_id_count?: number | null
+          amendment_type?: string
+          created_at?: string
+          id?: string
+          new_date_to?: string | null
+          new_time_to?: string | null
+          old_date_to?: string | null
+          old_time_to?: string | null
+          permit_id?: string
+          reason?: string | null
+          requested_by?: string | null
+          requested_by_name?: string | null
+          resolution_comment?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_amendments_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_approvals: {
         Row: {
           approved_at: string | null
@@ -2951,6 +3019,7 @@ export type Database = {
             Returns: Json
           }
         | { Args: { p_role_name: string; p_user: string }; Returns: Json }
+      can_approve_amendment: { Args: { p_user: string }; Returns: boolean }
       can_submit_on_behalf: { Args: { p_user: string }; Returns: boolean }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       contractor_overview: {
