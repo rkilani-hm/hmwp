@@ -3129,6 +3129,14 @@ export type Database = {
       is_non_tenant_staff: { Args: { p_user: string }; Returns: boolean }
       is_tenant_only: { Args: { p_user: string }; Returns: boolean }
       is_tenant_user: { Args: { _user_id: string }; Returns: boolean }
+      list_companies: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          user_count: number
+        }[]
+      }
       list_delegatable_employees: {
         Args: never
         Returns: {
