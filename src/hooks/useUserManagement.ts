@@ -49,6 +49,51 @@ export function useSetTenantVip() {
   });
 }
 
+/**
+ * Invite several tenants at once, all under the same company. Each invitee is
+ * created individually (the invite-tenant function rejects duplicates), and a
+ * per-email result is returned so the UI can show which succeeded / failed.
+ */
+export function useInviteTenants() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      companyName?: string;
+      invitees: { email: string; fullName?: string }[];
+    }): Promise<{ email: string; ok: boolean; error?: string }[]> => {
+      const results: { email: string; ok: boolean; error?: string }[] = [];
+      for (const inv of input.invitees) {
+        const email = inv.email.trim();
+        if (!email) continue;
+        try {
+          const { data, error } = await supabase.functions.invoke('invite-tenant', {
+            body: {
+              email,
+              fullName: inv.fullName?.trim() || undefined,
+              companyName: input.companyName?.trim() || undefined,
+            },
+          });
+          if (error) throw new Error(parseEdgeFunctionError(error, data));
+          if (data?.error) throw new Error(data.error);
+          results.push({ email, ok: true });
+        } catch (e: any) {
+          results.push({ email, ok: false, error: e.message || 'Failed' });
+        }
+      }
+      return results;
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-tenants'] });
+      const ok = results.filter((r) => r.ok).length;
+      const fail = results.length - ok;
+      if (ok) toast.success(`${ok} invitation${ok > 1 ? 's' : ''} sent`);
+      if (fail) toast.error(`${fail} invitation${fail > 1 ? 's' : ''} could not be sent`);
+    },
+    onError: (error: any) => toast.error(error.message || 'Failed to send invitations'),
+  });
+}
+
 export function useUpdateUserStatus() {
   const queryClient = useQueryClient();
 
