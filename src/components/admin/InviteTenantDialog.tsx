@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Mail, UserPlus, Plus, X, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useInviteTenants } from '@/hooks/useUserManagement';
+import { useCompanies } from '@/hooks/useCompanies';
 
 interface Invitee { email: string; fullName: string }
 
@@ -18,8 +19,13 @@ interface Invitee { email: string; fullName: string }
  */
 export function InviteTenantDialog() {
   const invite = useInviteTenants();
+  const { data: companies } = useCompanies();
   const [open, setOpen] = useState(false);
   const [company, setCompany] = useState('');
+  // Existing company matched (case-insensitive) — the new user(s) will join it.
+  const companyMatch = company.trim()
+    ? companies?.find((c) => c.name.trim().toLowerCase() === company.trim().toLowerCase()) || null
+    : null;
   const [rows, setRows] = useState<Invitee[]>([{ email: '', fullName: '' }]);
   const [results, setResults] = useState<{ email: string; ok: boolean; error?: string }[] | null>(null);
 
@@ -96,8 +102,23 @@ export function InviteTenantDialog() {
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
               <Label htmlFor="inv-company">Company <span className="text-muted-foreground text-xs">(shared, optional)</span></Label>
-              <Input id="inv-company" value={company} placeholder="Acme Trading Co."
+              <Input id="inv-company" value={company} placeholder="Start typing to pick an existing company…"
+                list="invite-companies" autoComplete="off"
                 onChange={(e) => setCompany(e.target.value)} />
+              <datalist id="invite-companies">
+                {(companies ?? []).map((c) => (
+                  <option key={c.id} value={c.name}>{`${c.user_count} user(s)`}</option>
+                ))}
+              </datalist>
+              {company.trim() && (
+                companyMatch ? (
+                  <p className="text-xs text-success">
+                    Joining existing company “{companyMatch.name}” · {companyMatch.user_count} user(s) already
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">New company — it will be created</p>
+                )
+              )}
             </div>
 
             <div className="space-y-2">
