@@ -18,12 +18,32 @@ interface LimitedPermitInfo {
   work_date_to: string;
 }
 
+// Full permit view returned by the public-permit-details edge function.
+interface PermitFullDetails {
+  permit: {
+    permit_no: string; status: string; urgency: string | null; created_at: string;
+    requester_name: string | null; requester_email: string | null;
+    contractor_name: string | null; contact_mobile: string | null;
+    work_description: string | null; work_location: string | null;
+    unit: string | null; floor: string | null; building_zone: string | null; back_of_house: boolean | null;
+    work_date_from: string; work_date_to: string; work_time_from: string | null; work_time_to: string | null;
+    work_types: { name: string } | null;
+  };
+  approvals: { role: string; status: string; approver: string | null; date: string | null }[];
+  attachments: { name: string; type: string; mime: string | null; url: string | null }[];
+}
+
+const roleLabel = (r: string) =>
+  r.replace(/[_‑]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
 const PublicPermitStatus = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [manualPermitNo, setManualPermitNo] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [permitInfo, setPermitInfo] = useState<LimitedPermitInfo | null>(null);
+  const [details, setDetails] = useState<PermitFullDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
@@ -53,10 +73,11 @@ const PublicPermitStatus = () => {
 
     setIsSearching(true);
     setPermitInfo(null);
+    setDetails(null);
     setNotFound(false);
 
     try {
-      // Use SECURITY DEFINER RPC that returns only non-sensitive fields
+      // Fast status lookup first (verdict card renders immediately)…
       const { data, error } = await supabase
         .rpc('get_public_permit_status', { _permit_no: trimmed });
 
@@ -66,6 +87,8 @@ const PublicPermitStatus = () => {
       if (row) {
         setPermitInfo(row);
         toast.success('Permit found!');
+        // …then load the full permit view (details, approvals, attachments).
+        void fetchDetails(row.permit_no);
       } else {
         setNotFound(true);
         toast.error('Permit not found');
@@ -75,6 +98,20 @@ const PublicPermitStatus = () => {
       toast.error('Error searching for permit');
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const fetchDetails = async (permitNo: string) => {
+    setDetailsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-permit-details', {
+        body: { permitNo },
+      });
+      if (!error && data?.permit) setDetails(data as PermitFullDetails);
+    } catch (err) {
+      console.error('Details fetch failed (status card still shown):', err);
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -351,6 +388,147 @@ const PublicPermitStatus = () => {
             </Card>
           );
         })()}
+
+        {/* Full permit view — details, approvals, attachments */}
+        {permitInfo && detailsLoading && (
+          <Card>
+            <CardContent className="py-6 flex items-center justify-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading permit details…
+            </CardContent>
+          </Card>
+        )}
+
+        {permitInfo && details && (
+          <>
+            {/* Work details */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Permit Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Work type</p>
+                    <p className="font-medium">{details.permit.work_types?.name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Urgency</p>
+                    <p className="font-medium capitalize">{details.permit.urgency || 'normal'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Requester</p>
+                    <p className="font-medium">{details.permit.requester_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Contractor</p>
+                    <p className="font-medium">{details.permit.contractor_name || '—'}</p>
+                    {details.permit.contact_mobile && (
+                      <p className="text-xs text-muted-foreground">{details.permit.contact_mobile}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="font-medium">{details.permit.work_location || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Unit / Floor</p>
+                    <p className="font-medium">
+                      {details.permit.back_of_house ? 'Back of House' : (details.permit.unit || '—')}
+                      {details.permit.floor ? ` / ${details.permit.floor}` : ''}
+                    </p>
+                    {details.permit.building_zone && (
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {details.permit.building_zone.replace(/_/g, ' ')}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Time</p>
+                    <p className="font-medium">
+                      {(details.permit.work_time_from || '—').slice(0, 5)} – {(details.permit.work_time_to || '—').slice(0, 5)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Issued</p>
+                    <p className="font-medium">{formatDate(details.permit.created_at)}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Work description</p>
+                  <p className="whitespace-pre-wrap" dir="auto">{details.permit.work_description || '—'}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Approval chain */}
+            {details.approvals.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Approvals</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {details.approvals.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{roleLabel(a.role)}</p>
+                        {a.approver && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {a.approver}{a.date ? ` · ${formatDate(a.date)}` : ''}
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        className={
+                          a.status === 'approved' ? 'bg-success' :
+                          a.status === 'rejected' ? 'bg-destructive' :
+                          'bg-warning'
+                        }
+                      >
+                        {a.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Attachments */}
+            {details.attachments.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">
+                    Attachments <span className="text-xs text-muted-foreground font-normal">({details.attachments.length})</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    {details.attachments.map((f, i) => (
+                      <div key={i} className="rounded-md border p-2 space-y-1.5">
+                        {f.url && f.mime?.startsWith('image/') ? (
+                          <a href={f.url} target="_blank" rel="noreferrer">
+                            <img src={f.url} alt={f.name}
+                              className="w-full h-28 object-cover rounded" loading="lazy" />
+                          </a>
+                        ) : f.url ? (
+                          <a href={f.url} target="_blank" rel="noreferrer"
+                            className="flex items-center justify-center h-28 rounded bg-muted text-xs text-primary underline">
+                            Open file
+                          </a>
+                        ) : (
+                          <div className="flex items-center justify-center h-28 rounded bg-muted text-xs text-muted-foreground">
+                            Unavailable
+                          </div>
+                        )}
+                        <p className="text-[11px] truncate" title={f.name}>{f.name}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{f.type.replace(/_/g, ' ')}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
 
         {notFound && (
           <Card className="border-destructive/30 bg-destructive/10">

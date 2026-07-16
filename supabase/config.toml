@@ -36,6 +36,9 @@ verify_jwt = false
 [functions.resolve-permit-amendment]
 verify_jwt = false
 
+[functions.public-permit-details]
+verify_jwt = false
+
 [functions.generate-vapid-keys]
 verify_jwt = false
 
