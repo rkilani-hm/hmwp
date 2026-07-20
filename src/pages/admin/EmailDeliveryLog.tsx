@@ -54,6 +54,7 @@ export default function EmailDeliveryLog() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [recipient, setRecipient] = useState('');
+  const [permitNo, setPermitNo] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -61,6 +62,7 @@ export default function EmailDeliveryLog() {
     status: statusFilter,
     notificationType: typeFilter,
     recipient: recipient || undefined,
+    permitNo: permitNo || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
   });
@@ -155,6 +157,12 @@ export default function EmailDeliveryLog() {
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               className="w-full sm:w-[160px]"
+            />
+            <Input
+              value={permitNo}
+              onChange={(e) => setPermitNo(e.target.value)}
+              placeholder="Permit no…"
+              className="w-full sm:w-[180px]"
             />
           </div>
         </CardContent>
