@@ -238,6 +238,16 @@ export default function EmailDeliveryLog() {
                         <TableCell className="text-sm font-medium whitespace-nowrap">
                           {log.permit_no || '—'}
                         </TableCell>
+                        <TableCell>
+                          {log.has_attachment ? (
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600">
+                              <Paperclip className="h-3 w-3 mr-1" />
+                              PDF
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[280px]">
                           {log.status === 'failed' && log.error_message ? (
                             <span className="text-destructive break-words">{log.error_message}</span>
