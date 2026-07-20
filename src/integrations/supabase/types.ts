@@ -244,6 +244,7 @@ export type Database = {
           created_at: string
           duration_ms: number | null
           error_message: string | null
+          has_attachment: boolean
           id: string
           notification_type: string | null
           permit_id: string | null
@@ -258,6 +259,7 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          has_attachment?: boolean
           id?: string
           notification_type?: string | null
           permit_id?: string | null
@@ -272,6 +274,7 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          has_attachment?: boolean
           id?: string
           notification_type?: string | null
           permit_id?: string | null
