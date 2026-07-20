@@ -251,7 +251,7 @@ export default function Reports() {
       approvalTimeByRole,
       workflowModificationsByType,
     };
-  }, [permits, workflowAuditData]);
+  }, [permits, workflowAuditData, approvalsData]);
 
   if (isLoading) {
     return (
