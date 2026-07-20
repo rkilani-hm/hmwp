@@ -20,6 +20,7 @@ export interface EmailDeliveryLogFilters {
   status?: string;         // 'all' | 'sent' | 'failed'
   notificationType?: string; // 'all' | <type>
   recipient?: string;      // substring match on a recipient address
+  permitNo?: string;       // substring match on permit number
   dateFrom?: string;
   dateTo?: string;
 }
