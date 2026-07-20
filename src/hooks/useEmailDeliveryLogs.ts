@@ -58,6 +58,9 @@ export function useEmailDeliveryLogs(filters?: EmailDeliveryLogFilters) {
           query = query.contains('recipients', [term]);
         }
       }
+      if (filters?.permitNo && filters.permitNo.trim()) {
+        query = query.ilike('permit_no', `%${filters.permitNo.trim()}%`);
+      }
       if (filters?.dateFrom) {
         query = query.gte('created_at', filters.dateFrom);
       }
