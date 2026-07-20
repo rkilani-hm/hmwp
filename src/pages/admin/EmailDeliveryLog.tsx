@@ -161,7 +161,7 @@ export default function EmailDeliveryLog() {
             <Input
               value={permitNo}
               onChange={(e) => setPermitNo(e.target.value)}
-              placeholder="Permit no…"
+              placeholder="WP- or GP- number…"
               className="w-full sm:w-[180px]"
             />
           </div>
