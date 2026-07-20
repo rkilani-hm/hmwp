@@ -37,7 +37,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { differenceInHours, format, parseISO, startOfMonth, eachDayOfInterval } from 'date-fns';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
