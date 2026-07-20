@@ -80,6 +80,8 @@ function computeMetrics(
   pendingCountByRole: Record<string, number>,
   profile: ProfileLite,
   role: string,
+  /** When true, count approvals regardless of role_name (aggregate across all roles the user holds). */
+  aggregateAllRoles = false,
 ): ApproverMetrics {
   const thirtyDaysAgo = subDays(new Date(), 30);
   const metrics: ApproverMetrics = {
