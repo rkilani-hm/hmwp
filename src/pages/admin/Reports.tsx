@@ -73,6 +73,22 @@ export default function Reports() {
     },
   });
 
+  // Fetch approvals from the dynamic workflow table (source of truth
+  // for role-based approval timing since legacy per-role date columns
+  // are no longer populated for dynamic workflows).
+  const { data: approvalsData } = useQuery({
+    queryKey: ['permit-approvals-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('permit_approvals')
+        .select('permit_id, role_name, status, approved_at, created_at')
+        .eq('status', 'approved')
+        .not('approved_at', 'is', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const stats = useMemo(() => {
     if (!permits || permits.length === 0) {
       return {
