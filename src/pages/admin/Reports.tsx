@@ -118,10 +118,9 @@ export default function Reports() {
     const urgent = permits.filter(p => p.urgency === 'urgent').length;
     const workflowModified = permits.filter(p => p.workflow_customized).length;
 
-    // Calculate average approval time for completed permits
-    const completedPermits = permits.filter(p => 
-      p.status === 'approved' || p.status === 'closed'
-    );
+    // (Legacy per-role date columns are no longer populated for dynamic
+    // workflows; approval timing is derived from permit_approvals below.)
+
 
     // Build per-permit approval history from the dynamic workflow table.
     const permitIds = new Set(permits.map((p: any) => p.id));
