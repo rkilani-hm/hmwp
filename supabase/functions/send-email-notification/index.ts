@@ -560,6 +560,7 @@ const handler = async (req: Request): Promise<Response> => {
           error_message: errorMessage ? errorMessage.slice(0, 2000) : null,
           provider: "microsoft_graph",
           duration_ms: durationMs,
+          has_attachment: hasAttachment === true,
         });
       } catch (logErr) {
         // Swallow — auditing must never break the send path.
