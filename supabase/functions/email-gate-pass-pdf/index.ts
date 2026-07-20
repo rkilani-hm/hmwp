@@ -268,6 +268,7 @@ const handler = async (req: Request): Promise<Response> => {
       saveToSentItems: false,
     };
 
+    const startedAt = Date.now();
     const emailResponse = await fetch(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
       {
@@ -279,12 +280,45 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify(emailPayload),
       }
     );
+    const durationMs = Date.now() - startedAt;
+    const subjectLine = `Gate Pass ${gp.pass_no} - ${categoryLabel}`;
 
     if (!emailResponse.ok) {
       const errorText = await emailResponse.text();
       console.error("Email send error:", errorText);
+      try {
+        await supabaseAdmin.from("email_delivery_logs").insert({
+          notification_type: "gate_pass_pdf",
+          recipients: recipientList,
+          recipient_count: recipientList.length,
+          subject: subjectLine,
+          permit_id: null,
+          permit_no: gp.pass_no,
+          status: "failed",
+          error_message: errorText.slice(0, 2000),
+          provider: "microsoft_graph",
+          duration_ms: durationMs,
+          has_attachment: true,
+        });
+      } catch (_) { /* non-fatal */ }
       throw new Error(`Failed to send email: ${emailResponse.status}`);
     }
+
+    try {
+      await supabaseAdmin.from("email_delivery_logs").insert({
+        notification_type: "gate_pass_pdf",
+        recipients: recipientList,
+        recipient_count: recipientList.length,
+        subject: subjectLine,
+        permit_id: null,
+        permit_no: gp.pass_no,
+        status: "sent",
+        error_message: null,
+        provider: "microsoft_graph",
+        duration_ms: durationMs,
+        has_attachment: true,
+      });
+    } catch (_) { /* non-fatal */ }
 
     console.log("Gate pass PDF emailed successfully to:", recipientList.join(", "));
 
