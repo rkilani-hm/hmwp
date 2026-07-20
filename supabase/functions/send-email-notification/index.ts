@@ -531,7 +531,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { to, subject, body, permitId, notificationType, permitNo, details } = await req.json();
+    const { to, subject, body, permitId, notificationType, permitNo, details, hasAttachment } = await req.json();
 
     // ---- Delivery audit logging ----
     // Best-effort recording of every send outcome into email_delivery_logs so
@@ -560,6 +560,7 @@ const handler = async (req: Request): Promise<Response> => {
           error_message: errorMessage ? errorMessage.slice(0, 2000) : null,
           provider: "microsoft_graph",
           duration_ms: durationMs,
+          has_attachment: hasAttachment === true,
         });
       } catch (logErr) {
         // Swallow — auditing must never break the send path.

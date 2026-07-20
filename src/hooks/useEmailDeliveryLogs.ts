@@ -14,6 +14,7 @@ export interface EmailDeliveryLog {
   error_message: string | null;
   provider: string;
   duration_ms: number | null;
+  has_attachment: boolean;
 }
 
 export interface EmailDeliveryLogFilters {

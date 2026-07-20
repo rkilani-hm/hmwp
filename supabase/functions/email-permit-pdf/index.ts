@@ -168,15 +168,48 @@ serve(async (req: Request): Promise<Response> => {
       saveToSentItems: false,
     };
 
+    const startedAt = Date.now();
     const emailResponse = await fetch(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(emailPayload) },
     );
+    const durationMs = Date.now() - startedAt;
+    const subjectLine = `Work Permit Approved: ${permit.permit_no}`;
     if (!emailResponse.ok) {
       const errorText = await emailResponse.text();
       console.error("Email send error:", errorText);
+      try {
+        await admin.from("email_delivery_logs").insert({
+          notification_type: "approved_pdf",
+          recipients: to,
+          recipient_count: to.length,
+          subject: subjectLine,
+          permit_id: permitId,
+          permit_no: permit.permit_no,
+          status: "failed",
+          error_message: errorText.slice(0, 2000),
+          provider: "microsoft_graph",
+          duration_ms: durationMs,
+          has_attachment: true,
+        });
+      } catch (_) { /* non-fatal */ }
       throw new Error(`Failed to send email: ${emailResponse.status}`);
     }
+    try {
+      await admin.from("email_delivery_logs").insert({
+        notification_type: "approved_pdf",
+        recipients: to,
+        recipient_count: to.length,
+        subject: subjectLine,
+        permit_id: permitId,
+        permit_no: permit.permit_no,
+        status: "sent",
+        error_message: null,
+        provider: "microsoft_graph",
+        duration_ms: durationMs,
+        has_attachment: true,
+      });
+    } catch (_) { /* non-fatal */ }
 
     // Best-effort audit line on the permit's activity log.
     try {

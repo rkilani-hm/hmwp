@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Mail, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Human labels for the notification types the edge function emits.
@@ -188,6 +188,7 @@ export default function EmailDeliveryLog() {
                     <TableHead>Audience</TableHead>
                     <TableHead>Recipients</TableHead>
                     <TableHead>Permit</TableHead>
+                    <TableHead>Attachment</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -236,6 +237,16 @@ export default function EmailDeliveryLog() {
                         </TableCell>
                         <TableCell className="text-sm font-medium whitespace-nowrap">
                           {log.permit_no || '—'}
+                        </TableCell>
+                        <TableCell>
+                          {log.has_attachment ? (
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600">
+                              <Paperclip className="h-3 w-3 mr-1" />
+                              PDF
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[280px]">
                           {log.status === 'failed' && log.error_message ? (

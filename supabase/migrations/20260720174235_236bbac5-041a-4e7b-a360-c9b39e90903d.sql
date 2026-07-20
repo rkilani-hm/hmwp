@@ -1,0 +1,1 @@
+ALTER TABLE public.email_delivery_logs ADD COLUMN IF NOT EXISTS has_attachment boolean NOT NULL DEFAULT false;
