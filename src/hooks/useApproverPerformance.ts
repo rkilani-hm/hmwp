@@ -104,7 +104,7 @@ function computeMetrics(
   const responseTimes: number[] = [];
 
   for (const a of approvals) {
-    if (a.role_name !== role) continue;
+    if (!aggregateAllRoles && a.role_name !== role) continue;
     if (a.status !== 'approved' && a.status !== 'rejected') continue;
     metrics.totalDecisions++;
     if (a.status === 'approved') metrics.approvals++;
