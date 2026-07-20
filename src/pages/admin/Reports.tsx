@@ -123,16 +123,28 @@ export default function Reports() {
       p.status === 'approved' || p.status === 'closed'
     );
 
+    // Build per-permit approval history from the dynamic workflow table.
+    const permitIds = new Set(permits.map((p: any) => p.id));
+    const relevantApprovals = (approvalsData || []).filter((a: any) => permitIds.has(a.permit_id));
+
+    // First approval per permit (min approved_at)
+    const firstApprovalByPermit = new Map<string, string>();
+    relevantApprovals.forEach((a: any) => {
+      const cur = firstApprovalByPermit.get(a.permit_id);
+      if (!cur || a.approved_at < cur) firstApprovalByPermit.set(a.permit_id, a.approved_at);
+    });
+
+    // Calculate average time-to-first-approval across all permits that have any approval
     let totalApprovalHours = 0;
     let approvalCount = 0;
-
-    completedPermits.forEach(permit => {
-      const helpdeskDate = permit.helpdesk_date ? parseISO(permit.helpdesk_date) : null;
-      const createdAt = parseISO(permit.created_at);
-      
-      if (helpdeskDate) {
-        totalApprovalHours += differenceInHours(helpdeskDate, createdAt);
-        approvalCount++;
+    permits.forEach((permit: any) => {
+      const first = firstApprovalByPermit.get(permit.id);
+      if (first) {
+        const hours = differenceInHours(parseISO(first), parseISO(permit.created_at));
+        if (hours >= 0) {
+          totalApprovalHours += hours;
+          approvalCount++;
+        }
       }
     });
 
@@ -163,10 +175,9 @@ export default function Reports() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Daily permits this month
+    // Daily permits this month — completed = any permit reaching approved/closed on that day (uses updated_at)
     const now = new Date();
     const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
     const days = eachDayOfInterval({ start: monthStart, end: now });
 
     const dailyData = days.map(day => {
@@ -176,8 +187,8 @@ export default function Reports() {
       ).length;
       const completed = permits.filter(p => 
         (p.status === 'approved' || p.status === 'closed') &&
-        p.helpdesk_date &&
-        format(parseISO(p.helpdesk_date), 'yyyy-MM-dd') === dayStr
+        p.updated_at &&
+        format(parseISO(p.updated_at), 'yyyy-MM-dd') === dayStr
       ).length;
 
       return {
@@ -187,13 +198,30 @@ export default function Reports() {
       };
     });
 
-    // Approval time by role
-    const approvalTimeByRole = [
-      { role: 'Helpdesk', avgHours: calculateAvgTime(permits, 'helpdesk') },
-      { role: 'PM', avgHours: calculateAvgTime(permits, 'pm') },
-      { role: 'PD', avgHours: calculateAvgTime(permits, 'pd') },
-      { role: 'IT', avgHours: calculateAvgTime(permits, 'it') },
-    ].filter(d => d.avgHours > 0);
+    // Approval time by role — computed from permit_approvals dynamic workflow.
+    // Average hours between permit created_at and each role's approved_at.
+    const permitCreatedById = new Map(permits.map((p: any) => [p.id, p.created_at]));
+    const roleTotals = new Map<string, { total: number; count: number }>();
+    relevantApprovals.forEach((a: any) => {
+      const createdAt = permitCreatedById.get(a.permit_id);
+      if (!createdAt || !a.approved_at) return;
+      const hours = differenceInHours(parseISO(a.approved_at), parseISO(createdAt as string));
+      if (hours < 0) return;
+      const bucket = roleTotals.get(a.role_name) || { total: 0, count: 0 };
+      bucket.total += hours;
+      bucket.count += 1;
+      roleTotals.set(a.role_name, bucket);
+    });
+    const approvalTimeByRole = Array.from(roleTotals.entries())
+      .map(([role, { total, count }]) => ({
+        role: role
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+          .replace(/‑/g, '-'),
+        avgHours: Math.round(total / count),
+      }))
+      .filter((d) => d.avgHours > 0)
+      .sort((a, b) => a.avgHours - b.avgHours);
 
     // Workflow modification breakdown
     const workflowModificationsByType = workflowAuditData?.reduce((acc, audit) => {
