@@ -60,7 +60,12 @@ export function useEmailDeliveryLogs(filters?: EmailDeliveryLogFilters) {
         }
       }
       if (filters?.permitNo && filters.permitNo.trim()) {
-        query = query.ilike('permit_no', `%${filters.permitNo.trim()}%`);
+        // Match either the dedicated permit/gate-pass number column or the
+        // subject line (covers WP-… and GP-… references in generic notifications).
+        const term = filters.permitNo.trim().replace(/[,()]/g, '');
+        query = query.or(
+          `permit_no.ilike.%${term}%,subject.ilike.%${term}%`,
+        );
       }
       if (filters?.dateFrom) {
         query = query.gte('created_at', filters.dateFrom);
