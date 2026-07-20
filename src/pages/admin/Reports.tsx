@@ -625,20 +625,3 @@ export default function Reports() {
   );
 }
 
-// Helper function to calculate average approval time for a role
-function calculateAvgTime(permits: any[], role: string): number {
-  const relevantPermits = permits.filter(p => 
-    p[`${role}_status`] === 'approved' && p[`${role}_date`]
-  );
-
-  if (relevantPermits.length === 0) return 0;
-
-  let totalHours = 0;
-  relevantPermits.forEach(permit => {
-    const approvalDate = parseISO(permit[`${role}_date`]);
-    const createdAt = parseISO(permit.created_at);
-    totalHours += differenceInHours(approvalDate, createdAt);
-  });
-
-  return Math.round(totalHours / relevantPermits.length);
-}
