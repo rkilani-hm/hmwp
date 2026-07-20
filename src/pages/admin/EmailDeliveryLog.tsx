@@ -158,6 +158,12 @@ export default function EmailDeliveryLog() {
               onChange={(e) => setDateTo(e.target.value)}
               className="w-full sm:w-[160px]"
             />
+            <Input
+              value={permitNo}
+              onChange={(e) => setPermitNo(e.target.value)}
+              placeholder="Permit no…"
+              className="w-full sm:w-[180px]"
+            />
           </div>
         </CardContent>
       </Card>
