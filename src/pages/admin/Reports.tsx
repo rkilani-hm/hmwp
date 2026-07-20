@@ -345,7 +345,7 @@ export default function Reports() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgApprovalTime}h</div>
             <p className="text-xs text-muted-foreground">
-              First approval (Helpdesk)
+              Time to first approval
             </p>
           </CardContent>
         </Card>
