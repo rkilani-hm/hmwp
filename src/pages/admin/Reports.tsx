@@ -37,7 +37,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { differenceInHours, format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { differenceInHours, format, parseISO, startOfMonth, eachDayOfInterval } from 'date-fns';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
@@ -73,6 +73,22 @@ export default function Reports() {
     },
   });
 
+  // Fetch approvals from the dynamic workflow table (source of truth
+  // for role-based approval timing since legacy per-role date columns
+  // are no longer populated for dynamic workflows).
+  const { data: approvalsData } = useQuery({
+    queryKey: ['permit-approvals-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('permit_approvals')
+        .select('permit_id, role_name, status, approved_at, created_at')
+        .eq('status', 'approved')
+        .not('approved_at', 'is', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const stats = useMemo(() => {
     if (!permits || permits.length === 0) {
       return {
@@ -102,21 +118,32 @@ export default function Reports() {
     const urgent = permits.filter(p => p.urgency === 'urgent').length;
     const workflowModified = permits.filter(p => p.workflow_customized).length;
 
-    // Calculate average approval time for completed permits
-    const completedPermits = permits.filter(p => 
-      p.status === 'approved' || p.status === 'closed'
-    );
+    // (Legacy per-role date columns are no longer populated for dynamic
+    // workflows; approval timing is derived from permit_approvals below.)
 
+
+    // Build per-permit approval history from the dynamic workflow table.
+    const permitIds = new Set(permits.map((p: any) => p.id));
+    const relevantApprovals = (approvalsData || []).filter((a: any) => permitIds.has(a.permit_id));
+
+    // First approval per permit (min approved_at)
+    const firstApprovalByPermit = new Map<string, string>();
+    relevantApprovals.forEach((a: any) => {
+      const cur = firstApprovalByPermit.get(a.permit_id);
+      if (!cur || a.approved_at < cur) firstApprovalByPermit.set(a.permit_id, a.approved_at);
+    });
+
+    // Calculate average time-to-first-approval across all permits that have any approval
     let totalApprovalHours = 0;
     let approvalCount = 0;
-
-    completedPermits.forEach(permit => {
-      const helpdeskDate = permit.helpdesk_date ? parseISO(permit.helpdesk_date) : null;
-      const createdAt = parseISO(permit.created_at);
-      
-      if (helpdeskDate) {
-        totalApprovalHours += differenceInHours(helpdeskDate, createdAt);
-        approvalCount++;
+    permits.forEach((permit: any) => {
+      const first = firstApprovalByPermit.get(permit.id);
+      if (first) {
+        const hours = differenceInHours(parseISO(first), parseISO(permit.created_at));
+        if (hours >= 0) {
+          totalApprovalHours += hours;
+          approvalCount++;
+        }
       }
     });
 
@@ -147,10 +174,9 @@ export default function Reports() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Daily permits this month
+    // Daily permits this month — completed = any permit reaching approved/closed on that day (uses updated_at)
     const now = new Date();
     const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
     const days = eachDayOfInterval({ start: monthStart, end: now });
 
     const dailyData = days.map(day => {
@@ -160,8 +186,8 @@ export default function Reports() {
       ).length;
       const completed = permits.filter(p => 
         (p.status === 'approved' || p.status === 'closed') &&
-        p.helpdesk_date &&
-        format(parseISO(p.helpdesk_date), 'yyyy-MM-dd') === dayStr
+        p.updated_at &&
+        format(parseISO(p.updated_at), 'yyyy-MM-dd') === dayStr
       ).length;
 
       return {
@@ -171,13 +197,30 @@ export default function Reports() {
       };
     });
 
-    // Approval time by role
-    const approvalTimeByRole = [
-      { role: 'Helpdesk', avgHours: calculateAvgTime(permits, 'helpdesk') },
-      { role: 'PM', avgHours: calculateAvgTime(permits, 'pm') },
-      { role: 'PD', avgHours: calculateAvgTime(permits, 'pd') },
-      { role: 'IT', avgHours: calculateAvgTime(permits, 'it') },
-    ].filter(d => d.avgHours > 0);
+    // Approval time by role — computed from permit_approvals dynamic workflow.
+    // Average hours between permit created_at and each role's approved_at.
+    const permitCreatedById = new Map(permits.map((p: any) => [p.id, p.created_at]));
+    const roleTotals = new Map<string, { total: number; count: number }>();
+    relevantApprovals.forEach((a: any) => {
+      const createdAt = permitCreatedById.get(a.permit_id);
+      if (!createdAt || !a.approved_at) return;
+      const hours = differenceInHours(parseISO(a.approved_at), parseISO(createdAt as string));
+      if (hours < 0) return;
+      const bucket = roleTotals.get(a.role_name) || { total: 0, count: 0 };
+      bucket.total += hours;
+      bucket.count += 1;
+      roleTotals.set(a.role_name, bucket);
+    });
+    const approvalTimeByRole = Array.from(roleTotals.entries())
+      .map(([role, { total, count }]) => ({
+        role: role
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+          .replace(/‑/g, '-'),
+        avgHours: Math.round(total / count),
+      }))
+      .filter((d) => d.avgHours > 0)
+      .sort((a, b) => a.avgHours - b.avgHours);
 
     // Workflow modification breakdown
     const workflowModificationsByType = workflowAuditData?.reduce((acc, audit) => {
@@ -208,7 +251,7 @@ export default function Reports() {
       approvalTimeByRole,
       workflowModificationsByType,
     };
-  }, [permits, workflowAuditData]);
+  }, [permits, workflowAuditData, approvalsData]);
 
   if (isLoading) {
     return (
@@ -302,7 +345,7 @@ export default function Reports() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgApprovalTime}h</div>
             <p className="text-xs text-muted-foreground">
-              First approval (Helpdesk)
+              Time to first approval
             </p>
           </CardContent>
         </Card>
@@ -582,20 +625,3 @@ export default function Reports() {
   );
 }
 
-// Helper function to calculate average approval time for a role
-function calculateAvgTime(permits: any[], role: string): number {
-  const relevantPermits = permits.filter(p => 
-    p[`${role}_status`] === 'approved' && p[`${role}_date`]
-  );
-
-  if (relevantPermits.length === 0) return 0;
-
-  let totalHours = 0;
-  relevantPermits.forEach(permit => {
-    const approvalDate = parseISO(permit[`${role}_date`]);
-    const createdAt = parseISO(permit.created_at);
-    totalHours += differenceInHours(approvalDate, createdAt);
-  });
-
-  return Math.round(totalHours / relevantPermits.length);
-}
