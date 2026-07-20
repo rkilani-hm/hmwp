@@ -224,6 +224,13 @@ export function useMyPerformance(filters: PerformanceFilters = {}) {
         to,
       );
 
+      // Show whichever role has the most approvals for this user; fall back to the
+      // originally-picked role when the user has no approvals yet.
+      const roleCounts = new Map<string, number>();
+      for (const a of filtered) roleCounts.set(a.role_name, (roleCounts.get(a.role_name) || 0) + 1);
+      const displayRole =
+        [...roleCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || role;
+
       return computeMetrics(
         filtered,
         pendingByRole,
@@ -232,7 +239,8 @@ export function useMyPerformance(filters: PerformanceFilters = {}) {
           full_name: profile?.full_name ?? null,
           email: profile?.email ?? user.email ?? '',
         },
-        role,
+        displayRole,
+        true, // aggregate across all roles the user holds
       );
     },
   });
