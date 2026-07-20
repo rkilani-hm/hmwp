@@ -179,7 +179,7 @@ serve(async (req: Request): Promise<Response> => {
       const errorText = await emailResponse.text();
       console.error("Email send error:", errorText);
       try {
-        await admin.from("email_delivery_logs").insert({
+        const { error: logErr } = await admin.from("email_delivery_logs").insert({
           notification_type: "approved_pdf",
           recipients: to,
           recipient_count: to.length,
@@ -192,11 +192,12 @@ serve(async (req: Request): Promise<Response> => {
           duration_ms: durationMs,
           has_attachment: true,
         });
-      } catch (_) { /* non-fatal */ }
+        if (logErr) console.error("email_delivery_logs insert (failed) error:", logErr);
+      } catch (e) { console.error("email_delivery_logs insert (failed) threw:", e); }
       throw new Error(`Failed to send email: ${emailResponse.status}`);
     }
     try {
-      await admin.from("email_delivery_logs").insert({
+      const { error: logErr } = await admin.from("email_delivery_logs").insert({
         notification_type: "approved_pdf",
         recipients: to,
         recipient_count: to.length,
@@ -209,7 +210,8 @@ serve(async (req: Request): Promise<Response> => {
         duration_ms: durationMs,
         has_attachment: true,
       });
-    } catch (_) { /* non-fatal */ }
+      if (logErr) console.error("email_delivery_logs insert (sent) error:", logErr);
+    } catch (e) { console.error("email_delivery_logs insert (sent) threw:", e); }
 
     // Best-effort audit line on the permit's activity log.
     try {
