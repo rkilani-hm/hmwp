@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Mail, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Human labels for the notification types the edge function emits.
