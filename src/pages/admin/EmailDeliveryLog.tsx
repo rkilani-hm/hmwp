@@ -188,6 +188,7 @@ export default function EmailDeliveryLog() {
                     <TableHead>Audience</TableHead>
                     <TableHead>Recipients</TableHead>
                     <TableHead>Permit</TableHead>
+                    <TableHead>Attachment</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
