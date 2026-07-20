@@ -531,7 +531,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { to, subject, body, permitId, notificationType, permitNo, details } = await req.json();
+    const { to, subject, body, permitId, notificationType, permitNo, details, hasAttachment } = await req.json();
 
     // ---- Delivery audit logging ----
     // Best-effort recording of every send outcome into email_delivery_logs so
