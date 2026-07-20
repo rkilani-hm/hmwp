@@ -129,11 +129,17 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
 
         if (isCompleted) {
           const completedAt = parseISO(permit.updated_at);
-          const resolutionHours = differenceInHours(completedAt, parseISO(permit.created_at));
-          totalResolutionHours += resolutionHours;
-          completedCount++;
+          // Use fractional hours so short resolutions (<1h) don't round to 0
+          const resolutionHours =
+            (completedAt.getTime() - parseISO(permit.created_at).getTime()) / 3_600_000;
+          if (Number.isFinite(resolutionHours) && resolutionHours >= 0) {
+            totalResolutionHours += resolutionHours;
+            completedCount++;
+          }
 
-          if (completedAt <= deadline || !permit.sla_breached) {
+          // Compute breach live rather than relying on the stored sla_breached flag,
+          // which the background job may not have populated for older permits.
+          if (completedAt <= deadline) {
             completedOnTime++;
           } else {
             completedLate++;
