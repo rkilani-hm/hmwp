@@ -184,6 +184,13 @@ export async function notifyActiveApprovers(
   profile?: { full_name: string | null } | null,
   userEmail?: string,
 ) {
+  // Local testing kill-switch: when VITE_DISABLE_NOTIFICATIONS=true (set only in
+  // .env.local, never in production), skip all in-app / push / email notifications
+  // on permit create + resubmit so test submissions don't reach real approvers.
+  if (import.meta.env.VITE_DISABLE_NOTIFICATIONS === 'true') {
+    console.warn('[notify] SKIPPED — notifications disabled via VITE_DISABLE_NOTIFICATIONS (local test mode).');
+    return;
+  }
   try {
     const { data, error } = await supabase.rpc(
       'notify_permit_active_approvers' as any,

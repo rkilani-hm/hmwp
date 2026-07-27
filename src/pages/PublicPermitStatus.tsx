@@ -16,7 +16,29 @@ interface LimitedPermitInfo {
   status: string;
   work_date_from: string;
   work_date_to: string;
+  /** Archived = soft-deleted by an admin. See the archive rules in getVerdict. */
+  is_archived?: boolean;
 }
+
+/** Statuses that are a refusal in their own right. */
+const REFUSED = new Set(['cancelled', 'rejected']);
+
+/**
+ * Whether a permit should be reported as "does not exist" rather than showing
+ * its status.
+ *
+ * Archiving is the system's soft-delete. An archived permit must never read as
+ * valid at the gate — so anything archived is hidden, EXCEPT a cancelled or
+ * rejected one. Those are always a negative verdict, and naming them is more
+ * useful to security than "not found", which reads like a mis-scan and prompts
+ * a phone call rather than a refusal.
+ *
+ * get_public_permit_status already applies this rule, so an archived permit
+ * never reaches us — a direct call to the RPC must not reveal more than this
+ * page does. Repeated here so the page stays correct on its own terms.
+ */
+const isHidden = (p: LimitedPermitInfo) =>
+  !!p.is_archived && !REFUSED.has((p.status || '').toLowerCase());
 
 // Full permit view returned by the public-permit-details edge function.
 interface PermitFullDetails {
@@ -83,13 +105,16 @@ const PublicPermitStatus = () => {
 
       if (error) throw error;
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row) {
+      const row = (Array.isArray(data) ? data[0] : data) as LimitedPermitInfo | undefined;
+      if (row && !isHidden(row)) {
         setPermitInfo(row);
         toast.success('Permit found!');
         // …then load the full permit view (details, approvals, attachments).
-        void fetchDetails(row.permit_no);
+        // Archived permits are withheld by the details function too, so a
+        // cancelled+archived one correctly shows the verdict card only.
+        if (!row.is_archived) void fetchDetails(row.permit_no);
       } else {
+        // Never existed, or archived (soft-deleted) — both are "does not exist".
         setNotFound(true);
         toast.error('Permit not found');
       }
@@ -198,10 +223,9 @@ const PublicPermitStatus = () => {
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(0, 0, 0, 0);
 
-    const status = permit.status;
+    const status = (permit.status || '').toLowerCase();
     const isApproved = status === 'approved';
     const isClosed = status === 'closed';
-    const isRejected = status === 'rejected' || status === 'cancelled';
 
     const tones = {
       success:     { color: 'text-success',          bgColor: 'bg-success/10 border-success/30',        badge: 'bg-success' },
@@ -210,27 +234,42 @@ const PublicPermitStatus = () => {
       muted:       { color: 'text-muted-foreground', bgColor: 'bg-muted border-border',                 badge: 'bg-muted-foreground' },
     } as const;
 
-    // Refused outright.
-    if (isRejected) {
-      return { icon: ShieldX, ...tones.destructive, label: status.toUpperCase(),
-        description: 'This work permit is not valid.' };
+    // Refused outright. Named explicitly — "cancelled" and "rejected" mean
+    // different things to the requester, and both are shown even when the
+    // permit has since been archived.
+    if (status === 'cancelled') {
+      return { icon: ShieldX, ...tones.destructive, label: 'CANCELLED',
+        description: 'This work permit was cancelled and is not valid. Do not allow work to proceed.' };
+    }
+    if (status === 'rejected') {
+      return { icon: ShieldX, ...tones.destructive, label: 'REJECTED',
+        description: 'This work permit was rejected and is not valid. Do not allow work to proceed.' };
     }
 
-    // Not approved yet (submitted / pending_* / draft / in progress).
-    if (!isApproved && !isClosed) {
-      return { icon: ShieldAlert, ...tones.warning, label: 'IN APPROVAL',
-        description: 'This work permit is still going through approval and is not yet valid for work.' };
-    }
-
-    // Approved (or closed) — the date window now decides validity.
-    if (today > toDate) {
-      return { icon: ShieldX, ...tones.destructive, label: 'EXPIRED',
-        description: 'This work permit is fully approved but its work dates have passed — it is no longer valid.' };
-    }
+    // Completed and signed off.
     if (isClosed) {
       return { icon: ShieldCheck, ...tones.muted, label: 'CLOSED',
         description: 'This work permit has been completed and closed.' };
     }
+
+    // Date window has passed. Checked before the approval state so a permit
+    // that never finished approval still reads as EXPIRED rather than sitting
+    // on "IN APPROVAL" forever.
+    if (today > toDate) {
+      return {
+        icon: ShieldX, ...tones.destructive, label: 'EXPIRED',
+        description: isApproved
+          ? 'This work permit was approved but its work dates have passed — it is no longer valid.'
+          : 'This work permit\'s dates have passed and it was never fully approved — it is not valid.',
+      };
+    }
+
+    // Still moving through approval (submitted / pending_* / draft / in progress).
+    if (!isApproved) {
+      return { icon: ShieldAlert, ...tones.warning, label: 'IN APPROVAL',
+        description: 'This work permit is still going through approval and is not yet valid for work.' };
+    }
+
     if (today < fromDate) {
       return { icon: ShieldAlert, ...tones.warning, label: 'APPROVED — NOT YET VALID',
         description: 'This work permit is approved, but its start date has not arrived yet.' };

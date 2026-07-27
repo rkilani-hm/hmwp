@@ -31,6 +31,9 @@ export function useCreatePermit() {
        * current user is recorded as created_on_behalf_by + CC'd on notifications.
        */
       on_behalf_of?: { tenantId: string; tenantName: string; tenantEmail: string };
+      /** Purpose chosen in the New Request wizard + that purpose's own fields. */
+      request_category?: string;
+      category_details?: Record<string, unknown>;
       /**
        * Attachments with metadata (categorization + AI-extracted ID
        * fields). Each entry: { file, documentType, extracted*, isValid }.
@@ -197,6 +200,8 @@ export function useCreatePermit() {
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { files, on_behalf_of, ...permitDataWithoutFiles } = permitData;
+      // request_category / category_details are real columns and flow through
+      // permitDataWithoutFiles untouched.
       // Owner of the permit: the on-behalf tenant if provided, else the creator.
       const ownerId = on_behalf_of?.tenantId || user?.id;
       const ownerName = on_behalf_of?.tenantName || profile?.full_name || user?.email || 'Unknown';

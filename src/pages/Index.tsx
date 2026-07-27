@@ -3,6 +3,8 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import Dashboard from './Dashboard';
 import NewPermit from './NewPermit';
+import NewRequest from './NewRequest';
+import NewInternalRequest from './NewInternalRequest';
 import EditPermit from './EditPermit';
 import PermitsList from './PermitsList';
 import PermitDetail from './PermitDetail';
@@ -54,11 +56,20 @@ const Index = () => {
   const currentRole = getPrimaryRole();
   const isAdmin = hasRole('admin');
   const isApprover = roles.some(r => r !== 'tenant');
+  // Anyone who isn't a tenant-only user is Al Hamra staff and may raise internal requests.
+  const isInternalStaff = isApprover;
 
   return (
     <AppLayout currentRole={currentRole}>
       <Routes>
         <Route index element={<Dashboard currentRole={currentRole} />} />
+        <Route path="new-request" element={<NewRequest />} />
+        {/* Internal team entry — internal work types / internal workflows. Tenant-only
+            users are bounced; the RPC also refuses to hand them internal work types. */}
+        <Route
+          path="new-internal-request"
+          element={isInternalStaff ? <NewInternalRequest /> : <Navigate to="/new-request" replace />}
+        />
         <Route path="new-permit" element={<NewPermit />} />
         <Route path="permits" element={<PermitsList currentRole={currentRole} />} />
         <Route path="permits/:id" element={<PermitDetail currentRole={currentRole} />} />

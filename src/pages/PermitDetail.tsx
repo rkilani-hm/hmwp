@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/integrations/supabase/client';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { usePermitActiveApprovers } from '@/hooks/usePermitActiveApprovers';
 import { useArchiveWorkPermit, useRestoreWorkPermit, useHardDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
@@ -143,8 +144,81 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     }
   };
 
+  // Photo shoot and material gate pass requests print on their own layouts, not
+  // the generic work-permit one. Rendered from the stored category_details.
+  // (Same layout code will move into generate-permit-pdf when we deploy.)
+  const category = (permit as any)?.request_category as string | undefined;
+  const isPhotoshoot = category === 'photoshoot';
+  const isGatePass = category === 'gate_pass';
+
+  /** Approval chain + downloaded attachments, shared by both custom layouts. */
+  const loadPdfExtras = async (permitId: string) => {
+    const { data: appr } = await supabase
+      .from('permit_approvals')
+      .select('role_name, status, approver_name, approved_at, signature, workflow_steps(step_order)')
+      .eq('permit_id', permitId);
+    const approvals = (appr ?? [])
+      .map((a: any) => ({
+        role: a.role_name,
+        status: a.status,
+        approver: a.approver_name,
+        date: a.approved_at,
+        signature: a.signature,
+        order: (Array.isArray(a.workflow_steps) ? a.workflow_steps[0]?.step_order : a.workflow_steps?.step_order) ?? 999,
+      }))
+      .sort((a: any, b: any) => a.order - b.order);
+
+    const { data: rows } = await supabase
+      .from('permit_attachments')
+      .select('file_path, file_name, mime_type, document_type')
+      .eq('permit_id', permitId)
+      .order('created_at', { ascending: true });
+    const attachments = await Promise.all(
+      (rows ?? []).map(async (r: any) => {
+        let fileBytes: Uint8Array | null = null;
+        try {
+          const { data: blob } = await supabase.storage.from('permit-attachments').download(r.file_path);
+          if (blob) fileBytes = new Uint8Array(await blob.arrayBuffer());
+        } catch { /* placeholder cell will be drawn */ }
+        return {
+          name: r.file_name || String(r.file_path).split('/').pop() || 'attachment',
+          documentType: r.document_type,
+          mime: r.mime_type,
+          bytes: fileBytes,
+        };
+      }),
+    );
+
+    return { approvals, attachments };
+  };
+
   const handlePreviewPdf = async () => {
     if (!permit) return;
+    const details = (permit as any).category_details;
+
+    if ((isPhotoshoot || isGatePass) && details) {
+      const extras = await loadPdfExtras(permit.id);
+      const meta = {
+        permitNo: permit.permit_no,
+        status: permit.status,
+        requesterName: (permit as any).requester_name,
+      };
+
+      const { loadPdfAssets } = await import('@/lib/pdf/brand');
+      const bytes = isPhotoshoot
+        ? await (await import('@/lib/pdf/photoshootPdf')).buildPhotoshootPdf(details, meta, extras)
+        : await (await import('@/lib/pdf/gatePassPdf')).buildGatePassPdf(details, {
+            ...meta,
+            tenantCompany: (permit as any).company_name,
+            submittedAt: (permit as any).created_at,
+          }, { ...extras, assets: await loadPdfAssets() });
+
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      setPreviewPdfUrl(url);
+      setPdfPreviewOpen(true);
+      return;
+    }
+
     // Generate a fresh signed URL for preview
     const pdfUrl = await generatePdf(permit.id);
     if (pdfUrl) {
