@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WorkflowPreview } from '@/components/ui/WorkflowPreview';
+import { AutoWorkflowChip } from './AutoWorkflowChip';
 import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import type { WorkLocation } from '@/hooks/useWorkLocations';
 import { formatUnit, type TenantUnit } from '@/hooks/useTenantUnits';
@@ -32,6 +33,9 @@ interface Props {
   /** The tenant's registered units. When present, the Unit field becomes a
    *  picker sourced from these instead of a free-text box. */
   tenantUnits?: TenantUnit[];
+  /** When set, the work type is resolved automatically from the request purpose:
+   *  the manual work-type picker is replaced by a read-only confirmation. */
+  autoWorkTypeName?: string | null;
 }
 
 /**
@@ -47,6 +51,7 @@ export function WorkDetailsStep({
   workLocations,
   workLocationsLoading,
   tenantUnits,
+  autoWorkTypeName,
 }: Props) {
   const { t } = useTranslation();
 
@@ -188,30 +193,36 @@ export function WorkDetailsStep({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="workType">{t('permits.form.workType')} *</Label>
-        <Select
-          value={data.workTypeId}
-          onValueChange={(value) => updateField('workTypeId', value)}
-        >
-          <SelectTrigger id="workType">
-            <SelectValue placeholder={t('permits.form.selectWorkType')} />
-          </SelectTrigger>
-          <SelectContent>
-            {workTypesLoading ? (
-              <SelectItem value="__loading" disabled>
-                {t('common.loading')}
-              </SelectItem>
-            ) : (
-              (workTypes || []).map((wt) => (
-                <SelectItem key={wt.id} value={wt.id}>
-                  {wt.name}
+      {autoWorkTypeName ? (
+        // Work type (and therefore the approval workflow) comes from the chosen
+        // request purpose — no manual selection.
+        <AutoWorkflowChip workTypeName={autoWorkTypeName} />
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="workType">{t('permits.form.workType')} *</Label>
+          <Select
+            value={data.workTypeId}
+            onValueChange={(value) => updateField('workTypeId', value)}
+          >
+            <SelectTrigger id="workType">
+              <SelectValue placeholder={t('permits.form.selectWorkType')} />
+            </SelectTrigger>
+            <SelectContent>
+              {workTypesLoading ? (
+                <SelectItem value="__loading" disabled>
+                  {t('common.loading')}
                 </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
-      </div>
+              ) : (
+                (workTypes || []).map((wt) => (
+                  <SelectItem key={wt.id} value={wt.id}>
+                    {wt.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="workDescription">{t('permits.form.workDescription')} *</Label>

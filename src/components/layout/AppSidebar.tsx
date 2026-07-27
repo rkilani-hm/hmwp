@@ -101,7 +101,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         label: 'Permits',
         icon: FileText,
         items: [
-          { icon: FileText, label: 'New Permit', path: '/new-permit' },
+          { icon: FileText, label: 'New Request', path: '/new-request' },
           { icon: ClipboardCheck, label: 'My Permits', path: '/permits' },
         ],
       },
@@ -140,6 +140,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: FileText,
         items: [
           { icon: FileText, label: 'New Permit', path: '/new-permit' },
+          { icon: HardHat, label: 'New Internal Request', path: '/new-internal-request' },
           { icon: Inbox, label: 'Inbox', path: '/inbox' },
           { icon: Send, label: 'Outbox', path: '/outbox' },
           { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
@@ -180,6 +181,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: FileText,
         items: [
           { icon: FileText, label: 'New Permit', path: '/new-permit' },
+          { icon: HardHat, label: 'New Internal Request', path: '/new-internal-request' },
           { icon: Inbox, label: 'Inbox', path: '/inbox' },
           { icon: Send, label: 'Outbox', path: '/outbox' },
           { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
@@ -257,6 +259,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
       icon: FileText,
       items: [
         { icon: FileText, label: 'New Permit', path: '/new-permit' },
+        { icon: HardHat, label: 'New Internal Request', path: '/new-internal-request' },
         { icon: Inbox, label: 'Inbox', path: '/inbox' },
         { icon: Send, label: 'Outbox', path: '/outbox' },
         { icon: ClipboardCheck, label: 'History', path: '/permits' },
