@@ -1507,6 +1507,32 @@ export type Database = {
         }
         Relationships: []
       }
+      request_category_work_types: {
+        Row: {
+          request_category: string
+          updated_at: string
+          work_type_id: string
+        }
+        Insert: {
+          request_category: string
+          updated_at?: string
+          work_type_id: string
+        }
+        Update: {
+          request_category?: string
+          updated_at?: string
+          work_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_category_work_types_work_type_id_fkey"
+            columns: ["work_type_id"]
+            isOneToOne: false
+            referencedRelation: "work_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string | null
@@ -2078,6 +2104,7 @@ export type Database = {
           bdcr_signature: string | null
           bdcr_status: string | null
           building_zone: string | null
+          category_details: Json | null
           closed_by: string | null
           closed_date: string | null
           closing_clean_confirmed: boolean | null
@@ -2169,6 +2196,7 @@ export type Database = {
           pmd_coordinator_date: string | null
           pmd_coordinator_signature: string | null
           pmd_coordinator_status: string | null
+          request_category: string | null
           requester_email: string
           requester_id: string | null
           requester_name: string
@@ -2206,6 +2234,7 @@ export type Database = {
           bdcr_signature?: string | null
           bdcr_status?: string | null
           building_zone?: string | null
+          category_details?: Json | null
           closed_by?: string | null
           closed_date?: string | null
           closing_clean_confirmed?: boolean | null
@@ -2297,6 +2326,7 @@ export type Database = {
           pmd_coordinator_date?: string | null
           pmd_coordinator_signature?: string | null
           pmd_coordinator_status?: string | null
+          request_category?: string | null
           requester_email: string
           requester_id?: string | null
           requester_name: string
@@ -2334,6 +2364,7 @@ export type Database = {
           bdcr_signature?: string | null
           bdcr_status?: string | null
           building_zone?: string | null
+          category_details?: Json | null
           closed_by?: string | null
           closed_date?: string | null
           closing_clean_confirmed?: boolean | null
@@ -2425,6 +2456,7 @@ export type Database = {
           pmd_coordinator_date?: string | null
           pmd_coordinator_signature?: string | null
           pmd_coordinator_status?: string | null
+          request_category?: string | null
           requester_email?: string
           requester_id?: string | null
           requester_name?: string
@@ -3113,10 +3145,19 @@ export type Database = {
       get_public_permit_status: {
         Args: { _permit_no: string }
         Returns: {
+          is_archived: boolean
           permit_no: string
-          status: Database["public"]["Enums"]["permit_status"]
+          status: string
           work_date_from: string
           work_date_to: string
+        }[]
+      }
+      get_request_category_work_types: {
+        Args: never
+        Returns: {
+          request_category: string
+          work_type_id: string
+          work_type_name: string
         }[]
       }
       get_user_department: { Args: { p_user: string }; Returns: string }
@@ -3182,6 +3223,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      list_work_types_with_scope: {
+        Args: never
+        Returns: {
+          id: string
+          is_internal: boolean
+          name: string
+        }[]
       }
       next_gate_pass_number: { Args: { target_date: string }; Returns: string }
       next_gate_pass_number_today: { Args: never; Returns: string }
