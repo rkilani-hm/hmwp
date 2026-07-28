@@ -155,7 +155,7 @@ export function GatePassDetailsStep({
               import('@/lib/pdf/brand'),
             ]);
             const bytes = await buildGatePassPdf(data, {}, { assets: await loadPdfAssets() });
-            const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+            const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
             window.open(url, '_blank');
             setTimeout(() => URL.revokeObjectURL(url), 60_000);
           }}
