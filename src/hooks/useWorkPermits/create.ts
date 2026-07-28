@@ -251,7 +251,7 @@ export function useCreatePermit() {
           sla_deadline: slaDeadline,
           attachments: attachmentPaths,
           contractor_id: contractorId,
-        })
+        } as any)
         .select()
         .single();
 

@@ -213,7 +213,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             submittedAt: (permit as any).created_at,
           }, { ...extras, assets: await loadPdfAssets() });
 
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       setPreviewPdfUrl(url);
       setPdfPreviewOpen(true);
       return;

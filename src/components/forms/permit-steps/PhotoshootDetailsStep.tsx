@@ -228,7 +228,7 @@ export function PhotoshootDetailsStep({
           onClick={async () => {
             const { buildPhotoshootPdf } = await import('@/lib/pdf/photoshootPdf');
             const bytes = await buildPhotoshootPdf(data, {});
-            const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+            const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
             window.open(url, '_blank');
             setTimeout(() => URL.revokeObjectURL(url), 60_000);
           }}
