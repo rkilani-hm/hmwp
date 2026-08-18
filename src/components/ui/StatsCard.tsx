@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { InfoHint } from '@/components/ui/InfoHint';
 
 interface StatsCardProps {
   title: string;
@@ -13,6 +14,12 @@ interface StatsCardProps {
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'destructive';
   className?: string;
   href?: string;
+  /**
+   * Optional "what does this mean?" explanation. When set, a small info icon
+   * appears next to the title; clicking it opens a popover with the text.
+   * Keep it brief — one or two short sentences, ideally bilingual (EN / AR).
+   */
+  info?: { title?: string; description: string; descriptionAr?: string };
 }
 
 export function StatsCard({
@@ -23,6 +30,7 @@ export function StatsCard({
   variant = 'default',
   className,
   href,
+  info,
 }: StatsCardProps) {
   const variants = {
     default: 'bg-card',
@@ -43,7 +51,17 @@ export function StatsCard({
   const content = (
     <div className="flex items-start justify-between">
       <div className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          {info && (
+            <InfoHint
+              label={title}
+              title={info.title ?? title}
+              description={info.description}
+              descriptionAr={info.descriptionAr}
+            />
+          )}
+        </div>
         <p className="text-3xl font-display font-bold tracking-tight">{value}</p>
         {trend && (
           <p

@@ -7,6 +7,7 @@ import { useWorkPermits } from '@/hooks/useWorkPermits';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/InfoHint';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -320,7 +321,14 @@ export default function Reports() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SLA Compliance</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              SLA Compliance
+              <InfoHint
+                label="SLA Compliance"
+                description="Of the requests that finished in this period, the share that reached final approval on or before their SLA deadline."
+                descriptionAr="من الطلبات المكتملة خلال الفترة، نسبة التي وصلت للاعتماد النهائي في موعدها المحدد أو قبله."
+              />
+            </CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -339,7 +347,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Approval Time</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Avg. Approval Time
+              <InfoHint
+                label="Avg. Approval Time"
+                description="Average time from when a request is submitted until its FIRST approval. (The SLA dashboard's 'Avg. Resolution' instead measures the time to FULL approval.)"
+                descriptionAr="متوسط الوقت من إرسال الطلب حتى أول اعتماد له. (بينما 'متوسط الإنجاز' في لوحة الاستجابة يقيس الوقت حتى الاعتماد الكامل.)"
+              />
+            </CardTitle>
             <Timer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -352,7 +367,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Urgent Permits</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Urgent Permits
+              <InfoHint
+                label="Urgent Permits"
+                description="Requests marked Urgent in this period. Urgent requests carry a tighter 4-hour SLA per approval step instead of the normal 48 hours."
+                descriptionAr="الطلبات المصنّفة عاجلة خلال الفترة. الطلبات العاجلة لها مدة استجابة أقصر (4 ساعات) لكل خطوة اعتماد بدلاً من 48 ساعة."
+              />
+            </CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -365,7 +387,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Pending Review
+              <InfoHint
+                label="Pending Review"
+                description="Requests still moving through the approval chain right now — submitted or awaiting a decision, not yet approved, rejected or cancelled."
+                descriptionAr="الطلبات التي ما زالت في سلسلة الاعتماد الآن — مُرسلة أو بانتظار قرار، ولم تُعتمد أو تُرفض أو تُلغَ بعد."
+              />
+            </CardTitle>
             <Clock className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
@@ -378,7 +407,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Modified Workflows</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Modified Workflows
+              <InfoHint
+                label="Modified Workflows"
+                description="Requests whose approval chain was changed from the standard flow (a step added, removed or reassigned via Modify Workflow). A governance signal — every change is logged."
+                descriptionAr="الطلبات التي عُدّلت سلسلة اعتمادها عن المسار القياسي (بإضافة خطوة أو حذفها أو إعادة تعيينها). مؤشر حوكمة — ويُسجَّل كل تغيير."
+              />
+            </CardTitle>
             <Settings2 className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -397,6 +433,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-amber-600" />
               Workflow Modifications
+              <InfoHint
+                label="Workflow Modifications"
+                description="The most recent times an approver changed a request's approval chain (Modify Workflow) — who changed it and when. Every change is logged for audit."
+                descriptionAr="أحدث الحالات التي غيّر فيها معتمِد سلسلة اعتماد طلب (تعديل سير العمل) — من غيّرها ومتى. يُسجَّل كل تغيير للتدقيق."
+              />
             </CardTitle>
             <CardDescription>Recent workflow changes by approvers</CardDescription>
           </CardHeader>
@@ -446,6 +487,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2">
               <PieChartIcon className="h-5 w-5" />
               Permit Status Distribution
+              <InfoHint
+                label="Permit Status Distribution"
+                description="How all requests in this period break down by current status (approved, pending, rejected, cancelled, etc.)."
+                descriptionAr="كيفية توزّع جميع الطلبات خلال الفترة حسب حالتها الحالية (معتمد، قيد الانتظار، مرفوض، ملغى، إلخ)."
+              />
             </CardTitle>
             <CardDescription>Current status breakdown of all permits</CardDescription>
           </CardHeader>
@@ -486,6 +532,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
               Permits by Work Type
+              <InfoHint
+                label="Permits by Work Type"
+                description="The top 5 work types by number of requests in this period — the most common kinds of work being requested."
+                descriptionAr="أكثر 5 أنواع عمل من حيث عدد الطلبات خلال الفترة — أكثر أنواع الأعمال المطلوبة شيوعاً."
+              />
             </CardTitle>
             <CardDescription>Top 5 work types by volume</CardDescription>
           </CardHeader>
@@ -518,6 +569,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
               Daily Permit Activity
+              <InfoHint
+                label="Daily Permit Activity"
+                description="Requests submitted vs. completed on each day this month — shows the daily workload and how well it is being cleared."
+                descriptionAr="الطلبات المُرسلة مقابل المكتملة في كل يوم من هذا الشهر — يوضّح حجم العمل اليومي ومدى إنجازه."
+              />
             </CardTitle>
             <CardDescription>Submitted vs completed this month</CardDescription>
           </CardHeader>
@@ -561,6 +617,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2">
               <Timer className="h-5 w-5" />
               Avg. Approval Time by Role
+              <InfoHint
+                label="Avg. Approval Time by Role"
+                description="Average hours each approval role takes to act once a request reaches its step. Highlights where the chain slows down."
+                descriptionAr="متوسط الساعات التي يستغرقها كل دور اعتماد للتصرّف بعد وصول الطلب إلى خطوته. يُبرز أين تتباطأ السلسلة."
+              />
             </CardTitle>
             <CardDescription>Hours taken for each approval step</CardDescription>
           </CardHeader>
@@ -593,6 +654,11 @@ export default function Reports() {
             <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               SLA Breached Permits
+              <InfoHint
+                label="SLA Breached Permits"
+                description="Requests that passed their SLA deadline before being fully approved — the cases that missed their target time and may need follow-up."
+                descriptionAr="الطلبات التي تجاوزت موعدها المحدد قبل اعتمادها بالكامل — الحالات التي فاتها الوقت المستهدف وقد تحتاج إلى متابعة."
+              />
             </CardTitle>
             <CardDescription>Permits that exceeded their SLA deadline</CardDescription>
           </CardHeader>

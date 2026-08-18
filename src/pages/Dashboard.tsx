@@ -195,6 +195,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={FileText}
           variant="primary"
           href="/permits"
+          info={{ description: 'All work permit requests you can see, across every status.', descriptionAr: 'جميع طلبات تصاريح العمل التي يمكنك رؤيتها بمختلف حالاتها.' }}
         />
         <StatsCard
           title="Draft"
@@ -202,6 +203,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={FileEdit}
           variant="default"
           href="/permits?status=draft"
+          info={{ description: 'Saved but not yet submitted for approval.', descriptionAr: 'محفوظة ولم تُرسل للاعتماد بعد.' }}
         />
         <StatsCard
           title="Pending"
@@ -209,6 +211,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={Clock}
           variant="warning"
           href="/permits?status=pending"
+          info={{ description: 'Submitted and still moving through the approval chain — not yet approved, rejected or cancelled.', descriptionAr: 'مُرسلة وما زالت في سلسلة الاعتماد — لم تُعتمد أو تُرفض أو تُلغَ بعد.' }}
         />
         <StatsCard
           title="Approved"
@@ -216,6 +219,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={CheckCircle}
           variant="success"
           href="/permits?status=approved"
+          info={{ description: 'Fully approved by the whole chain and valid.', descriptionAr: 'معتمدة بالكامل من جميع المعتمِدين وسارية.' }}
         />
         <StatsCard
           title="Rejected"
@@ -223,6 +227,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={XCircle}
           variant="destructive"
           href="/permits?status=rejected"
+          info={{ description: 'Rejected by an approver — not valid. The reason is in the approver\'s comments.', descriptionAr: 'مرفوضة من أحد المعتمِدين — غير سارية. السبب في ملاحظات المعتمِد.' }}
         />
         <StatsCard
           title="Closed"
@@ -230,6 +235,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={Archive}
           variant="default"
           href="/permits?status=closed"
+          info={{ description: 'Completed and closed after the work was finished.', descriptionAr: 'مكتملة ومغلقة بعد انتهاء العمل.' }}
         />
         <StatsCard
           title="Cancelled"
@@ -237,6 +243,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
           icon={Ban}
           variant="default"
           href="/permits?status=cancelled"
+          info={{ description: 'Cancelled by the requester or an admin before final approval.', descriptionAr: 'مُلغاة من مقدّم الطلب أو المسؤول قبل الاعتماد النهائي.' }}
         />
       </motion.div>
 
@@ -395,12 +402,12 @@ export default function Dashboard({ currentRole }: DashboardProps) {
         <TabsContent value="gate-passes" className="space-y-8 mt-6">
           {/* GP Stats Grid */}
           <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatsCard title="Total Gate Passes" value={gpStats.total} icon={FileText} variant="primary" href="/gate-passes" />
-            <StatsCard title="Draft" value={gpStats.draft} icon={FileEdit} variant="default" href="/gate-passes" />
-            <StatsCard title="Pending" value={gpStats.pending} icon={Clock} variant="warning" href="/gate-passes/approvals" />
-            <StatsCard title="Approved" value={gpStats.approved} icon={CheckCircle} variant="success" href="/gate-passes" />
-            <StatsCard title="Rejected" value={gpStats.rejected} icon={XCircle} variant="destructive" href="/gate-passes" />
-            <StatsCard title="Completed" value={gpStats.completed} icon={Archive} variant="default" href="/gate-passes" />
+            <StatsCard title="Total Gate Passes" value={gpStats.total} icon={FileText} variant="primary" href="/gate-passes" info={{ description: 'All gate pass requests you can see, across every status.', descriptionAr: 'جميع طلبات تصاريح الدخول التي يمكنك رؤيتها بمختلف حالاتها.' }} />
+            <StatsCard title="Draft" value={gpStats.draft} icon={FileEdit} variant="default" href="/gate-passes" info={{ description: 'Saved but not yet submitted for approval.', descriptionAr: 'محفوظة ولم تُرسل للاعتماد بعد.' }} />
+            <StatsCard title="Pending" value={gpStats.pending} icon={Clock} variant="warning" href="/gate-passes/approvals" info={{ description: 'Submitted and still moving through the approval chain.', descriptionAr: 'مُرسلة وما زالت في سلسلة الاعتماد.' }} />
+            <StatsCard title="Approved" value={gpStats.approved} icon={CheckCircle} variant="success" href="/gate-passes" info={{ description: 'Fully approved and valid.', descriptionAr: 'معتمدة بالكامل وسارية.' }} />
+            <StatsCard title="Rejected" value={gpStats.rejected} icon={XCircle} variant="destructive" href="/gate-passes" info={{ description: 'Rejected by an approver — not valid.', descriptionAr: 'مرفوضة من أحد المعتمِدين — غير سارية.' }} />
+            <StatsCard title="Completed" value={gpStats.completed} icon={Archive} variant="default" href="/gate-passes" info={{ description: 'Closed after the material movement was finished.', descriptionAr: 'مغلقة بعد انتهاء حركة المواد.' }} />
           </motion.div>
 
           {/* GP Main Content Grid */}
