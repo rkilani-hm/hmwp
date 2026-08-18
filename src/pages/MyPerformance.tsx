@@ -7,6 +7,7 @@ import { useMyPerformanceDrilldown } from '@/hooks/usePerformanceDrilldown';
 import { PerformanceDrilldown } from '@/components/performance/PerformanceDrilldown';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatsCard } from '@/components/ui/StatsCard';
+import { InfoHint } from '@/components/ui/InfoHint';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -179,30 +180,61 @@ export default function MyPerformance() {
           value={metrics.totalDecisions}
           icon={ClipboardList}
           variant="primary"
+          info={{
+            description:
+              'How many requests you approved or rejected in this period.',
+            descriptionAr:
+              'عدد الطلبات التي اعتمدتها أو رفضتها خلال الفترة.',
+          }}
         />
         <StatsCard
           title="Approval Rate"
           value={`${metrics.approvalRate}%`}
           icon={CheckCircle}
           variant={metrics.approvalRate >= 80 ? 'success' : metrics.approvalRate >= 60 ? 'warning' : 'destructive'}
+          info={{
+            description:
+              'The share of your decisions that were approvals (approved ÷ total decisions). The rest were rejections.',
+            descriptionAr:
+              'نسبة قراراتك التي كانت اعتماداً (المعتمدة ÷ إجمالي القرارات). والباقي رفض.',
+          }}
         />
         <StatsCard
           title="Avg Response Time"
           value={responseTimeDisplay}
           icon={Timer}
           variant="primary"
+          info={{
+            title: 'Average Response Time',
+            description:
+              'Your average time from when a request reaches your step (lands in your inbox) until you decide on it — measures only your part, not the whole permit.',
+            descriptionAr:
+              'متوسط الوقت من وصول الطلب إلى خطوتك (ظهوره في صندوقك) حتى اتخاذك القرار — يقيس دورك فقط وليس التصريح كاملاً.',
+          }}
         />
         <StatsCard
           title="Workflow Mods"
           value={myWorkflowMods?.length || 0}
           icon={Settings2}
           variant="default"
+          info={{
+            description:
+              'How many times you changed a request\'s approval chain (Modify Workflow). Every change is logged for audit.',
+            descriptionAr:
+              'عدد المرات التي عدّلت فيها سلسلة اعتماد طلب (تعديل سير العمل). يُسجَّل كل تغيير للتدقيق.',
+          }}
         />
         <StatsCard
           title="SLA Compliance"
           value={`${metrics.slaCompliance}%`}
           icon={Target}
           variant={metrics.slaCompliance >= 90 ? 'success' : metrics.slaCompliance >= 70 ? 'warning' : 'destructive'}
+          info={{
+            description:
+              'The share of your decisions made on or before the request\'s SLA deadline. Higher means you act within target time.',
+            descriptionAr:
+              'نسبة قراراتك التي اتُّخذت في موعد الطلب المحدد أو قبله. كلما ارتفعت دلّ ذلك على التزامك بالوقت المستهدف.',
+          }}
         />
       </motion.div>
 
@@ -237,6 +269,11 @@ export default function MyPerformance() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <Activity className="w-5 h-5 text-accent" />
               Decision Distribution
+              <InfoHint
+                label="Decision Distribution"
+                description="How your decisions in this period split between approvals and rejections."
+                descriptionAr="كيفية توزّع قراراتك خلال الفترة بين الاعتماد والرفض."
+              />
             </CardTitle>
             <CardDescription>Breakdown of your approval decisions</CardDescription>
           </CardHeader>
@@ -284,6 +321,11 @@ export default function MyPerformance() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
               SLA Performance
+              <InfoHint
+                label="SLA Performance"
+                description="Your share of decisions made on or before each request's SLA deadline, and the on-time vs. late split."
+                descriptionAr="نسبة قراراتك التي اتُّخذت في موعد كل طلب المحدد أو قبله، والتقسيم بين الملتزمة والمتأخرة."
+              />
             </CardTitle>
             <CardDescription>Your compliance with SLA deadlines</CardDescription>
           </CardHeader>

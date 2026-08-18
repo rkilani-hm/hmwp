@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/ui/StatsCard';
+import { InfoHint } from '@/components/ui/InfoHint';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -266,30 +267,60 @@ export default function ApproverPerformance() {
           value={approvers.length}
           icon={Users}
           variant="primary"
+          info={{
+            description:
+              'Number of approvers included in the current view (after any role filter). Each may sit on one or more approval steps.',
+            descriptionAr:
+              'عدد المعتمِدين في العرض الحالي (بعد أي تصفية حسب الدور). قد يشارك كل منهم في خطوة اعتماد واحدة أو أكثر.',
+          }}
         />
         <StatsCard
           title="Total Decisions"
           value={totalDecisions}
           icon={CheckCircle}
           variant="success"
+          info={{
+            description:
+              'Total approve or reject actions taken by these approvers in this period. One request passes through several approvers, so this is usually higher than the number of requests.',
+            descriptionAr:
+              'إجمالي إجراءات الاعتماد أو الرفض التي قام بها المعتمِدون خلال الفترة. يمر كل طلب على عدة معتمِدين، لذا يكون هذا الرقم عادةً أعلى من عدد الطلبات.',
+          }}
         />
         <StatsCard
           title="Pending Items"
           value={totalPending}
           icon={AlertTriangle}
           variant={totalPending > 10 ? 'warning' : 'primary'}
+          info={{
+            description:
+              'Requests currently waiting for a decision from these approvers right now. A live snapshot, not limited to the selected date range.',
+            descriptionAr:
+              'طلبات بانتظار قرار من هؤلاء المعتمِدين الآن. لقطة لحظية ولا تتقيّد بالفترة الزمنية المحددة.',
+          }}
         />
         <StatsCard
           title="Avg SLA Compliance"
           value={`${avgSlaCompliance}%`}
           icon={Target}
           variant={avgSlaCompliance >= 90 ? 'success' : avgSlaCompliance >= 70 ? 'warning' : 'destructive'}
+          info={{
+            description:
+              'Average across approvers of the share of their decisions made on or before the request\'s SLA deadline. Higher means approvers act within target time.',
+            descriptionAr:
+              'متوسط نسبة القرارات التي اتخذها كل معتمِد في موعدها المحدد أو قبله. كلما ارتفعت دلّ ذلك على التزام المعتمِدين بالوقت المستهدف.',
+          }}
         />
         <StatsCard
           title="Workflow Mods"
           value={totalWorkflowMods}
           icon={Settings2}
           variant="default"
+          info={{
+            description:
+              'How many times an approver changed a request\'s approval chain (Modify Workflow) — adding, removing or reassigning a step. A governance signal; every change is logged.',
+            descriptionAr:
+              'عدد المرات التي عدّل فيها معتمِد سلسلة اعتماد طلب (تعديل سير العمل) — بإضافة خطوة أو حذفها أو إعادة تعيينها. مؤشر حوكمة، ويُسجَّل كل تغيير.',
+          }}
         />
       </motion.div>
 
@@ -306,6 +337,11 @@ export default function ApproverPerformance() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <Award className="w-5 h-5 text-warning" />
               Top Performers by Decisions
+              <InfoHint
+                label="Top Performers by Decisions"
+                description="Approvers ranked by how many requests they approved or rejected in this period. More decisions usually means a busier role in the chain, not necessarily better performance."
+                descriptionAr="ترتيب المعتمِدين حسب عدد الطلبات التي اعتمدوها أو رفضوها خلال الفترة. كثرة القرارات تعني عادةً دوراً أكثر انشغالاً في السلسلة وليست بالضرورة أداءً أفضل."
+              />
             </CardTitle>
             <CardDescription>Approvers with most decisions made</CardDescription>
           </CardHeader>
@@ -346,6 +382,11 @@ export default function ApproverPerformance() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
               Decisions by Role
+              <InfoHint
+                label="Decisions by Role"
+                description="How the total approve/reject decisions are spread across the approval roles — which roles carry the most review load."
+                descriptionAr="كيفية توزّع إجمالي قرارات الاعتماد والرفض على أدوار الاعتماد — أي الأدوار تتحمّل العبء الأكبر في المراجعة."
+              />
             </CardTitle>
             <CardDescription>Distribution of decisions across roles</CardDescription>
           </CardHeader>
@@ -388,6 +429,11 @@ export default function ApproverPerformance() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
               SLA Compliance by Approver
+              <InfoHint
+                label="SLA Compliance by Approver"
+                description="Each approver's share of decisions made on or before the request's SLA deadline. Bars in red flag approvers below target — where delays tend to build up."
+                descriptionAr="نسبة القرارات التي اتخذها كل معتمِد في موعدها المحدد أو قبله. الأعمدة الحمراء تشير إلى المعتمِدين دون المستوى المستهدف — حيث تتراكم التأخيرات عادةً."
+              />
             </CardTitle>
             <CardDescription>Approvers with SLA breaches highlighted in red</CardDescription>
           </CardHeader>

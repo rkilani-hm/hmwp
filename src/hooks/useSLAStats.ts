@@ -4,6 +4,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 import { parseISO, isPast, differenceInHours, differenceInMinutes, startOfDay, subDays, format } from 'date-fns';
 
+// A permit is "active" (still moving through the approval chain) when its status
+// is NOT one of these terminal states. This is defined by exclusion on purpose:
+// the workflow generates dynamic, role-based statuses (e.g.
+// `pending_head_of_fit_out_unit`) that a hard-coded `pending_*` allow-list could
+// never keep up with — the previous allow-list silently dropped every current
+// in-flight permit, leaving Breached / At Risk / the SLA-status chart stuck at
+// zero even when a permit was past its deadline.
+const TERMINAL_STATUSES = ['approved', 'closed', 'rejected', 'cancelled', 'draft'];
+const COMPLETED_STATUSES = ['approved', 'closed'];
+const isActiveStatus = (s: string) => !TERMINAL_STATUSES.includes(s);
+
 export interface SLAMetrics {
   totalPermits: number;
   breachedPermits: number;
@@ -104,12 +115,9 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
     let totalResolutionHours = 0;
     let completedCount = 0;
 
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
-    const completedStatuses = ['approved', 'closed'];
-
     permits.forEach((permit) => {
-      const isActive = activeStatuses.includes(permit.status);
-      const isCompleted = completedStatuses.includes(permit.status);
+      const isActive = isActiveStatus(permit.status);
+      const isCompleted = COMPLETED_STATUSES.includes(permit.status);
 
       if (permit.sla_deadline) {
         const deadline = parseISO(permit.sla_deadline);
@@ -174,12 +182,11 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
     if (!permits) return [];
 
     const now = new Date();
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
     return permits
       .filter((permit) => {
         if (!permit.sla_deadline) return false;
-        if (!activeStatuses.includes(permit.status)) return false;
+        if (!isActiveStatus(permit.status)) return false;
         return isPast(parseISO(permit.sla_deadline));
       })
       .map((permit) => ({
@@ -200,12 +207,11 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
     if (!permits) return [];
 
     const now = new Date();
-    const activeStatuses = ['submitted', 'under_review', 'pending_pm', 'pending_pd', 'pending_bdcr', 'pending_mpr', 'pending_it', 'pending_fitout', 'pending_ecovert_supervisor', 'pending_pmd_coordinator'];
 
     return permits
       .filter((permit) => {
         if (!permit.sla_deadline) return false;
-        if (!activeStatuses.includes(permit.status)) return false;
+        if (!isActiveStatus(permit.status)) return false;
         const deadline = parseISO(permit.sla_deadline);
         if (isPast(deadline)) return false;
         const hoursRemaining = differenceInHours(deadline, now);

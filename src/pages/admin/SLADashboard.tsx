@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSLAStats } from '@/hooks/useSLAStats';
 import { StatsCard } from '@/components/ui/StatsCard';
+import { InfoHint } from '@/components/ui/InfoHint';
 import { DateRangePresets, presetToRange, type DateRange, type DateRangePreset } from '@/components/ui/DateRangePresets';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -155,24 +156,49 @@ export default function SLADashboard() {
           value={`${metrics.slaComplianceRate}%`}
           icon={CheckCircle}
           variant={metrics.slaComplianceRate >= 90 ? 'success' : metrics.slaComplianceRate >= 70 ? 'warning' : 'destructive'}
+          info={{
+            description:
+              'Of the requests that finished (approved or closed) in this period, the share that reached final approval on or before their SLA deadline. Higher is better.',
+            descriptionAr:
+              'من الطلبات المكتملة (معتمدة أو مغلقة) خلال الفترة، نسبة التي وصلت للاعتماد النهائي في موعدها المحدد أو قبله. كلما ارتفعت كان أفضل.',
+          }}
         />
         <StatsCard
           title="Breached"
           value={metrics.breachedPermits}
           icon={XCircle}
           variant="destructive"
+          info={{
+            description:
+              'Requests still in the approval chain whose SLA deadline has already passed — waiting on an approver right now. Needs action.',
+            descriptionAr:
+              'طلبات ما زالت في سلسلة الاعتماد وتجاوزت الموعد المحدد لها — بانتظار أحد المعتمِدين الآن. تحتاج إلى إجراء.',
+          }}
         />
         <StatsCard
           title="At Risk"
           value={metrics.atRiskPermits}
           icon={AlertTriangle}
           variant="warning"
+          info={{
+            description:
+              'Requests still in the approval chain with 2 hours or less left before their SLA deadline. Not breached yet — act soon.',
+            descriptionAr:
+              'طلبات ما زالت في سلسلة الاعتماد وتبقّى لها ساعتان أو أقل قبل الموعد المحدد. لم تتجاوزه بعد — تصرّف قريباً.',
+          }}
         />
         <StatsCard
           title="Avg. Resolution"
           value={`${metrics.averageResolutionHours}h`}
           icon={Timer}
           variant="primary"
+          info={{
+            title: 'Average Resolution Time',
+            description:
+              'Average time from when a request is submitted until it is fully approved (or closed), across completed requests in this period. It measures the whole approval cycle, not a single step.',
+            descriptionAr:
+              'متوسط الوقت من لحظة إرسال الطلب حتى اعتماده بالكامل (أو إغلاقه)، لكل الطلبات المكتملة خلال الفترة. يقيس دورة الاعتماد كاملة وليس خطوة واحدة.',
+          }}
         />
       </motion.div>
 
@@ -184,6 +210,11 @@ export default function SLADashboard() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <Activity className="w-5 h-5 text-accent" />
               7-Day Trend
+              <InfoHint
+                label="7-Day Trend"
+                description="New requests submitted vs. requests completed (approved or closed) on each of the last 7 days."
+                descriptionAr="الطلبات الجديدة المُرسلة مقابل الطلبات المكتملة (المعتمدة أو المغلقة) في كل يوم من آخر 7 أيام."
+              />
             </CardTitle>
             <CardDescription>Permit activity over the last week</CardDescription>
           </CardHeader>
@@ -240,6 +271,11 @@ export default function SLADashboard() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <Clock className="w-5 h-5 text-accent" />
               Active Permits SLA Status
+              <InfoHint
+                label="Active Permits SLA Status"
+                description="Requests still in the approval chain, split by SLA state: On Track, At Risk (2 hours or less to the deadline), or Breached (past the deadline)."
+                descriptionAr="الطلبات التي ما زالت في سلسلة الاعتماد، مقسّمة حسب حالة الاستجابة: ضمن المدة، أو قريبة من التجاوز (ساعتان أو أقل)، أو متجاوزة للموعد."
+              />
             </CardTitle>
             <CardDescription>Current status of pending permits</CardDescription>
           </CardHeader>
@@ -290,6 +326,11 @@ export default function SLADashboard() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <Zap className="w-5 h-5 text-warning" />
               Urgency Distribution
+              <InfoHint
+                label="Urgency Distribution"
+                description="All requests split by priority. Urgent requests carry a tighter SLA per step (4 hours) than Normal ones (48 hours)."
+                descriptionAr="جميع الطلبات مقسّمة حسب الأولوية. الطلبات العاجلة لها مدة استجابة أقصر لكل خطوة (4 ساعات) مقارنة بالعادية (48 ساعة)."
+              />
             </CardTitle>
             <CardDescription>Breakdown by priority level</CardDescription>
           </CardHeader>
@@ -330,6 +371,11 @@ export default function SLADashboard() {
             <CardTitle className="text-lg font-display flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
               Completion Performance
+              <InfoHint
+                label="Completion Performance"
+                description="For requests that finished: the share met on or before the SLA deadline, the on-time vs. late split, and the average time from submission to full approval."
+                descriptionAr="للطلبات المكتملة: نسبة التي أُنجزت في موعدها أو قبله، والتقسيم بين الملتزمة والمتأخرة، ومتوسط الوقت من الإرسال حتى الاعتماد الكامل."
+              />
             </CardTitle>
             <CardDescription>SLA compliance for completed permits</CardDescription>
           </CardHeader>
