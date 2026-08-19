@@ -85,7 +85,30 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
 
       const { data, error } = await q;
       if (error) throw error;
-      return data;
+
+      // True completion time = the LAST approval recorded on the permit
+      // (max approved_at), not updated_at. updated_at gets bumped by later row
+      // touches (PDF regeneration, amendments, archiving), which overstated the
+      // resolution time and understated SLA compliance. We resolve the real
+      // final-approval timestamp from permit_approvals here.
+      const ids = (data ?? []).map((p) => p.id);
+      const finalApproved = new Map<string, string>();
+      if (ids.length) {
+        const { data: appr } = await supabase
+          .from('permit_approvals')
+          .select('permit_id, approved_at')
+          .eq('status', 'approved')
+          .in('permit_id', ids);
+        for (const a of appr ?? []) {
+          if (!a.approved_at) continue;
+          const prev = finalApproved.get(a.permit_id);
+          if (!prev || a.approved_at > prev) finalApproved.set(a.permit_id, a.approved_at);
+        }
+      }
+      return (data ?? []).map((p) => ({
+        ...p,
+        final_approved_at: finalApproved.get(p.id) ?? null,
+      }));
     },
     enabled: !!user,
   });
@@ -136,7 +159,11 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         }
 
         if (isCompleted) {
-          const completedAt = parseISO(permit.updated_at);
+          // Prefer the real final-approval time; fall back to updated_at only
+          // when a permit has no recorded approvals (legacy data).
+          const completedAt = parseISO(
+            (permit as any).final_approved_at ?? permit.updated_at,
+          );
           // Use fractional hours so short resolutions (<1h) don't round to 0
           const resolutionHours =
             (completedAt.getTime() - parseISO(permit.created_at).getTime()) / 3_600_000;
@@ -253,8 +280,9 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
 
       const completed = permits.filter((p) => {
         if (!['approved', 'closed'].includes(p.status)) return false;
-        const updatedDate = format(parseISO(p.updated_at), 'yyyy-MM-dd');
-        return updatedDate === dateStr;
+        const doneAt = (p as any).final_approved_at ?? p.updated_at;
+        const doneDate = format(parseISO(doneAt), 'yyyy-MM-dd');
+        return doneDate === dateStr;
       });
 
       const breached = dayPermits.filter((p) => p.sla_breached);
