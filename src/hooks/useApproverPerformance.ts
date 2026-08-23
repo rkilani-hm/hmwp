@@ -167,6 +167,29 @@ function isoOrNull(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;
 }
 
+const APPROVAL_SELECT =
+  'permit_id, role_name, status, approver_user_id, approver_email, approved_at, created_at, work_permits!inner(sla_deadline)';
+
+// Supabase/PostgREST returns at most ~1000 rows per request, which capped
+// Total Decisions at 1000 even though more exist. Page through the full set so
+// the metrics reflect every decision made.
+async function fetchApprovalsPaged(
+  applyFilter: (q: any) => any,
+): Promise<ApprovalRow[]> {
+  const PAGE = 1000;
+  const all: ApprovalRow[] = [];
+  for (let offset = 0; offset < 10_000_000; offset += PAGE) {
+    const { data, error } = await applyFilter(
+      supabase.from('permit_approvals').select(APPROVAL_SELECT),
+    ).range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    const rows = (data as unknown as ApprovalRow[]) ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return all;
+}
+
 function filterApprovalsByDate(
   approvals: ApprovalRow[],
   from: Date | null | undefined,
@@ -207,14 +230,9 @@ export function useMyPerformance(filters: PerformanceFilters = {}) {
 
       if (!role) return null;
 
-      const { data: approvals, error } = await supabase
-        .from('permit_approvals')
-        .select(
-          'permit_id, role_name, status, approver_user_id, approver_email, approved_at, created_at, work_permits!inner(sla_deadline)'
-        )
-        .eq('approver_user_id', user.id);
-
-      if (error) throw error;
+      const approvals = await fetchApprovalsPaged((q) =>
+        q.eq('approver_user_id', user.id),
+      );
 
       const pendingByRole = await fetchPendingCountsByRole([role]);
 
@@ -278,13 +296,9 @@ export function useAllApproversPerformance(filters: PerformanceFilters = {}) {
         .select('id, full_name, email')
         .in('id', userIds);
 
-      const { data: approvals, error: aErr } = await supabase
-        .from('permit_approvals')
-        .select(
-          'permit_id, role_name, status, approver_user_id, approver_email, approved_at, created_at, work_permits!inner(sla_deadline)'
-        )
-        .in('approver_user_id', userIds);
-      if (aErr) throw aErr;
+      const approvals = await fetchApprovalsPaged((q) =>
+        q.in('approver_user_id', userIds),
+      );
 
       const pendingByRole = await fetchPendingCountsByRole(approverRoleNames);
       const allApprovals = filterApprovalsByDate(
