@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 import { exportRowsToCsv } from '@/utils/csvExport';
 import { DateRangePresets, presetToRange, type DateRange, type DateRangePreset } from '@/components/ui/DateRangePresets';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
+import { useSLAStats } from '@/hooks/useSLAStats';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +47,12 @@ export default function Reports() {
   const { data: allPermits, isLoading } = useWorkPermits();
   const [preset, setPreset] = useState<DateRangePreset>('all');
   const [range, setRange] = useState<DateRange>(presetToRange('all'));
+
+  // SLA figures come from the SAME live source as the SLA Dashboard so the two
+  // always agree. The previous stored `sla_breached` flag (populated by a
+  // background job that may not have run) read 0 breaches / 100% compliance even
+  // when permits had breached. useSLAStats computes breaches live.
+  const { metrics: slaMetrics } = useSLAStats({ dateFrom: range.from, dateTo: range.to });
 
   // Filter permits by created_at within selected range. When no range
   // is set, fall through to the unfiltered list.
@@ -115,7 +122,9 @@ export default function Reports() {
     const approved = permits.filter(p => p.status === 'approved').length;
     const rejected = permits.filter(p => p.status === 'rejected').length;
     const closed = permits.filter(p => p.status === 'closed').length;
-    const slaBreached = permits.filter(p => p.sla_breached).length;
+    // Live breach total (active past deadline + completed late), from useSLAStats
+    // — not the stale stored sla_breached flag which read 0.
+    const slaBreached = slaMetrics.breachedPermits + slaMetrics.completedLate;
     const urgent = permits.filter(p => p.urgency === 'urgent').length;
     const workflowModified = permits.filter(p => p.workflow_customized).length;
 
@@ -150,10 +159,9 @@ export default function Reports() {
 
     const avgApprovalTime = approvalCount > 0 ? Math.round(totalApprovalHours / approvalCount) : 0;
 
-    // SLA compliance rate
-    const slaComplianceRate = permits.length > 0 
-      ? Math.round(((permits.length - slaBreached) / permits.length) * 100) 
-      : 100;
+    // SLA compliance from the same live source as the SLA Dashboard (share of
+    // completed permits approved on or before their deadline).
+    const slaComplianceRate = slaMetrics.slaComplianceRate;
 
     // Status distribution for pie chart
     const statusData = [
@@ -252,7 +260,7 @@ export default function Reports() {
       approvalTimeByRole,
       workflowModificationsByType,
     };
-  }, [permits, workflowAuditData, approvalsData]);
+  }, [permits, workflowAuditData, approvalsData, slaMetrics]);
 
   if (isLoading) {
     return (
