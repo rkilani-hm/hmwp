@@ -1382,6 +1382,7 @@ export type Database = {
           full_name: string | null
           id: string
           initials_data: string | null
+          invitation_sent_at: string | null
           is_active: boolean | null
           is_vip: boolean
           phone: string | null
@@ -1408,6 +1409,7 @@ export type Database = {
           full_name?: string | null
           id: string
           initials_data?: string | null
+          invitation_sent_at?: string | null
           is_active?: boolean | null
           is_vip?: boolean
           phone?: string | null
@@ -1434,6 +1436,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           initials_data?: string | null
+          invitation_sent_at?: string | null
           is_active?: boolean | null
           is_vip?: boolean
           phone?: string | null
@@ -3158,6 +3161,16 @@ export type Database = {
           request_category: string
           work_type_id: string
           work_type_name: string
+        }[]
+      }
+      get_user_activation_status: {
+        Args: never
+        Returns: {
+          activated: boolean
+          id: string
+          invitation_sent_at: string
+          invite_expired: boolean
+          last_sign_in_at: string
         }[]
       }
       get_user_department: { Args: { p_user: string }; Returns: string }
