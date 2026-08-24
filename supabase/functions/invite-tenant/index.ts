@@ -140,7 +140,8 @@ serve(async (req) => {
     }
 
     // Stamp when the (fresh) invite went out, so the admin UI can show whether it
-    // has since expired (72h window) and offer a resend.
+    // has since expired (24h window — Supabase's max email link lifetime) and
+    // offer a resend.
     await admin.from("profiles").update({ invitation_sent_at: new Date().toISOString() }).eq("id", userId);
 
     return json({ success: true, userId, email, resent: !!resend });

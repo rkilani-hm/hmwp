@@ -34,7 +34,7 @@ export function useUserActivation() {
 
 /**
  * Resend a tenant's invitation: the invite-tenant function issues a fresh
- * recovery link (valid 72h) and re-emails it, then stamps invitation_sent_at.
+ * recovery link (valid 24h) and re-emails it, then stamps invitation_sent_at.
  */
 export function useResendInvite() {
   const qc = useQueryClient();
@@ -48,7 +48,7 @@ export function useResendInvite() {
       return data;
     },
     onSuccess: () => {
-      toast.success('Invitation resent — a fresh link (valid 72 hours) has been emailed.');
+      toast.success('Invitation resent — a fresh link (valid 24 hours) has been emailed.');
       qc.invalidateQueries({ queryKey: ['user-activation'] });
     },
     onError: (e: any) => toast.error('Failed to resend invitation: ' + (e?.message || 'unknown error')),

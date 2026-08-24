@@ -394,7 +394,7 @@ export default function ApproversManagement() {
                             size="sm"
                             onClick={() => resendInvite.mutate(user.email)}
                             disabled={resendInvite.isPending}
-                            title="Resend invitation — emails a fresh link valid for 72 hours"
+                            title="Resend invitation — emails a fresh link valid for 24 hours"
                             className="text-primary hover:text-primary hover:bg-primary/10"
                           >
                             {resendInvite.isPending && resendInvite.variables === user.email
