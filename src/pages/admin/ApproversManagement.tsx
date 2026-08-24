@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase } from 'lucide-react';
+import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase, Send, CheckCircle2, Clock } from 'lucide-react';
+import { useUserActivation, useResendInvite } from '@/hooks/useUserActivation';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { InviteTenantDialog } from '@/components/admin/InviteTenantDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
@@ -42,6 +43,8 @@ export default function ApproversManagement() {
   const resetPassword = useResetUserPassword();
   const syncProfiles = useSyncUserProfiles();
   const deleteUser = useDeleteUser();
+  const { data: activation } = useUserActivation();
+  const resendInvite = useResendInvite();
 
   // Create a map of role name -> label from the roles table
   const roleLabelsMap = roles?.reduce((acc, role) => {
@@ -277,6 +280,26 @@ export default function ApproversManagement() {
                         )}
                         <p className="font-medium">{user.full_name || '-'}</p>
                       </div>
+                      {(() => {
+                        const act = activation?.[user.id];
+                        if (!act) return null;
+                        if (act.activated) {
+                          return (
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-success">
+                              <CheckCircle2 className="h-3 w-3" /> Activated
+                            </span>
+                          );
+                        }
+                        return act.invite_expired ? (
+                          <span className="mt-1 inline-flex items-center gap-1 text-xs text-destructive font-medium">
+                            <Clock className="h-3 w-3" /> Invite expired
+                          </span>
+                        ) : (
+                          <span className="mt-1 inline-flex items-center gap-1 text-xs text-warning">
+                            <Clock className="h-3 w-3" /> Pending onboarding
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <p className="text-sm">{user.email}</p>
@@ -364,6 +387,21 @@ export default function ApproversManagement() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
+
+                        {activation?.[user.id] && !activation[user.id].activated && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resendInvite.mutate(user.email)}
+                            disabled={resendInvite.isPending}
+                            title="Resend invitation — emails a fresh link valid for 72 hours"
+                            className="text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            {resendInvite.isPending && resendInvite.variables === user.email
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Send className="h-4 w-4" />}
+                          </Button>
+                        )}
 
                         <Button
                           variant="outline"
