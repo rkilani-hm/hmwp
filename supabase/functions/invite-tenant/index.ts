@@ -24,6 +24,9 @@ const InviteSchema = z.object({
   email: z.string().email("Invalid email").max(255).transform((v) => v.toLowerCase().trim()),
   fullName: z.string().max(120).transform((v) => v.trim()).optional(),
   companyName: z.string().max(120).transform((v) => v.trim()).optional(),
+  // When true, an existing (not-yet-activated) account is re-invited: a fresh
+  // recovery link is generated and re-emailed instead of rejecting as duplicate.
+  resend: z.boolean().optional(),
 });
 
 serve(async (req) => {
@@ -62,43 +65,50 @@ serve(async (req) => {
     if (!parsed.success) {
       return json({ error: parsed.error.errors.map((e) => e.message).join(", ") }, 400);
     }
-    const { email, fullName, companyName } = parsed.data;
+    const { email, fullName, companyName, resend } = parsed.data;
 
-    // Reject if an account already exists for this email.
+    // Existing account for this email?
     const { data: existing } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
-    if (existing) return json({ error: "An account with this email already exists." }, 409);
 
-    // Create the tenant account. admin_created => the trigger lands it as
-    // account_status='approved' (admin-vetted) but assigns no role, so we add
-    // the tenant role explicitly. No password: the tenant sets it via the link.
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName || "",
-        company_name: companyName || "",
-        admin_created: "true",
-        invited_tenant: "true",
-      },
-    });
-    if (createError || !created?.user) {
-      const msg = createError?.message || "Failed to create account";
-      const status = /already|exist|registered/i.test(msg) ? 409 : 400;
-      return json({ error: msg }, status);
-    }
-    const newUserId = created.user.id;
+    let userId: string;
+    if (existing) {
+      // Only proceed when explicitly resending the invite; otherwise this is a
+      // duplicate. Resend reuses the account and just issues a fresh link below.
+      if (!resend) return json({ error: "An account with this email already exists." }, 409);
+      userId = existing.id;
+    } else {
+      // Create the tenant account. admin_created => the trigger lands it as
+      // account_status='approved' (admin-vetted) but assigns no role, so we add
+      // the tenant role explicitly. No password: the tenant sets it via the link.
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName || "",
+          company_name: companyName || "",
+          admin_created: "true",
+          invited_tenant: "true",
+        },
+      });
+      if (createError || !created?.user) {
+        const msg = createError?.message || "Failed to create account";
+        const status = /already|exist|registered/i.test(msg) ? 409 : 400;
+        return json({ error: msg }, status);
+      }
+      userId = created.user.id;
 
-    // Make sure profile carries the provided details (trigger may race metadata).
-    await admin.from("profiles").update({
-      email,
-      full_name: fullName || null,
-      company_name: companyName || null,
-    }).eq("id", newUserId);
+      // Make sure profile carries the provided details (trigger may race metadata).
+      await admin.from("profiles").update({
+        email,
+        full_name: fullName || null,
+        company_name: companyName || null,
+      }).eq("id", userId);
 
-    // Assign the tenant role.
-    const { data: tenantRole } = await admin.from("roles").select("id").eq("name", "tenant").maybeSingle();
-    if (tenantRole?.id) {
-      await admin.from("user_roles").insert({ user_id: newUserId, role_id: tenantRole.id });
+      // Assign the tenant role.
+      const { data: tenantRole } = await admin.from("roles").select("id").eq("name", "tenant").maybeSingle();
+      if (tenantRole?.id) {
+        await admin.from("user_roles").insert({ user_id: userId, role_id: tenantRole.id });
+      }
     }
 
     // Generate the recovery token and build the invite link to our page.
@@ -129,7 +139,11 @@ serve(async (req) => {
       return json({ error: "Account created but the invitation email failed to send." }, 502);
     }
 
-    return json({ success: true, userId: newUserId, email });
+    // Stamp when the (fresh) invite went out, so the admin UI can show whether it
+    // has since expired (72h window) and offer a resend.
+    await admin.from("profiles").update({ invitation_sent_at: new Date().toISOString() }).eq("id", userId);
+
+    return json({ success: true, userId, email, resent: !!resend });
   } catch (error) {
     console.error("invite-tenant error:", error);
     return json({ error: "Internal server error" }, 500);
