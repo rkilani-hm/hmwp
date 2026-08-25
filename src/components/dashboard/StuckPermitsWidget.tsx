@@ -31,10 +31,15 @@ export function StuckPermitsWidget() {
       const twentyFourHoursAgo = new Date();
       twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
+      // "Stuck" = still moving through the workflow but untouched for 24h.
+      // Defined by excluding the terminal statuses rather than a
+      // `status.like.pending_%` filter: the bare `%` in that .or() string
+      // produced a malformed URL the database rejected, and the exclusion form
+      // is also robust to the dynamic pending_<role> statuses.
       const { data, error } = await supabase
         .from('work_permits')
         .select('id, permit_no, status, contractor_name, updated_at, sla_breached, sla_deadline')
-        .or('status.like.pending_%,status.eq.submitted,status.eq.under_review')
+        .not('status', 'in', '(approved,rejected,cancelled,closed,draft,superseded)')
         .lt('updated_at', twentyFourHoursAgo.toISOString())
         .order('updated_at', { ascending: true })
         .limit(5);
