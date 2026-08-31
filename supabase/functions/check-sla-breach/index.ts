@@ -88,7 +88,7 @@ const handler = async (req: Request): Promise<Response> => {
           permit_id: permit.id,
           type: "sla_breach",
           title: "SLA Deadline Exceeded",
-          message: `Your permit ${permit.permit_no} has exceeded its 24-hour SLA deadline.`,
+          message: `Your permit ${permit.permit_no} has exceeded its SLA deadline.`,
         });
       }
 
@@ -99,7 +99,7 @@ const handler = async (req: Request): Promise<Response> => {
           permit_id: permit.id,
           type: "sla_breach",
           title: "SLA Breach Alert",
-          message: `Permit ${permit.permit_no} has breached its 24-hour SLA deadline. Current status: ${permit.status}`,
+          message: `Permit ${permit.permit_no} has breached its SLA deadline. Current status: ${permit.status}`,
         });
       }
 
@@ -108,7 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
         permit_id: permit.id,
         action: "SLA Breached",
         performed_by: "System",
-        details: `Permit exceeded 24-hour SLA deadline`,
+        details: `Permit exceeded its SLA deadline`,
       });
     }
 
