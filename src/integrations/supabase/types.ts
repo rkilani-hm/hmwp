@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1705,6 +1705,92 @@ export type Database = {
           },
         ]
       }
+      sla_holidays: {
+        Row: {
+          holiday_date: string
+          id: string
+          name: string | null
+        }
+        Insert: {
+          holiday_date: string
+          id?: string
+          name?: string | null
+        }
+        Update: {
+          holiday_date?: string
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
+      sla_policies: {
+        Row: {
+          hours: number
+          id: string
+          updated_at: string
+          urgency: string
+          work_type_id: string
+        }
+        Insert: {
+          hours: number
+          id?: string
+          updated_at?: string
+          urgency?: string
+          work_type_id: string
+        }
+        Update: {
+          hours?: number
+          id?: string
+          updated_at?: string
+          urgency?: string
+          work_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_policies_work_type_id_fkey"
+            columns: ["work_type_id"]
+            isOneToOne: false
+            referencedRelation: "work_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_settings: {
+        Row: {
+          business_end: string
+          business_start: string
+          clock_basis: string
+          default_sla_hours: number
+          id: boolean
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+          working_days: number[]
+        }
+        Insert: {
+          business_end?: string
+          business_start?: string
+          clock_basis?: string
+          default_sla_hours?: number
+          id?: boolean
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          working_days?: number[]
+        }
+        Update: {
+          business_end?: string
+          business_start?: string
+          clock_basis?: string
+          default_sla_hours?: number
+          id?: boolean
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          working_days?: number[]
+        }
+        Relationships: []
+      }
       tenant_contractors: {
         Row: {
           contractor_id: string
@@ -3047,6 +3133,25 @@ export type Database = {
         Args: { p_permit_id: string; p_role_id: string }
         Returns: string
       }
+      approver_pending_digest: {
+        Args: never
+        Returns: {
+          approver_id: string
+          contractor_name: string
+          created_at: string
+          email: string
+          full_name: string
+          permit_id: string
+          permit_no: string
+          requester_name: string
+          role_label: string
+          sla_breached: boolean
+          sla_deadline: string
+          status: string
+          urgency: string
+          work_location: string
+        }[]
+      }
       authorize_gate_pass_approval: {
         Args: { p_gate_pass_id: string; p_role_name: string; p_user: string }
         Returns: boolean
@@ -3060,6 +3165,10 @@ export type Database = {
       can_approve_amendment: { Args: { p_user: string }; Returns: boolean }
       can_submit_on_behalf: { Args: { p_user: string }; Returns: boolean }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
+      compute_sla_deadline: {
+        Args: { _from?: string; _urgency: string; _work_type_id: string }
+        Returns: string
+      }
       contractor_overview: {
         Args: never
         Returns: {
