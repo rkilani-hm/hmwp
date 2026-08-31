@@ -92,7 +92,7 @@ export function useRequestAmendment() {
         }
         addedCount = input.files.length;
       }
-      const { error } = await db.from('permit_amendments').insert({
+      const { data: inserted, error } = await db.from('permit_amendments').insert({
         permit_id: input.permitId,
         amendment_type: input.type,
         reason: input.reason || null,
@@ -103,8 +103,19 @@ export function useRequestAmendment() {
         added_id_count: addedCount,
         requested_by: user!.id,
         requested_by_name: profile?.full_name || user?.email || 'Unknown',
-      });
+      }).select('id').single();
       if (error) throw error;
+
+      // Notify the Health & Safety / admin approvers and log the request on the
+      // permit. Best-effort: the amendment is already saved, so a notification
+      // hiccup must not fail the user's submission — it just gets logged.
+      try {
+        await supabase.functions.invoke('notify-amendment-request', {
+          body: { amendmentId: inserted.id },
+        });
+      } catch (e) {
+        console.error('notify-amendment-request failed', e);
+      }
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['permit-amendments', v.permitId] });
