@@ -3133,6 +3133,25 @@ export type Database = {
         Args: { p_permit_id: string; p_role_id: string }
         Returns: string
       }
+      approver_pending_digest: {
+        Args: never
+        Returns: {
+          approver_id: string
+          contractor_name: string
+          created_at: string
+          email: string
+          full_name: string
+          permit_id: string
+          permit_no: string
+          requester_name: string
+          role_label: string
+          sla_breached: boolean
+          sla_deadline: string
+          status: string
+          urgency: string
+          work_location: string
+        }[]
+      }
       authorize_gate_pass_approval: {
         Args: { p_gate_pass_id: string; p_role_name: string; p_user: string }
         Returns: boolean
