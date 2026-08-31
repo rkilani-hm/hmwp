@@ -67,10 +67,10 @@ export function useCreatePermit() {
       }
       const permitNo = rpcPermitNo as string;
 
-      // Fixed 24h SLA for all permits (priority/urgency UI removed).
+      // sla_deadline is set server-side by the set_work_permit_sla_deadline
+      // trigger, which reads the admin SLA configuration (per work-type/urgency
+      // hours + calendar vs business-hours clock). We only pass urgency here.
       const urgency = permitData.urgency || 'normal';
-      const SLA_HOURS = 24;
-      const slaDeadline = new Date(Date.now() + SLA_HOURS * 60 * 60 * 1000).toISOString();
 
       // Upload files first if any.
       // attachmentPaths populates the legacy text[] column on
@@ -248,7 +248,6 @@ export function useCreatePermit() {
           created_on_behalf_by: on_behalf_of ? user?.id : null,
           status: initialStatus as any,
           urgency,
-          sla_deadline: slaDeadline,
           attachments: attachmentPaths,
           contractor_id: contractorId,
         } as any)
@@ -455,11 +454,8 @@ export function useUpdateAndResubmitPermit() {
       const basePermitNo = currentPermit.permit_no.replace(/[_-]V\d+$/, '');
       const newPermitNo = `${basePermitNo}_V${newVersion}`;
 
-      // Calculate new SLA deadline
-      // Fixed 24h SLA for all permits (rework version).
-      const slaHours = 24;
-      const slaDeadline = new Date();
-      slaDeadline.setHours(slaDeadline.getHours() + slaHours);
+      // sla_deadline for the new (rework) version is set server-side by the
+      // set_work_permit_sla_deadline trigger from the admin SLA configuration.
 
       // Get the first workflow step dynamically based on work type
       const firstStep = await getFirstWorkflowStep(updates.work_type_id);
@@ -510,7 +506,6 @@ export function useUpdateAndResubmitPermit() {
 
           // Fresh workflow state
           status: initialStatus as any,
-          sla_deadline: slaDeadline.toISOString(),
           sla_breached: false,
 
           // Reset all approval fields

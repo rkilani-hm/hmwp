@@ -168,9 +168,9 @@ serve(async (req) => {
   const permitNo = rpcPermitNo as string;
 
   const urgency = payload.urgency === "urgent" ? "urgent" : "normal";
-  const hoursToAdd = urgency === "urgent" ? 4 : 48;
-  const slaDeadline = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000)
-    .toISOString();
+  // sla_deadline is set server-side by the set_work_permit_sla_deadline trigger,
+  // which reads the admin SLA configuration (per work-type/urgency hours +
+  // calendar vs business-hours clock). We only pass urgency + work_type_id.
 
   const { data: permit, error: insertErr } = await admin
     .from("work_permits")
@@ -196,7 +196,6 @@ serve(async (req) => {
       work_time_to: payload.work_time_to,
       status: "submitted",
       urgency,
-      sla_deadline: slaDeadline,
       is_internal: true,
     })
     .select()

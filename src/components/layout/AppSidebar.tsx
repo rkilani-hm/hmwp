@@ -227,6 +227,7 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         icon: FolderCog,
         items: [
           { icon: GitBranch, label: 'Workflow Builder', path: '/workflow-builder' },
+          { icon: Timer, label: 'SLA Configuration', path: '/sla-config' },
           { icon: Cog, label: 'Work Types', path: '/work-types' },
           { icon: MapPin, label: 'Work Locations', path: '/work-locations' },
           { icon: Package, label: 'Gate Pass Workflows', path: '/gate-pass-workflows' },

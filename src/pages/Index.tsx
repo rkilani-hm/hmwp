@@ -21,6 +21,7 @@ import PermissionsManagement from './admin/PermissionsManagement';
 import WorkflowBuilder from './admin/WorkflowBuilder';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
+import SLAConfiguration from './admin/SLAConfiguration';
 import UserActivityLogs from './admin/UserActivityLogs';
 import MyPerformance from './MyPerformance';
 import ApproverPerformance from './admin/ApproverPerformance';
@@ -106,9 +107,13 @@ const Index = () => {
           path="reports" 
           element={isAdmin ? <Reports /> : <Navigate to="/" replace />} 
         />
-        <Route 
-          path="sla-dashboard" 
-          element={isAdmin ? <SLADashboard /> : <Navigate to="/" replace />} 
+        <Route
+          path="sla-dashboard"
+          element={isAdmin ? <SLADashboard /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="sla-config"
+          element={isAdmin ? <SLAConfiguration /> : <Navigate to="/" replace />}
         />
         <Route 
           path="activity-logs" 
