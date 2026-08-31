@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.check-sla-breach]
 verify_jwt = false
 
+[functions.daily-approver-reminder]
+verify_jwt = false
+
 [functions.verify-signature-approval]
 verify_jwt = false
 
