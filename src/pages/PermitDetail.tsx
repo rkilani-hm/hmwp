@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PermitApprovalProgress } from '@/components/PermitApprovalProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { AmendPermitDialog } from '@/components/AmendPermitDialog';
+import { AmendmentsCard } from '@/components/AmendmentsCard';
 import type { AuthPayload, ScheduleChange } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
@@ -676,6 +677,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Post-approval amendment requests + their approval progress */}
+              <AmendmentsCard permitId={permit.id} />
 
               {/* Workflow steps are shown in the sidebar */}
             </TabsContent>
