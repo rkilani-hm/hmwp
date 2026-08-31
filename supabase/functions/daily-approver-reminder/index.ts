@@ -134,17 +134,31 @@ serve(async (req: Request): Promise<Response> => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const appUrl = (Deno.env.get("APP_URL") || "https://hmwp.alhamra.com.kw").replace(/\/$/, "");
 
-    // Auth: service-role bearer (cron) or an authenticated admin (manual test).
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const token = authHeader.slice(7).trim();
     const admin = createClient(supabaseUrl, serviceKey);
-    if (token !== serviceKey) {
-      const { data: { user }, error: uErr } = await admin.auth.getUser(token);
-      if (uErr || !user) return json({ error: "Unauthorized" }, 401);
-      const { data: isAdmin } = await admin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-      if (!isAdmin) return json({ error: "Forbidden" }, 403);
+
+    // Auth — any ONE of:
+    //   (a) x-reminder-secret header matching REMINDER_CRON_SECRET (the pg_cron
+    //       caller; used because the service-role key isn't reachable from SQL),
+    //   (b) the service-role key as the bearer, or
+    //   (c) an authenticated admin user (the "Send reminders now" button).
+    const cronSecret = Deno.env.get("REMINDER_CRON_SECRET");
+    const providedSecret = req.headers.get("x-reminder-secret");
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+    let authorized = false;
+    if (cronSecret && providedSecret && providedSecret === cronSecret) {
+      authorized = true;
+    } else if (token && token === serviceKey) {
+      authorized = true;
+    } else if (token) {
+      const { data: { user } } = await admin.auth.getUser(token);
+      if (user) {
+        const { data: isAdmin } = await admin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+        if (isAdmin) authorized = true;
+      }
     }
+    if (!authorized) return json({ error: "Unauthorized" }, 401);
 
     // Pull the pending-with-approver rows and group by approver.
     const { data: rows, error: digestErr } = await admin.rpc("approver_pending_digest");

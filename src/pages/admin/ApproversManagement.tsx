@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw, Pencil, Users, Briefcase, Send, CheckCircle2, Clock } from 'lucide-react';
 import { useUserActivation, useResendInvite } from '@/hooks/useUserActivation';
+import { useSendApproverReminders } from '@/hooks/useApproverReminders';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { InviteTenantDialog } from '@/components/admin/InviteTenantDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
@@ -45,6 +46,7 @@ export default function ApproversManagement() {
   const deleteUser = useDeleteUser();
   const { data: activation } = useUserActivation();
   const resendInvite = useResendInvite();
+  const sendReminders = useSendApproverReminders();
 
   // Create a map of role name -> label from the roles table
   const roleLabelsMap = roles?.reduce((acc, role) => {
@@ -178,7 +180,22 @@ export default function ApproversManagement() {
             Manage users, assign roles, and control access to the system
           </p>
         </div>
-        <InviteTenantDialog />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => sendReminders.mutate()}
+            disabled={sendReminders.isPending}
+            title="Email every approver a digest of the permits awaiting their approval (the same reminder the daily job sends)."
+          >
+            {sendReminders.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Send reminders now
+          </Button>
+          <InviteTenantDialog />
+        </div>
       </div>
 
       {/* Pending delegations — admin needs to grant temporary roles
