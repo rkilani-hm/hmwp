@@ -105,7 +105,7 @@ export function StuckPermitsWidget() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-sm truncate">{permit.permit_no}</p>
-                  {permit.sla_breached && (
+                  {permit.sla_deadline && new Date(permit.sla_deadline) < new Date() && (
                     <span className="text-xs bg-destructive/20 text-destructive px-1.5 py-0.5 rounded font-medium">
                       SLA Breached
                     </span>
