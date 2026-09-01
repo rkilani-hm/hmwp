@@ -44,7 +44,7 @@ export default function SLADashboard() {
   const navigate = useNavigate();
   const [preset, setPreset] = useState<DateRangePreset>('all');
   const [range, setRange] = useState<DateRange>(presetToRange('all'));
-  const { metrics, breachedPermits, atRiskPermits, dailyMetrics, isLoading } = useSLAStats({
+  const { metrics, breachedPermitsAll, atRiskPermits, dailyMetrics, isLoading } = useSLAStats({
     dateFrom: range.from,
     dateTo: range.to,
   });
@@ -431,18 +431,19 @@ export default function SLADashboard() {
               SLA Breaches
             </CardTitle>
             <CardDescription>
-              {breachedPermits.length} permit{breachedPermits.length !== 1 ? 's' : ''} exceeded deadline
+              {breachedPermitsAll.length} permit{breachedPermitsAll.length !== 1 ? 's' : ''} exceeded deadline
+              {' '}(still pending past deadline, or completed late)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {breachedPermits.length === 0 ? (
+            {breachedPermitsAll.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle className="w-12 h-12 mx-auto mb-3 text-success/50" />
                 <p>No SLA breaches! Great job.</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto">
-                {breachedPermits.map((permit) => (
+                {breachedPermitsAll.map((permit) => (
                   <div
                     key={permit.id}
                     className="p-3 bg-destructive/5 border border-destructive/20 rounded-lg cursor-pointer hover:bg-destructive/10 transition-colors"

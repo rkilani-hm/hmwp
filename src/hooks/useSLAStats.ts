@@ -26,6 +26,9 @@ export interface SLAMetrics {
   slaComplianceRate: number;
   urgentPermits: number;
   normalPermits: number;
+  // All permits that missed their SLA in the period: still-active past deadline
+  // PLUS completed-late. (breachedPermits alone counts only active breaches.)
+  totalBreaches: number;
 }
 
 export interface BreachedPermit {
@@ -126,6 +129,7 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         slaComplianceRate: 0,
         urgentPermits: 0,
         normalPermits: 0,
+        totalBreaches: 0,
       };
     }
 
@@ -202,6 +206,7 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
       slaComplianceRate: Math.round(slaComplianceRate * 10) / 10,
       urgentPermits,
       normalPermits,
+      totalBreaches: breachedCount + completedLate,
     };
   }, [permits]);
 
@@ -229,6 +234,54 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
       }))
       .sort((a, b) => b.hoursOverdue - a.hoursOverdue);
   }, [permits]);
+
+  // Permits that missed their SLA, computed LIVE from sla_deadline (not the
+  // stored sla_breached flag, which the breach cron may not have populated).
+  // Breached = still active past its deadline, OR completed after its deadline.
+  const breachedIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    if (!permits) return ids;
+    for (const p of permits) {
+      if (!p.sla_deadline) continue;
+      const deadline = parseISO(p.sla_deadline);
+      if (isActiveStatus(p.status)) {
+        if (isPast(deadline)) ids.add(p.id);
+      } else if (COMPLETED_STATUSES.includes(p.status)) {
+        const completedAt = parseISO((p as any).final_approved_at ?? p.updated_at);
+        if (completedAt > deadline) ids.add(p.id);
+      }
+    }
+    return ids;
+  }, [permits]);
+
+  // Full breach list for the "SLA Breaches" summary/list: active permits past
+  // their deadline AND permits that completed after their deadline (late).
+  // hoursOverdue = how far past the deadline (now for active; final-approval
+  // time for completed).
+  const breachedPermitsAll = useMemo<BreachedPermit[]>(() => {
+    if (!permits) return [];
+    const now = new Date();
+    return permits
+      .filter((p) => breachedIds.has(p.id))
+      .map((p) => {
+        const deadline = parseISO(p.sla_deadline!);
+        const endRef = isActiveStatus(p.status)
+          ? now
+          : parseISO((p as any).final_approved_at ?? p.updated_at);
+        return {
+          id: p.id,
+          permit_no: p.permit_no,
+          requester_name: p.requester_name,
+          status: p.status,
+          urgency: p.urgency || 'normal',
+          sla_deadline: p.sla_deadline!,
+          created_at: p.created_at,
+          hoursOverdue: differenceInHours(endRef, deadline),
+          work_types: p.work_types,
+        };
+      })
+      .sort((a, b) => b.hoursOverdue - a.hoursOverdue);
+  }, [permits, breachedIds]);
 
   const atRiskPermits = useMemo<BreachedPermit[]>(() => {
     if (!permits) return [];
@@ -260,26 +313,6 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         };
       })
       .sort((a, b) => b.hoursOverdue - a.hoursOverdue); // Closest to breach first
-  }, [permits]);
-
-  // Permits that missed their SLA, computed LIVE from sla_deadline (not the
-  // stored sla_breached flag, which the breach cron may not have populated).
-  // A permit counts as breached if it is still active past its deadline, or it
-  // completed but reached final approval after the deadline (completed late).
-  const breachedIds = useMemo<Set<string>>(() => {
-    const ids = new Set<string>();
-    if (!permits) return ids;
-    for (const p of permits) {
-      if (!p.sla_deadline) continue;
-      const deadline = parseISO(p.sla_deadline);
-      if (isActiveStatus(p.status)) {
-        if (isPast(deadline)) ids.add(p.id);
-      } else if (COMPLETED_STATUSES.includes(p.status)) {
-        const completedAt = parseISO((p as any).final_approved_at ?? p.updated_at);
-        if (completedAt > deadline) ids.add(p.id);
-      }
-    }
-    return ids;
   }, [permits]);
 
   const dailyMetrics = useMemo<DailyMetric[]>(() => {
@@ -321,6 +354,7 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
   return {
     metrics,
     breachedPermits,
+    breachedPermitsAll,
     atRiskPermits,
     dailyMetrics,
     breachedIds,
