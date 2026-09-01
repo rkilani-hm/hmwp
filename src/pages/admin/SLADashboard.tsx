@@ -150,7 +150,7 @@ export default function SLADashboard() {
       )}
 
       {/* Stats Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="SLA Compliance"
           value={`${metrics.slaComplianceRate}%`}
@@ -164,15 +164,27 @@ export default function SLADashboard() {
           }}
         />
         <StatsCard
-          title="Breached"
-          value={metrics.breachedPermits}
+          title="SLA Breaches (Total)"
+          value={metrics.totalBreaches}
           icon={XCircle}
           variant="destructive"
           info={{
             description:
-              'Requests still in the approval chain whose SLA deadline has already passed — waiting on an approver right now. Needs action.',
+              'All permits in this period that missed their SLA deadline — those still pending past their deadline PLUS those that completed after their deadline (late). The overall breach count.',
             descriptionAr:
-              'طلبات ما زالت في سلسلة الاعتماد وتجاوزت الموعد المحدد لها — بانتظار أحد المعتمِدين الآن. تحتاج إلى إجراء.',
+              'كل التصاريح خلال الفترة التي تجاوزت موعدها المحدد — سواء ما زالت معلّقة بعد الموعد أو التي اكتملت بعد الموعد (متأخرة). إجمالي عدد التجاوزات.',
+          }}
+        />
+        <StatsCard
+          title="Active Breaches"
+          value={metrics.breachedPermits}
+          icon={Clock}
+          variant="destructive"
+          info={{
+            description:
+              'Permits still in the approval chain whose SLA deadline has already passed — waiting on an approver right now. These need action today.',
+            descriptionAr:
+              'تصاريح ما زالت في سلسلة الاعتماد وتجاوزت موعدها المحدد — بانتظار أحد المعتمِدين الآن. تحتاج إلى إجراء اليوم.',
           }}
         />
         <StatsCard
