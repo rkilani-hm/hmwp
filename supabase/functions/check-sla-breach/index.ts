@@ -16,27 +16,35 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Auth: require service-role bearer (cron/internal) or an authenticated admin user
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Auth — any ONE of:
+    //   (a) x-reminder-secret header matching REMINDER_CRON_SECRET (the pg_cron
+    //       caller; the service-role key isn't reachable from SQL, so the cron
+    //       sends this shared secret instead of a bearer),
+    //   (b) the service-role key as the bearer, or
+    //   (c) an authenticated admin user (manual run).
+    const cronSecret = Deno.env.get("REMINDER_CRON_SECRET");
+    const providedSecret = req.headers.get("x-reminder-secret");
     const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+    let authorized = false;
+    if (cronSecret && providedSecret && providedSecret === cronSecret) {
+      authorized = true;
+    } else if (token && token === supabaseServiceKey) {
+      authorized = true;
+    } else if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+        if (isAdmin) authorized = true;
+      }
+    }
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
-    }
-    const token = authHeader.slice(7).trim();
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    if (token !== supabaseServiceKey) {
-      const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
-      if (uErr || !user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-      if (!isAdmin) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
     }
 
     console.log("Checking for SLA breaches at:", new Date().toISOString());
@@ -47,7 +55,8 @@ const handler = async (req: Request): Promise<Response> => {
       .select("id, permit_no, requester_id, sla_deadline, urgency, status")
       .lt("sla_deadline", new Date().toISOString())
       .eq("sla_breached", false)
-      .in("status", ["submitted", "pending_pm", "pending_pd", "pending_bdcr", "pending_mpr", "pending_it", "pending_fitout", "pending_ecovert_supervisor", "pending_pmd_coordinator", "under_review"]);
+      // Any non-terminal permit (robust to dynamic pending_<role> statuses).
+      .not("status", "in", "(approved,rejected,cancelled,closed,draft,superseded)");
 
     if (fetchError) {
       console.error("Error fetching permits:", fetchError);
@@ -120,7 +129,7 @@ const handler = async (req: Request): Promise<Response> => {
       .gt("sla_deadline", new Date().toISOString())
       .lt("sla_deadline", oneHourFromNow)
       .eq("sla_breached", false)
-      .in("status", ["submitted", "pending_pm", "pending_pd", "pending_bdcr", "pending_mpr", "pending_it", "pending_fitout", "pending_soft_facilities", "pending_hard_facilities", "pending_pm_service", "under_review"]);
+      .not("status", "in", "(approved,rejected,cancelled,closed,draft,superseded)");
 
     // Send warnings (but check if we've already sent one recently - we'd need another field for this)
     console.log("Found", warningPermits?.length || 0, "permits approaching SLA deadline");
