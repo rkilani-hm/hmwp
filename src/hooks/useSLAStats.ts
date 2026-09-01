@@ -15,6 +15,22 @@ const TERMINAL_STATUSES = ['approved', 'closed', 'rejected', 'cancelled', 'draft
 const COMPLETED_STATUSES = ['approved', 'closed'];
 const isActiveStatus = (s: string) => !TERMINAL_STATUSES.includes(s);
 
+// A permit is "At Risk" when it is inside the last 25% of its OWN SLA window,
+// so the warning scales with the configured SLA (≈ last 12h of a 48h window,
+// last 1h of a 4h urgent window) instead of a fixed 2-hour sliver. A 2-hour
+// floor keeps very short windows from having a near-zero warning band.
+const AT_RISK_FRACTION = 0.25;
+const AT_RISK_FLOOR_MS = 2 * 60 * 60 * 1000;
+function isAtRisk(createdAt: string, deadlineIso: string, now: Date): boolean {
+  const deadline = new Date(deadlineIso).getTime();
+  const created = new Date(createdAt).getTime();
+  const nowMs = now.getTime();
+  if (nowMs >= deadline) return false; // already breached, not "at risk"
+  const windowMs = Math.max(deadline - created, 0);
+  const thresholdMs = Math.max(windowMs * AT_RISK_FRACTION, AT_RISK_FLOOR_MS);
+  return (deadline - nowMs) <= thresholdMs;
+}
+
 export interface SLAMetrics {
   totalPermits: number;
   breachedPermits: number;
@@ -152,13 +168,10 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         if (isActive) {
           if (isPast(deadline)) {
             breachedCount++;
+          } else if (isAtRisk(permit.created_at, permit.sla_deadline, now)) {
+            atRiskCount++;
           } else {
-            const hoursRemaining = differenceInHours(deadline, now);
-            if (hoursRemaining <= 2) {
-              atRiskCount++;
-            } else {
-              onTrackCount++;
-            }
+            onTrackCount++;
           }
         }
 
@@ -292,10 +305,7 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
       .filter((permit) => {
         if (!permit.sla_deadline) return false;
         if (!isActiveStatus(permit.status)) return false;
-        const deadline = parseISO(permit.sla_deadline);
-        if (isPast(deadline)) return false;
-        const hoursRemaining = differenceInHours(deadline, now);
-        return hoursRemaining <= 2 && hoursRemaining > 0;
+        return isAtRisk(permit.created_at, permit.sla_deadline, now);
       })
       .map((permit) => {
         const deadline = parseISO(permit.sla_deadline!);

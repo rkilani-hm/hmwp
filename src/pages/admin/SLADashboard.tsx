@@ -139,7 +139,7 @@ export default function SLADashboard() {
                   <p className="text-muted-foreground text-sm mt-1">
                     {metrics.breachedPermits > 0 
                       ? 'Immediate action required. These permits have exceeded their SLA deadline.'
-                      : 'These permits are approaching their SLA deadline within 2 hours.'
+                      : 'These permits are in the final quarter of their SLA window — approaching the deadline.'
                     }
                   </p>
                 </div>
@@ -182,9 +182,9 @@ export default function SLADashboard() {
           variant="warning"
           info={{
             description:
-              'Requests still in the approval chain with 2 hours or less left before their SLA deadline. Not breached yet — act soon.',
+              'Requests in the last 25% of their SLA window (e.g. the final ~12h of a 48h SLA). Not breached yet — act soon.',
             descriptionAr:
-              'طلبات ما زالت في سلسلة الاعتماد وتبقّى لها ساعتان أو أقل قبل الموعد المحدد. لم تتجاوزه بعد — تصرّف قريباً.',
+              'طلبات في آخر 25٪ من مدة الاستجابة (مثلاً آخر ~12 ساعة من مهلة 48 ساعة). لم تتجاوز الموعد بعد — تصرّف قريباً.',
           }}
         />
         <StatsCard
@@ -273,8 +273,8 @@ export default function SLADashboard() {
               Active Permits SLA Status
               <InfoHint
                 label="Active Permits SLA Status"
-                description="Requests still in the approval chain, split by SLA state: On Track, At Risk (2 hours or less to the deadline), or Breached (past the deadline)."
-                descriptionAr="الطلبات التي ما زالت في سلسلة الاعتماد، مقسّمة حسب حالة الاستجابة: ضمن المدة، أو قريبة من التجاوز (ساعتان أو أقل)، أو متجاوزة للموعد."
+                description="Requests still in the approval chain, split by SLA state: On Track, At Risk (in the final 25% of the SLA window), or Breached (past the deadline)."
+                descriptionAr="الطلبات التي ما زالت في سلسلة الاعتماد، مقسّمة حسب حالة الاستجابة: ضمن المدة، أو قريبة من التجاوز (آخر 25٪ من المدة)، أو متجاوزة للموعد."
               />
             </CardTitle>
             <CardDescription>Current status of pending permits</CardDescription>
