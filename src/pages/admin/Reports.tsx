@@ -322,7 +322,7 @@ export default function Reports() {
         preset={preset}
         onPresetChange={setPreset}
         range={range}
-        onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+        onRangeChange={setRange}
       />
 
       {/* KPI Cards */}

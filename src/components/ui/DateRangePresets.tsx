@@ -6,7 +6,7 @@ import { format, startOfMonth, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export type DateRange = { from: Date | null; to: Date | null };
-export type DateRangePreset = 'all' | '7d' | '30d' | 'mtd';
+export type DateRangePreset = 'all' | '7d' | '30d' | 'mtd' | 'custom';
 
 export function presetToRange(preset: DateRangePreset): DateRange {
   const now = new Date();
@@ -71,7 +71,7 @@ export function DateRangePresets({ preset, onPresetChange, range, onRangeChange 
           <Calendar
             mode="single"
             selected={range.from ?? undefined}
-            onSelect={(d) => onRangeChange({ ...range, from: d ?? null })}
+            onSelect={(d) => { onRangeChange({ ...range, from: d ?? null }); onPresetChange('custom'); }}
             initialFocus
             className={cn('p-3 pointer-events-auto')}
           />
@@ -93,7 +93,7 @@ export function DateRangePresets({ preset, onPresetChange, range, onRangeChange 
           <Calendar
             mode="single"
             selected={range.to ?? undefined}
-            onSelect={(d) => onRangeChange({ ...range, to: d ?? null })}
+            onSelect={(d) => { onRangeChange({ ...range, to: d ?? null }); onPresetChange('custom'); }}
             initialFocus
             className={cn('p-3 pointer-events-auto')}
           />
