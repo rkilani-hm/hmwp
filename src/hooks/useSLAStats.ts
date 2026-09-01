@@ -113,15 +113,27 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
       const ids = (data ?? []).map((p) => p.id);
       const finalApproved = new Map<string, string>();
       if (ids.length) {
-        const { data: appr } = await supabase
-          .from('permit_approvals')
-          .select('permit_id, approved_at')
-          .eq('status', 'approved')
-          .in('permit_id', ids);
-        for (const a of appr ?? []) {
-          if (!a.approved_at) continue;
-          const prev = finalApproved.get(a.permit_id);
-          if (!prev || a.approved_at > prev) finalApproved.set(a.permit_id, a.approved_at);
+        // Paginate: PostgREST caps a single response at ~1000 rows, and there
+        // can be many more approval rows than that (one per step per permit).
+        // Without paging, later permits get no final-approval time and fall
+        // back to a wrong value — inflating false "breaches".
+        const PAGE = 1000;
+        for (let offset = 0; ; offset += PAGE) {
+          const { data: appr, error: apprErr } = await supabase
+            .from('permit_approvals')
+            .select('permit_id, approved_at')
+            .eq('status', 'approved')
+            .not('approved_at', 'is', null)
+            .in('permit_id', ids)
+            .order('approved_at', { ascending: true })
+            .range(offset, offset + PAGE - 1);
+          if (apprErr) break;
+          for (const a of appr ?? []) {
+            if (!a.approved_at) continue;
+            const prev = finalApproved.get(a.permit_id);
+            if (!prev || a.approved_at > prev) finalApproved.set(a.permit_id, a.approved_at);
+          }
+          if (!appr || appr.length < PAGE) break;
         }
       }
       return (data ?? []).map((p) => ({
@@ -176,25 +188,26 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         }
 
         if (isCompleted) {
-          // Prefer the real final-approval time; fall back to updated_at only
-          // when a permit has no recorded approvals (legacy data).
-          const completedAt = parseISO(
-            (permit as any).final_approved_at ?? permit.updated_at,
-          );
-          // Use fractional hours so short resolutions (<1h) don't round to 0
-          const resolutionHours =
-            (completedAt.getTime() - parseISO(permit.created_at).getTime()) / 3_600_000;
-          if (Number.isFinite(resolutionHours) && resolutionHours >= 0) {
-            totalResolutionHours += resolutionHours;
-            completedCount++;
-          }
-
-          // Compute breach live rather than relying on the stored sla_breached flag,
-          // which the background job may not have populated for older permits.
-          if (completedAt <= deadline) {
-            completedOnTime++;
-          } else {
-            completedLate++;
+          // Use ONLY the real final-approval time (max approved_at). updated_at
+          // is not a reliable completion proxy — it gets bumped by later touches
+          // (PDF regen, amendments, bulk backfills), which would fabricate huge
+          // false breaches. A completed permit with no recorded approval time is
+          // simply not counted here rather than guessed.
+          const finalAt = (permit as any).final_approved_at as string | null;
+          if (finalAt) {
+            const completedAt = parseISO(finalAt);
+            // Use fractional hours so short resolutions (<1h) don't round to 0
+            const resolutionHours =
+              (completedAt.getTime() - parseISO(permit.created_at).getTime()) / 3_600_000;
+            if (Number.isFinite(resolutionHours) && resolutionHours >= 0) {
+              totalResolutionHours += resolutionHours;
+              completedCount++;
+              if (completedAt <= deadline) {
+                completedOnTime++;
+              } else {
+                completedLate++;
+              }
+            }
           }
         }
       } else if (isActive) {
@@ -260,8 +273,10 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
       if (isActiveStatus(p.status)) {
         if (isPast(deadline)) ids.add(p.id);
       } else if (COMPLETED_STATUSES.includes(p.status)) {
-        const completedAt = parseISO((p as any).final_approved_at ?? p.updated_at);
-        if (completedAt > deadline) ids.add(p.id);
+        // Completed late only if we KNOW the final-approval time and it was
+        // after the deadline. Never fall back to updated_at (unreliable).
+        const finalAt = (p as any).final_approved_at as string | null;
+        if (finalAt && parseISO(finalAt) > deadline) ids.add(p.id);
       }
     }
     return ids;
@@ -280,7 +295,7 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
         const deadline = parseISO(p.sla_deadline!);
         const endRef = isActiveStatus(p.status)
           ? now
-          : parseISO((p as any).final_approved_at ?? p.updated_at);
+          : parseISO((p as any).final_approved_at ?? p.sla_deadline!);
         return {
           id: p.id,
           permit_no: p.permit_no,
@@ -343,7 +358,8 @@ export function useSLAStats(opts: UseSLAStatsOptions = {}) {
 
       const completed = permits.filter((p) => {
         if (!['approved', 'closed'].includes(p.status)) return false;
-        const doneAt = (p as any).final_approved_at ?? p.updated_at;
+        const doneAt = (p as any).final_approved_at as string | null;
+        if (!doneAt) return false;
         const doneDate = format(parseISO(doneAt), 'yyyy-MM-dd');
         return doneDate === dateStr;
       });
