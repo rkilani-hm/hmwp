@@ -52,7 +52,7 @@ export default function Reports() {
   // always agree. The previous stored `sla_breached` flag (populated by a
   // background job that may not have run) read 0 breaches / 100% compliance even
   // when permits had breached. useSLAStats computes breaches live.
-  const { metrics: slaMetrics } = useSLAStats({ dateFrom: range.from, dateTo: range.to });
+  const { metrics: slaMetrics, breachedIds } = useSLAStats({ dateFrom: range.from, dateTo: range.to });
 
   // Filter permits by created_at within selected range. When no range
   // is set, fall through to the unfiltered list.
@@ -306,7 +306,7 @@ export default function Reports() {
                 { header: 'Contractor', accessor: 'contractor_name' },
                 { header: 'Requester', accessor: (p: any) => p.requester_name || '' },
                 { header: 'Work Type', accessor: (p: any) => p.work_types?.name || '' },
-                { header: 'SLA Breached', accessor: (p: any) => (p.sla_breached ? 'Yes' : 'No') },
+                { header: 'SLA Breached', accessor: (p: any) => (breachedIds.has(p.id) ? 'Yes' : 'No') },
                 { header: 'Created', accessor: 'created_at' },
                 { header: 'Updated', accessor: 'updated_at' },
               ],
@@ -656,7 +656,7 @@ export default function Reports() {
       </div>
 
       {/* SLA Breach Table */}
-      {permits && permits.filter(p => p.sla_breached).length > 0 && (
+      {permits && permits.filter(p => breachedIds.has(p.id)).length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -672,7 +672,7 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {permits.filter(p => p.sla_breached).slice(0, 10).map(permit => (
+              {permits.filter(p => breachedIds.has(p.id)).slice(0, 10).map(permit => (
                 <div 
                   key={permit.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/20"
