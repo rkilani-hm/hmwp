@@ -116,7 +116,7 @@ export default function SLADashboard() {
           preset={preset}
           onPresetChange={setPreset}
           range={range}
-          onRangeChange={(r) => { setRange(r); setPreset('all'); }}
+          onRangeChange={setRange}
         />
       </motion.div>
 
