@@ -79,6 +79,30 @@ export function useSaveSharePointSettings() {
   });
 }
 
+/**
+ * Manually (re-)archive one already-approved permit's PDF to SharePoint.
+ * Useful for permits approved before archiving was enabled, or to retry a
+ * failed upload. Admin-only (the edge function authorises admins).
+ */
+export function useReArchivePermit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (permitId: string) => {
+      const { data, error } = await supabase.functions.invoke('archive-permit-to-sharepoint', { body: { permitId } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { success?: boolean; skipped?: boolean; message?: string; webUrl?: string };
+    },
+    onSuccess: (d) => {
+      if (d?.skipped) toast.info(d.message || 'Nothing to archive.');
+      else if (d?.success) toast.success('Saved to SharePoint.');
+      else toast.error('Archive did not complete.');
+      qc.invalidateQueries({ queryKey: ['sharepoint-uploads'] });
+    },
+    onError: (e: any) => toast.error('SharePoint archive failed: ' + (e?.message || 'unknown error')),
+  });
+}
+
 /** Test the connection: uploads then deletes a marker file to prove write access. */
 export function useTestSharePoint() {
   const qc = useQueryClient();

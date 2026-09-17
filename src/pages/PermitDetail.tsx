@@ -13,6 +13,7 @@ import { PermitApprovalProgress } from '@/components/PermitApprovalProgress';
 import { SecureApprovalDialog } from '@/components/SecureApprovalDialog';
 import { AmendPermitDialog } from '@/components/AmendPermitDialog';
 import { AmendmentsCard } from '@/components/AmendmentsCard';
+import { useReArchivePermit } from '@/hooks/useSharePointArchive';
 import type { AuthPayload, ScheduleChange } from '@/components/SecureApprovalDialog';
 import { ForwardPermitDialog } from '@/components/ForwardPermitDialog';
 import { ReworkDialog } from '@/components/ReworkDialog';
@@ -41,6 +42,7 @@ import {
   XCircle,
   Download,
   Eye,
+  CloudUpload,
   Loader2,
   FileText,
   AlertTriangle,
@@ -130,6 +132,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const isPermitArchived = (permit as any)?.is_archived;
 
   const isAdmin = roles.includes('admin');
+  const reArchive = useReArchivePermit();
   const isPendingStatus = (status: string) => 
     status.startsWith('pending_') || ['submitted', 'under_review'].includes(status);
 
@@ -521,6 +524,23 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                   currentDateTo={(permit as any).work_date_to}
                   currentTimeTo={(permit as any).work_time_to}
                 />
+              )}
+              {permit.status === 'approved' && isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => reArchive.mutate(permit.id)}
+                  disabled={reArchive.isPending}
+                  title="Save this approved permit's PDF to SharePoint now (re-archive)"
+                >
+                  {reArchive.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CloudUpload className="w-4 h-4 mr-2" />
+                  )}
+                  <span className="hidden sm:inline">Save to SharePoint</span>
+                  <span className="sm:hidden">SharePoint</span>
+                </Button>
               )}
             </>
           )}
