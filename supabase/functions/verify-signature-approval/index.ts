@@ -982,6 +982,16 @@ const handler = async (req: Request): Promise<Response> => {
             if (!resp.ok) console.error("email-permit-pdf failed:", resp.status, await resp.text());
           }
         } catch (e) { console.error("Approved permit PDF email error (non-blocking):", e); }
+
+        // Archive the approved PDF to SharePoint (best-effort; the function
+        // itself no-ops when archiving is disabled in configuration).
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/archive-permit-to-sharepoint`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${supabaseServiceKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ permitId }),
+          });
+        } catch (e) { console.error("SharePoint archive error (non-blocking):", e); }
       }
     }
     };
