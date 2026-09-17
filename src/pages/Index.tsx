@@ -22,6 +22,7 @@ import WorkflowBuilder from './admin/WorkflowBuilder';
 import Reports from './admin/Reports';
 import SLADashboard from './admin/SLADashboard';
 import SLAConfiguration from './admin/SLAConfiguration';
+import SharePointArchiveConfig from './admin/SharePointArchiveConfig';
 import UserActivityLogs from './admin/UserActivityLogs';
 import MyPerformance from './MyPerformance';
 import ApproverPerformance from './admin/ApproverPerformance';
@@ -114,6 +115,10 @@ const Index = () => {
         <Route
           path="sla-config"
           element={isAdmin ? <SLAConfiguration /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="sharepoint-archive"
+          element={isAdmin ? <SharePointArchiveConfig /> : <Navigate to="/" replace />}
         />
         <Route 
           path="activity-logs" 

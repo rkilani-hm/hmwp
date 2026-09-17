@@ -21,6 +21,9 @@ verify_jwt = false
 [functions.daily-approver-reminder]
 verify_jwt = false
 
+[functions.archive-permit-to-sharepoint]
+verify_jwt = false
+
 [functions.verify-signature-approval]
 verify_jwt = false
 
