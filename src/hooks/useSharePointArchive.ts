@@ -107,8 +107,12 @@ export function useReArchivePermit() {
 export function useTestSharePoint() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('archive-permit-to-sharepoint', { body: { test: true } });
+    // `settings` carries the on-screen (possibly unsaved) destination so the
+    // test reflects what the admin is currently editing, not the saved row.
+    mutationFn: async (settings?: Partial<Omit<SharePointSettings, 'id'>>) => {
+      const { data, error } = await supabase.functions.invoke('archive-permit-to-sharepoint', {
+        body: { test: true, settings: settings ?? undefined },
+      });
       if (error) throw error;
       return data as { success: boolean; message?: string; error?: string };
     },

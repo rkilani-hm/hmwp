@@ -81,6 +81,10 @@ export function AddDocumentsDialog({ permitId, permitNo, open, onOpenChange }: P
       toast.error('No valid files to upload');
       return;
     }
+    if (!user?.id) {
+      toast.error('You must be signed in to upload.');
+      return;
+    }
     setUploading(true);
     const failures: string[] = [];
     const inserted: any[] = [];
@@ -89,7 +93,11 @@ export function AddDocumentsDialog({ permitId, permitNo, open, onOpenChange }: P
     try {
       for (const item of valid) {
         const ext = item.file.name.split('.').pop()?.toLowerCase();
-        const path = `${permitId}/post-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        // Path MUST start with the uploader's user id: the permit-attachments
+        // storage RLS policy allows an INSERT only when foldername[1] =
+        // auth.uid() (or the caller is an approver/admin). Prefixing with the
+        // permit id blocked ordinary requesters from adding their own docs.
+        const path = `${user.id}/${permitId}/post-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('permit-attachments')
           .upload(path, item.file, {

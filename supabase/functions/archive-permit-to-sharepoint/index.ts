@@ -89,18 +89,22 @@ serve(async (req: Request): Promise<Response> => {
     }
     if (!authorized) return json({ error: "Unauthorized" }, 401);
 
-    const { permitId, test } = await req.json().catch(() => ({}));
+    const { permitId, test, settings } = await req.json().catch(() => ({}));
 
     const { data: s } = await admin.from("sharepoint_settings").select("*").eq("id", true).maybeSingle();
     if (!s) return json({ error: "SharePoint settings not initialised" }, 500);
 
     // ---- Test connection: upload + delete a marker to prove write access ----
+    // In test mode the caller may pass the on-screen (unsaved) destination via
+    // `settings`; test THAT rather than the stored row so the result reflects
+    // what the admin is currently editing.
     if (test) {
+      const cfg = { ...s, ...(settings && typeof settings === "object" ? settings : {}) };
       try {
         const tok = await graphToken();
-        const { driveId, driveName } = await resolveDrive(tok, s);
+        const { driveId, driveName } = await resolveDrive(tok, cfg);
         const now = new Date();
-        const folder = resolvePlaceholders(s.folder_path || "", dateCtx(now, s.timezone, "connection-test", "test"));
+        const folder = resolvePlaceholders(cfg.folder_path || "", dateCtx(now, cfg.timezone, "connection-test", "test"));
         const path = [folder, "_hmwp_connection_test.txt"].filter(Boolean).join("/").replace(/^\/+/, "");
         const up = await fetch(`${GRAPH}/drives/${driveId}/root:/${encodeURI(path)}:/content`, {
           method: "PUT", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "text/plain" },
