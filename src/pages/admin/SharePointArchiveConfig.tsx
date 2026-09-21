@@ -127,7 +127,10 @@ export default function SharePointArchiveConfig() {
               )}
 
               <div className="flex flex-wrap gap-2 justify-end">
-                <Button variant="outline" onClick={() => test.mutate()} disabled={test.isPending || !host.trim()}>
+                <Button variant="outline" onClick={() => test.mutate({
+                  site_hostname: host.trim() || null, site_path: sitePath.trim() || null,
+                  library_name: library.trim() || null, folder_path: folder.trim() || null,
+                })} disabled={test.isPending || !host.trim()}>
                   {test.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PlugZap className="w-4 h-4 mr-2" />}
                   Test connection
                 </Button>
