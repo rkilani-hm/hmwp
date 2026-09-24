@@ -13,8 +13,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * published to Google Play / the App Store this value must never change.
  */
 const config: CapacitorConfig = {
-  appId: 'com.alhamra.workpermit',
-  appName: 'Al Hamra Work Permits',
+  appId: 'com.alhamra.permits',
+  appName: 'Al Hamra Permits',
   webDir: 'dist',
   // Ship the bundled assets from `dist`. To live-reload against a running
   // dev server instead, set CAP_SERVER_URL (e.g. http://192.168.1.20:5173).

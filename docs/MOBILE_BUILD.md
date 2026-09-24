@@ -1,4 +1,4 @@
-# Al Hamra Work Permits — Mobile Apps (Android + iOS)
+# Al Hamra Permits — Mobile Apps (Android + iOS)
 
 This guide takes the existing web app and produces installable **Android (APK/AAB)**
 and **iOS (IPA)** builds that receive **push notifications when a permit needs the
@@ -19,7 +19,7 @@ APNs key uploaded to Firebase), so the backend has a single send path.
 
 | Piece | Where | Status |
 |---|---|---|
-| Capacitor config | `capacitor.config.ts` (`appId: com.alhamra.workpermit`) | ✅ committed |
+| Capacitor config | `capacitor.config.ts` (`appId: com.alhamra.permits`) | ✅ committed |
 | Capacitor + Firebase plugins | `package.json` (`@capacitor/*`, `@capacitor-firebase/messaging`, `firebase`) | ✅ committed |
 | Native push registration | `src/hooks/useNativePush.ts` + `<NativePushInit />` in `src/App.tsx` | ✅ committed |
 | Device-token storage | `device_tokens` table — `supabase/migrations/20260923120000_device_tokens.sql` | ✅ committed |
@@ -73,7 +73,7 @@ or keep them local — either is fine; they're rebuilt by `cap add`/`cap sync`.
 
 ### 3a. Register the Android app in Firebase
 1. Firebase Console → **Add app → Android**.
-2. **Android package name:** `com.alhamra.workpermit` (must match `capacitor.config.ts`).
+2. **Android package name:** `com.alhamra.permits` (must match `capacitor.config.ts`).
 3. Download **`google-services.json`** and place it at **`android/app/google-services.json`**.
 4. `npx cap sync android`.
 
@@ -111,7 +111,7 @@ cd android
 
 ### 4a. Register the iOS app in Firebase
 1. Firebase Console → **Add app → iOS**.
-2. **Apple bundle ID:** `com.alhamra.workpermit`.
+2. **Apple bundle ID:** `com.alhamra.permits`.
 3. Download **`GoogleService-Info.plist`** and add it to the Xcode project under **`ios/App/App/`** (drag into the `App` target in Xcode so it's bundled).
 
 ### 4b. Upload the APNs key to Firebase (this is what lets FCM reach iOS)
@@ -123,7 +123,7 @@ cd android
 npx cap open ios        # opens ios/App/App.xcworkspace
 ```
 In Xcode:
-1. Select the **App** target → **Signing & Capabilities** → set your **Team** (from your Apple Developer account) and confirm **Bundle Identifier** = `com.alhamra.workpermit`.
+1. Select the **App** target → **Signing & Capabilities** → set your **Team** (from your Apple Developer account) and confirm **Bundle Identifier** = `com.alhamra.permits`.
 2. **+ Capability → Push Notifications**.
 3. **+ Capability → Background Modes** → tick **Remote notifications**.
 4. If CocoaPods isn't installed: `sudo gem install cocoapods`, then `cd ios/App && pod install`.
@@ -134,7 +134,7 @@ Xcode → **Product → Archive** → **Distribute App**:
 - **Ad Hoc / Development** → export a signed `.ipa` for registered test devices.
 
 ### 4e. Submit to the App Store
-1. <https://appstoreconnect.apple.com> → **My Apps → +** → create the app with bundle ID `com.alhamra.workpermit`.
+1. <https://appstoreconnect.apple.com> → **My Apps → +** → create the app with bundle ID `com.alhamra.permits`.
 2. Use **TestFlight** to test on real devices first, then submit for review.
 
 ---
