@@ -1,0 +1,70 @@
+name: Android APK (debug)
+
+# Builds an installable debug APK on Linux (where the Gradle daemon works) and
+# uploads it as a downloadable artifact. Uses a PLACEHOLDER google-services.json
+# so the app compiles and installs; push notifications only activate once the
+# real Firebase config is added (see docs/MOBILE_BUILD.md).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/mobile-apps-capacitor-push]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web assets
+        run: bun run build
+
+      - name: Add Android platform
+        run: node node_modules/@capacitor/cli/bin/capacitor add android
+
+      - name: Placeholder google-services.json
+        run: |
+          cat > android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "alhamra-workpermit-placeholder",
+              "storage_bucket": "alhamra-workpermit-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": { "package_name": "com.alhamra.workpermit" }
+                },
+                "oauth_client": [],
+                "api_key": [ { "current_key": "AIzaSyPLACEHOLDER0000000000000000000000000" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+
+      - name: Sync Android project
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: alhamra-workpermit-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
