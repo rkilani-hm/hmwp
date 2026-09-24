@@ -32,6 +32,9 @@ jobs:
       - name: Add Android platform
         run: node node_modules/@capacitor/cli/bin/capacitor add android
 
+      - name: Generate app icon & splash (Al Hamra logo)
+        run: npx --yes @capacitor/assets@3 generate --android --iconBackgroundColor '#FFFFFF' --iconBackgroundColorDark '#FFFFFF' --splashBackgroundColor '#FFFFFF' --splashBackgroundColorDark '#FFFFFF'
+
       - name: Placeholder google-services.json
         run: |
           cat > android/app/google-services.json <<'JSON'
