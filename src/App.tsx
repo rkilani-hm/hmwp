@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InactivityGuard } from "@/components/InactivityGuard";
+import { NativePushInit } from "@/components/NativePushInit";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -30,6 +31,7 @@ const App = () => (
         <LanguageProvider>
           <AuthProvider>
           <InactivityGuard />
+          <NativePushInit />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
