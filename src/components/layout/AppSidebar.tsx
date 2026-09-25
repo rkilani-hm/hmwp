@@ -46,7 +46,24 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+/** Wraps the matching part of `text` in a highlighted mark while searching. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-sidebar-primary/30 text-inherit rounded-sm px-0.5">
+        {text.slice(idx, idx + q.length)}
+      </mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
 
 type UserRole = string;
 
@@ -88,6 +105,8 @@ interface NavGroup {
 
 interface AppSidebarProps {
   currentRole: UserRole;
+  /** Called after any menu item is opened — used to close the mobile drawer. */
+  onNavigate?: () => void;
 }
 
 const getNavGroups = (role: UserRole): NavGroup[] => {
@@ -324,7 +343,18 @@ const getRoleIcon = (role: UserRole) => {
   return icons[role] || Shield;
 };
 
-function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQuery?: string }) {
+function SidebarNavGroup({
+  group,
+  searchQuery = '',
+  activePath,
+  onNavigate,
+}: {
+  group: NavGroup;
+  searchQuery?: string;
+  /** Path of the keyboard-selected item (arrow keys in search). */
+  activePath?: string | null;
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
   const isGroupActive = group.items.some(item =>
     item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
@@ -350,17 +380,20 @@ function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQ
       <NavLink
         to={item.path}
         end={item.path === '/'}
+        onClick={onNavigate}
+        data-nav-path={item.path}
         className={({ isActive }) =>
           cn(
             'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
             isActive
               ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            activePath === item.path && 'bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-primary'
           )
         }
       >
         <item.icon className="w-5 h-5" />
-        {item.label}
+        <Highlight text={item.label} query={searchQuery} />
       </NavLink>
     );
   }
@@ -379,17 +412,20 @@ function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQ
               key={item.path}
               to={item.path}
               end={item.path === '/'}
+              onClick={onNavigate}
+              data-nav-path={item.path}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                  activePath === item.path && 'bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-primary'
                 )
               }
             >
               <item.icon className="w-4 h-4" />
-              {item.label}
+              <Highlight text={item.label} query={searchQuery} />
             </NavLink>
           ))}
         </div>
@@ -413,6 +449,7 @@ function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQ
               key={item.path}
               to={item.path}
               end={item.path === '/'}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -432,12 +469,13 @@ function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQ
   );
 }
 
-export function AppSidebar({ currentRole }: AppSidebarProps) {
+export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const navGroups = getNavGroups(currentRole);
   const RoleIcon = getRoleIcon(currentRole);
   const [search, setSearch] = useState('');
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -454,6 +492,44 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
   }, [navGroups, search]);
 
   const hasResults = filteredGroups.length > 0;
+
+  // Flat list of visible items for arrow-key navigation while searching.
+  const flatItems = useMemo(
+    () => (search.trim() ? filteredGroups.flatMap((g) => g.items) : []),
+    [filteredGroups, search],
+  );
+  const activePath = activeIndex >= 0 ? (flatItems[activeIndex]?.path ?? null) : null;
+
+  // Reset the keyboard selection whenever the query changes.
+  useEffect(() => setActiveIndex(-1), [search]);
+
+  // Keep the keyboard-selected item in view.
+  useEffect(() => {
+    if (!activePath) return;
+    document
+      .querySelector(`[data-nav-path="${CSS.escape(activePath)}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [activePath]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!flatItems.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % flatItems.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? flatItems.length - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      navigate(flatItems[activeIndex].path);
+      onNavigate?.();
+      setSearch('');
+      setActiveIndex(-1);
+    } else if (e.key === 'Escape') {
+      setSearch('');
+      setActiveIndex(-1);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -498,6 +574,7 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search menu..."
             className="pl-9 pr-8 h-9 bg-sidebar-accent border-sidebar-border text-sm placeholder:text-sidebar-foreground/40 focus-visible:ring-sidebar-primary"
           />
@@ -518,7 +595,13 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
       <nav className="flex-1 min-h-0 p-4 pt-2 space-y-2 overflow-y-auto overscroll-contain">
         {hasResults ? (
           filteredGroups.map((group) => (
-            <SidebarNavGroup key={group.label} group={group} searchQuery={search} />
+            <SidebarNavGroup
+              key={group.label}
+              group={group}
+              searchQuery={search}
+              activePath={activePath}
+              onNavigate={onNavigate}
+            />
           ))
         ) : (
           <p className="px-3 py-6 text-center text-sm text-sidebar-foreground/50">

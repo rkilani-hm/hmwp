@@ -35,7 +35,7 @@ export function AppLayout({ children, currentRole }: AppLayoutProps) {
             : 'lg:-translate-x-full lg:w-0 lg:overflow-hidden'
         )}
       >
-        <AppSidebar currentRole={currentRole} />
+        <AppSidebar currentRole={currentRole} onNavigate={() => setMobileOpen(false)} />
       </div>
 
       {/* Main Content */}
