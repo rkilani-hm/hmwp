@@ -380,17 +380,20 @@ function SidebarNavGroup({
       <NavLink
         to={item.path}
         end={item.path === '/'}
+        onClick={onNavigate}
+        data-nav-path={item.path}
         className={({ isActive }) =>
           cn(
             'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
             isActive
               ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            activePath === item.path && 'bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-primary'
           )
         }
       >
         <item.icon className="w-5 h-5" />
-        {item.label}
+        <Highlight text={item.label} query={searchQuery} />
       </NavLink>
     );
   }
@@ -409,17 +412,20 @@ function SidebarNavGroup({
               key={item.path}
               to={item.path}
               end={item.path === '/'}
+              onClick={onNavigate}
+              data-nav-path={item.path}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                  activePath === item.path && 'bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-primary'
                 )
               }
             >
               <item.icon className="w-4 h-4" />
-              {item.label}
+              <Highlight text={item.label} query={searchQuery} />
             </NavLink>
           ))}
         </div>
