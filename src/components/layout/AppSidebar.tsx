@@ -574,6 +574,7 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search menu..."
             className="pl-9 pr-8 h-9 bg-sidebar-accent border-sidebar-border text-sm placeholder:text-sidebar-foreground/40 focus-visible:ring-sidebar-primary"
           />
@@ -594,7 +595,13 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
       <nav className="flex-1 min-h-0 p-4 pt-2 space-y-2 overflow-y-auto overscroll-contain">
         {hasResults ? (
           filteredGroups.map((group) => (
-            <SidebarNavGroup key={group.label} group={group} searchQuery={search} />
+            <SidebarNavGroup
+              key={group.label}
+              group={group}
+              searchQuery={search}
+              activePath={activePath}
+              onNavigate={onNavigate}
+            />
           ))
         ) : (
           <p className="px-3 py-6 text-center text-sm text-sidebar-foreground/50">
