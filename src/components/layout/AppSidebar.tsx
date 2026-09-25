@@ -343,7 +343,18 @@ const getRoleIcon = (role: UserRole) => {
   return icons[role] || Shield;
 };
 
-function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQuery?: string }) {
+function SidebarNavGroup({
+  group,
+  searchQuery = '',
+  activePath,
+  onNavigate,
+}: {
+  group: NavGroup;
+  searchQuery?: string;
+  /** Path of the keyboard-selected item (arrow keys in search). */
+  activePath?: string | null;
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
   const isGroupActive = group.items.some(item =>
     item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
@@ -451,12 +462,13 @@ function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQ
   );
 }
 
-export function AppSidebar({ currentRole }: AppSidebarProps) {
+export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const navGroups = getNavGroups(currentRole);
   const RoleIcon = getRoleIcon(currentRole);
   const [search, setSearch] = useState('');
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
