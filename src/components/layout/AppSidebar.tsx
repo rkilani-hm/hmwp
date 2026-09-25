@@ -437,6 +437,23 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
   const { profile, signOut } = useAuth();
   const navGroups = getNavGroups(currentRole);
   const RoleIcon = getRoleIcon(currentRole);
+  const [search, setSearch] = useState('');
+
+  const filteredGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return navGroups;
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) || group.label.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [navGroups, search]);
+
+  const hasResults = filteredGroups.length > 0;
 
   const handleSignOut = async () => {
     await signOut();
@@ -473,15 +490,45 @@ export function AppSidebar({ currentRole }: AppSidebarProps) {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navGroups.map((group) => (
-          <SidebarNavGroup key={group.label} group={group} />
-        ))}
+      {/* Search */}
+      <div className="p-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/40 pointer-events-none" />
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu..."
+            className="pl-9 pr-8 h-9 bg-sidebar-accent border-sidebar-border text-sm placeholder:text-sidebar-foreground/40 focus-visible:ring-sidebar-primary"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/40 hover:text-sidebar-foreground/80"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation — scrolls independently of the header/user footer */}
+      <nav className="flex-1 min-h-0 p-4 pt-2 space-y-2 overflow-y-auto overscroll-contain">
+        {hasResults ? (
+          filteredGroups.map((group) => (
+            <SidebarNavGroup key={group.label} group={group} searchQuery={search} />
+          ))
+        ) : (
+          <p className="px-3 py-6 text-center text-sm text-sidebar-foreground/50">
+            No matching menu items
+          </p>
+        )}
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary text-sm">
