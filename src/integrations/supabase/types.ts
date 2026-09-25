@@ -241,11 +241,15 @@ export type Database = {
       }
       email_delivery_logs: {
         Row: {
+          attempt_count: number
+          attempt_history: Json
           created_at: string
+          delivered_at: string | null
           duration_ms: number | null
           error_message: string | null
           has_attachment: boolean
           id: string
+          last_status_code: number | null
           notification_type: string | null
           permit_id: string | null
           permit_no: string | null
@@ -254,13 +258,18 @@ export type Database = {
           recipients: string[]
           status: string
           subject: string | null
+          throttle_count: number
         }
         Insert: {
+          attempt_count?: number
+          attempt_history?: Json
           created_at?: string
+          delivered_at?: string | null
           duration_ms?: number | null
           error_message?: string | null
           has_attachment?: boolean
           id?: string
+          last_status_code?: number | null
           notification_type?: string | null
           permit_id?: string | null
           permit_no?: string | null
@@ -269,13 +278,18 @@ export type Database = {
           recipients?: string[]
           status: string
           subject?: string | null
+          throttle_count?: number
         }
         Update: {
+          attempt_count?: number
+          attempt_history?: Json
           created_at?: string
+          delivered_at?: string | null
           duration_ms?: number | null
           error_message?: string | null
           has_attachment?: boolean
           id?: string
+          last_status_code?: number | null
           notification_type?: string | null
           permit_id?: string | null
           permit_no?: string | null
@@ -284,6 +298,7 @@ export type Database = {
           recipients?: string[]
           status?: string
           subject?: string | null
+          throttle_count?: number
         }
         Relationships: []
       }

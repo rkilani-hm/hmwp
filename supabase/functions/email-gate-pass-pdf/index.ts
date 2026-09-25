@@ -269,6 +269,7 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     const startedAt = Date.now();
+    const retryStats = newGraphRetryStats();
     const emailResponse = await fetchWithGraphRetry(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
       {
@@ -278,8 +279,7 @@ const handler = async (req: Request): Promise<Response> => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(emailPayload),
-      }
-    );
+      }, 4, retryStats);
     const durationMs = Date.now() - startedAt;
     const subjectLine = `Gate Pass ${gp.pass_no} - ${categoryLabel}`;
 
@@ -294,7 +294,7 @@ const handler = async (req: Request): Promise<Response> => {
           subject: subjectLine,
           permit_id: null,
           permit_no: gp.pass_no,
-          status: "failed",
+          status: "failed", attempt_count: retryStats.attempts.length || 1, throttle_count: retryStats.throttleCount, last_status_code: retryStats.lastStatus, attempt_history: retryStats.attempts, delivered_at: null,
           error_message: errorText.slice(0, 2000),
           provider: "microsoft_graph",
           duration_ms: durationMs,
@@ -312,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
         subject: subjectLine,
         permit_id: null,
         permit_no: gp.pass_no,
-        status: "sent",
+        status: "sent", attempt_count: retryStats.attempts.length || 1, throttle_count: retryStats.throttleCount, last_status_code: retryStats.lastStatus, attempt_history: retryStats.attempts, delivered_at: new Date().toISOString(),
         error_message: null,
         provider: "microsoft_graph",
         duration_ms: durationMs,

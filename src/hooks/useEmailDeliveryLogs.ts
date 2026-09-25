@@ -15,6 +15,11 @@ export interface EmailDeliveryLog {
   provider: string;
   duration_ms: number | null;
   has_attachment: boolean;
+  attempt_count: number;
+  throttle_count: number;
+  last_status_code: number | null;
+  attempt_history: { attempt: number; status: number; at: string; throttled: boolean; wait_ms?: number }[];
+  delivered_at: string | null;
 }
 
 export interface EmailDeliveryLogFilters {
@@ -24,6 +29,7 @@ export interface EmailDeliveryLogFilters {
   permitNo?: string;       // substring match on permit number
   dateFrom?: string;
   dateTo?: string;
+  retriedOnly?: boolean;   // only rows that needed >1 attempt
 }
 
 // email_delivery_logs isn't in the generated Supabase types yet (the table is
@@ -72,6 +78,9 @@ export function useEmailDeliveryLogs(filters?: EmailDeliveryLogFilters) {
       }
       if (filters?.dateTo) {
         query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters?.retriedOnly) {
+        query = query.gt('attempt_count', 1);
       }
 
       const { data, error } = await query;

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Mail, Paperclip } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Mail, Paperclip, RefreshCw, Gauge } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Human labels for the notification types the edge function emits.
@@ -23,6 +23,8 @@ const typeLabels: Record<string, string> = {
   account_pending_review: 'Account pending review',
   account_approved: 'Account approved',
   account_rejected: 'Account rejected',
+  approved_pdf: 'Approved permit PDF',
+  gate_pass_pdf: 'Gate pass PDF',
 };
 
 // Who a given notification type is aimed at — lets an admin answer
@@ -42,6 +44,7 @@ function audienceFor(type: string | null): { label: string; className: string } 
     case 'status_update':
     case 'account_approved':
     case 'account_rejected':
+    case 'approved_pdf':
       return { label: 'Tenant', className: 'bg-purple-500/10 text-purple-600' };
     case 'account_pending_review':
       return { label: 'Admin', className: 'bg-amber-500/10 text-amber-600' };
@@ -57,6 +60,7 @@ export default function EmailDeliveryLog() {
   const [permitNo, setPermitNo] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [retriedOnly, setRetriedOnly] = useState('all');
 
   const { data: logs, isLoading } = useEmailDeliveryLogs({
     status: statusFilter,
@@ -65,13 +69,16 @@ export default function EmailDeliveryLog() {
     permitNo: permitNo || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+    retriedOnly: retriedOnly === 'retried',
   });
 
   const stats = useMemo(() => {
     const total = logs?.length ?? 0;
     const sent = logs?.filter((l) => l.status === 'sent').length ?? 0;
     const failed = total - sent;
-    return { total, sent, failed };
+    const retried = logs?.filter((l) => (l.attempt_count ?? 1) > 1).length ?? 0;
+    const throttled = logs?.reduce((n, l) => n + (l.throttle_count ?? 0), 0) ?? 0;
+    return { total, sent, failed, retried, throttled };
   }, [logs]);
 
   return (
@@ -85,7 +92,7 @@ export default function EmailDeliveryLog() {
       </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card>
           <CardContent className="pt-6 flex items-center gap-3">
             <Mail className="h-8 w-8 text-muted-foreground" />
@@ -109,7 +116,25 @@ export default function EmailDeliveryLog() {
             <XCircle className="h-8 w-8 text-destructive" />
             <div>
               <div className="text-2xl font-bold text-destructive">{stats.failed}</div>
-              <div className="text-xs text-muted-foreground">Failed</div>
+              <div className="text-xs text-muted-foreground">Final failures</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 flex items-center gap-3">
+            <RefreshCw className="h-8 w-8 text-warning" />
+            <div>
+              <div className="text-2xl font-bold">{stats.retried}</div>
+              <div className="text-xs text-muted-foreground">Needed retries</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 flex items-center gap-3">
+            <Gauge className="h-8 w-8 text-warning" />
+            <div>
+              <div className="text-2xl font-bold">{stats.throttled}</div>
+              <div className="text-xs text-muted-foreground">Throttled responses</div>
             </div>
           </CardContent>
         </Card>
@@ -138,6 +163,15 @@ export default function EmailDeliveryLog() {
                 {Object.entries(typeLabels).map(([value, label]) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={retriedOnly} onValueChange={setRetriedOnly}>
+              <SelectTrigger className="w-full sm:w-[170px]">
+                <SelectValue placeholder="Attempts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All attempts</SelectItem>
+                <SelectItem value="retried">Retried only</SelectItem>
               </SelectContent>
             </Select>
             <Input
@@ -189,6 +223,8 @@ export default function EmailDeliveryLog() {
                     <TableHead>Recipients</TableHead>
                     <TableHead>Permit</TableHead>
                     <TableHead>Attachment</TableHead>
+                    <TableHead>Attempts</TableHead>
+                    <TableHead>Delivered</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -247,6 +283,27 @@ export default function EmailDeliveryLog() {
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div
+                            className="flex items-center gap-1"
+                            title={(log.attempt_history ?? [])
+                              .map((a) => `#${a.attempt} ${format(new Date(a.at), 'HH:mm:ss')} → HTTP ${a.status}${a.throttled ? ' (throttled)' : ''}${a.wait_ms ? `, waited ${Math.round(a.wait_ms / 1000)}s` : ''}`)
+                              .join('\n')}
+                          >
+                            <span className="text-sm font-medium">{log.attempt_count ?? 1}</span>
+                            {(log.throttle_count ?? 0) > 0 && (
+                              <Badge variant="outline" className="bg-warning/10 text-warning">
+                                {log.throttle_count}× throttled
+                              </Badge>
+                            )}
+                            {log.last_status_code && log.status === 'failed' && (
+                              <span className="text-xs text-destructive">HTTP {log.last_status_code}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {log.delivered_at ? format(new Date(log.delivered_at), 'dd MMM HH:mm:ss') : '—'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[280px]">
                           {log.status === 'failed' && log.error_message ? (
