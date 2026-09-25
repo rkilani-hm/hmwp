@@ -449,6 +449,7 @@ function SidebarNavGroup({
               key={item.path}
               to={item.path}
               end={item.path === '/'}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -491,6 +492,44 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   }, [navGroups, search]);
 
   const hasResults = filteredGroups.length > 0;
+
+  // Flat list of visible items for arrow-key navigation while searching.
+  const flatItems = useMemo(
+    () => (search.trim() ? filteredGroups.flatMap((g) => g.items) : []),
+    [filteredGroups, search],
+  );
+  const activePath = activeIndex >= 0 ? (flatItems[activeIndex]?.path ?? null) : null;
+
+  // Reset the keyboard selection whenever the query changes.
+  useEffect(() => setActiveIndex(-1), [search]);
+
+  // Keep the keyboard-selected item in view.
+  useEffect(() => {
+    if (!activePath) return;
+    document
+      .querySelector(`[data-nav-path="${CSS.escape(activePath)}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [activePath]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!flatItems.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % flatItems.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? flatItems.length - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      navigate(flatItems[activeIndex].path);
+      onNavigate?.();
+      setSearch('');
+      setActiveIndex(-1);
+    } else if (e.key === 'Escape') {
+      setSearch('');
+      setActiveIndex(-1);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
