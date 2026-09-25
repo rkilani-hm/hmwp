@@ -13,7 +13,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { fetchWithGraphRetry } from "../_shared/graph-send-retry.ts";
+import { fetchWithGraphRetry, newGraphRetryStats } from "../_shared/graph-send-retry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -170,10 +170,10 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     const startedAt = Date.now();
+    const retryStats = newGraphRetryStats();
     const emailResponse = await fetchWithGraphRetry(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
-      { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(emailPayload) },
-    );
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(emailPayload) }, 4, retryStats);
     const durationMs = Date.now() - startedAt;
     const subjectLine = `Work Permit Approved: ${permit.permit_no}`;
     if (!emailResponse.ok) {
@@ -187,7 +187,7 @@ serve(async (req: Request): Promise<Response> => {
           subject: subjectLine,
           permit_id: permitId,
           permit_no: permit.permit_no,
-          status: "failed",
+          status: "failed", attempt_count: retryStats.attempts.length || 1, throttle_count: retryStats.throttleCount, last_status_code: retryStats.lastStatus, attempt_history: retryStats.attempts, delivered_at: null,
           error_message: errorText.slice(0, 2000),
           provider: "microsoft_graph",
           duration_ms: durationMs,
@@ -205,7 +205,7 @@ serve(async (req: Request): Promise<Response> => {
         subject: subjectLine,
         permit_id: permitId,
         permit_no: permit.permit_no,
-        status: "sent",
+        status: "sent", attempt_count: retryStats.attempts.length || 1, throttle_count: retryStats.throttleCount, last_status_code: retryStats.lastStatus, attempt_history: retryStats.attempts, delivered_at: new Date().toISOString(),
         error_message: null,
         provider: "microsoft_graph",
         duration_ms: durationMs,
