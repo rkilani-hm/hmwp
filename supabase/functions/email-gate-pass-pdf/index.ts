@@ -269,7 +269,7 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     const startedAt = Date.now();
-    const emailResponse = await fetch(
+    const emailResponse = await fetchWithGraphRetry(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
       {
         method: "POST",

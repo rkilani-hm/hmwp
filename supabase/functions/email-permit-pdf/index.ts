@@ -13,6 +13,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { fetchWithGraphRetry } from "../_shared/graph-send-retry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,7 +170,7 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     const startedAt = Date.now();
-    const emailResponse = await fetch(
+    const emailResponse = await fetchWithGraphRetry(
       `https://graph.microsoft.com/v1.0/users/${fromEmail}/sendMail`,
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(emailPayload) },
     );
