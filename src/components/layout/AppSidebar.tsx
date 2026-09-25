@@ -324,15 +324,28 @@ const getRoleIcon = (role: UserRole) => {
   return icons[role] || Shield;
 };
 
-function SidebarNavGroup({ group }: { group: NavGroup }) {
+function SidebarNavGroup({ group, searchQuery = '' }: { group: NavGroup; searchQuery?: string }) {
   const location = useLocation();
   const isGroupActive = group.items.some(item =>
     item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
   );
 
+  const q = searchQuery.trim().toLowerCase();
+  const visibleItems = q
+    ? group.items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(q) || group.label.toLowerCase().includes(q),
+      )
+    : group.items;
+
+  // While searching, always force-open the group so matches show without an extra click.
+  const forceOpen = q.length > 0;
+
+  if (visibleItems.length === 0) return null;
+
   // Single-item groups render inline, no collapsible
-  if (group.items.length === 1) {
-    const item = group.items[0];
+  if (group.items.length === 1 || (forceOpen && visibleItems.length === 1 && !q)) {
+    const item = visibleItems[0];
     return (
       <NavLink
         to={item.path}
@@ -349,6 +362,38 @@ function SidebarNavGroup({ group }: { group: NavGroup }) {
         <item.icon className="w-5 h-5" />
         {item.label}
       </NavLink>
+    );
+  }
+
+  // While searching with a multi-item group, render the header + flat list (no toggle).
+  if (forceOpen) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+          <group.icon className="w-3.5 h-3.5" />
+          {group.label}
+        </div>
+        <div className="mt-0.5 space-y-0.5 ml-1">
+          {visibleItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                )
+              }
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      </div>
     );
   }
 
