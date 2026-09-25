@@ -8,6 +8,13 @@
       "when": 1789982560824,
       "tag": "0000_sharepoint_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790312068591,
+      "tag": "0001_email_delivery_retry_tracking",
+      "breakpoints": true
     }
   ]
 }
