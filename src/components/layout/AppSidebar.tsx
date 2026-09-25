@@ -46,7 +46,24 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+/** Wraps the matching part of `text` in a highlighted mark while searching. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-sidebar-primary/30 text-inherit rounded-sm px-0.5">
+        {text.slice(idx, idx + q.length)}
+      </mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
 
 type UserRole = string;
 
@@ -88,6 +105,8 @@ interface NavGroup {
 
 interface AppSidebarProps {
   currentRole: UserRole;
+  /** Called after any menu item is opened — used to close the mobile drawer. */
+  onNavigate?: () => void;
 }
 
 const getNavGroups = (role: UserRole): NavGroup[] => {
