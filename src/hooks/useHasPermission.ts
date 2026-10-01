@@ -3,52 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 
-interface PermissionData {
-  permission_id: string;
-  permissions: {
-    name: string;
-  };
-}
-
 export function useUserPermissions() {
-  const { roles, user } = useAuth();
+  const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['user-permissions', user?.id, roles],
+    queryKey: ['user-permissions', user?.id],
     queryFn: async () => {
-      if (!roles.length) return [];
-
-      // Get role IDs for the user's roles
-      const { data: roleData, error: roleError } = await supabase
-        .from('roles')
-        .select('id, name')
-        .in('name', roles)
-        .eq('is_active', true);
-
-      if (roleError) throw roleError;
-      if (!roleData?.length) return [];
-
-      const roleIds = roleData.map(r => r.id);
-
-      // Get permissions for those roles
-      const { data: permData, error: permError } = await supabase
-        .from('role_permissions')
-        .select('permission_id, permissions(name)')
-        .in('role_id', roleIds);
-
-      if (permError) throw permError;
-
-      // Extract unique permission names
-      const permissionNames = new Set<string>();
-      (permData as PermissionData[] || []).forEach(rp => {
-        if (rp.permissions?.name) {
-          permissionNames.add(rp.permissions.name);
-        }
-      });
-
-      return Array.from(permissionNames);
+      // Resolve the caller's effective permission names server-side. The
+      // permissions/role_permissions tables are admin-only (RLS); this
+      // SECURITY DEFINER RPC returns ONLY the current user's own permissions,
+      // so no table-wide SELECT is needed.
+      const { data, error } = await (supabase as any).rpc('get_my_permissions');
+      if (error) throw error;
+      return ((data as string[] | null) ?? []);
     },
-    enabled: !!user && roles.length > 0,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 }
