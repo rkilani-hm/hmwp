@@ -3384,6 +3384,7 @@ export type Database = {
           sla_deadline: string
         }[]
       }
+      get_my_permissions: { Args: never; Returns: string[] }
       get_pending_status_for_role: {
         Args: { role_name: string }
         Returns: string
