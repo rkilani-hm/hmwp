@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkPermit, useSecureApprovePermit } from '@/hooks/useWorkPermits';
 import { usePermitActiveApprovers } from '@/hooks/usePermitActiveApprovers';
+import { usePermitActionRole } from '@/hooks/usePermitActionRole';
 import { useArchiveWorkPermit, useRestoreWorkPermit, useHardDeleteWorkPermit } from '@/hooks/useDeleteWorkPermit';
 import { AdminDeleteDialog } from '@/components/AdminDeleteDialog';
 import { useGeneratePdf } from '@/hooks/useGeneratePdf';
@@ -124,6 +125,10 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   // sees — eliminates the old hardcoded statusToRole map that didn't
   // include custom roles like al_hamra_customer_service.
   const { data: activeApprovers = [], isLoading: activeApproversLoading } = usePermitActiveApprovers(id);
+  // Forward/delegation-aware: the role THIS user may act as on the current step
+  // (null if none). Lets a forwarded user who doesn't hold the step's role still
+  // approve, matching the server's authorize_permit_approval gate.
+  const { data: actionRole } = usePermitActionRole(id);
   const { generatePdf, isGenerating } = useGeneratePdf();
   const resendNotification = useResendNotification();
   const archivePermit = useArchiveWorkPermit();
@@ -271,6 +276,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     if (currentRole === 'tenant') return false;
     if (activeApproversLoading) return false;
     if (activeApprovers.length === 0) return false;
+    // Forwarded/delegated users don't hold the step's role, but the server
+    // resolved an action role for them — honour it.
+    if (actionRole) return true;
     const activeRoleNames = new Set(activeApprovers.map((a) => a.role_name));
     return roles.some((r) => activeRoleNames.has(r as string));
   };
@@ -280,6 +288,9 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   // earliest step_order (the most active one in the workflow). The
   // approve edge function then double-checks role assignment via RLS.
   const getApprovalRole = (): string => {
+    // Prefer the server-resolved action role (covers forward/delegation, where
+    // the user does not hold the step's role).
+    if (actionRole) return actionRole;
     const matchingActive = activeApprovers.filter((a) => roles.includes(a.role_name as any));
     if (matchingActive.length > 0) return matchingActive[0].role_name;
     // Fallback: any role the user has from the active list (defensive)
