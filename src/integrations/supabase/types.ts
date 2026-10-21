@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -3607,6 +3607,7 @@ export type Database = {
         | "pending_head_of_civil"
         | "pending_bdcr_manager"
         | "pending_head_of_marketing"
+        | "pending_on_behalf_requester"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3797,6 +3798,7 @@ export const Constants = {
         "pending_head_of_civil",
         "pending_bdcr_manager",
         "pending_head_of_marketing",
+        "pending_on_behalf_requester",
       ],
     },
   },
