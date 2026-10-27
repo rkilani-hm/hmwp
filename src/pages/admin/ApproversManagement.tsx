@@ -17,6 +17,7 @@ import { Loader2, Search, Shield, Trash2, UserPlus, UserX, Key, Plus, RefreshCw,
 import { useUserActivation, useResendInvite } from '@/hooks/useUserActivation';
 import { useSendApproverReminders } from '@/hooks/useApproverReminders';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
+import { ExportUsersDialog } from '@/components/admin/ExportUsersDialog';
 import { InviteTenantDialog } from '@/components/admin/InviteTenantDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { PendingDelegationsBanner } from '@/components/PendingDelegationsBanner';
@@ -194,6 +195,7 @@ export default function ApproversManagement() {
             )}
             Send reminders now
           </Button>
+          <ExportUsersDialog users={users ?? []} roleLabels={roleLabelsMap} />
           <InviteTenantDialog />
         </div>
       </div>
