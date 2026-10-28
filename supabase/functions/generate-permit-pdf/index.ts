@@ -929,7 +929,19 @@ const serve_handler = async (req: Request): Promise<Response> => {
           console.warn(`Could not download ${filePath}:`, error?.message);
           return null;
         }
+        // Guard worker memory/CPU: oversized photos fall back to a
+        // filename-only cell instead of killing the whole PDF (546).
+        const MAX_JPG = 3 * 1024 * 1024, MAX_PNG = 1.5 * 1024 * 1024;
+        if (data.size > MAX_JPG) {
+          console.warn(`Skipping large attachment ${filePath} (${data.size} bytes)`);
+          return null;
+        }
         const bytes = new Uint8Array(await data.arrayBuffer());
+        const pngSniff = bytes[0] === 0x89 && bytes[1] === 0x50;
+        if ((pngSniff || mime === 'image/png') && bytes.length > MAX_PNG) {
+          console.warn(`Skipping large PNG ${filePath} (${bytes.length} bytes)`);
+          return null;
+        }
 
         // Sniff the magic bytes if MIME is missing — happens for files
         // uploaded from Safari with empty file.type

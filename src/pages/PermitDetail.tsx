@@ -290,9 +290,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const getApprovalRole = (): string => {
     // Prefer the server-resolved action role (covers forward/delegation, where
     // the user does not hold the step's role).
-    if (actionRole) return actionRole;
+    // Roles the user holds directly win (earliest step first); the server
+    // action role is only used for forward/delegation.
     const matchingActive = activeApprovers.filter((a) => roles.includes(a.role_name as any));
     if (matchingActive.length > 0) return matchingActive[0].role_name;
+    if (actionRole) return actionRole;
     // Fallback: any role the user has from the active list (defensive)
     const activeRoleNames = activeApprovers.map((a) => a.role_name);
     return roles.find((r) => activeRoleNames.includes(r as string)) || 'helpdesk';

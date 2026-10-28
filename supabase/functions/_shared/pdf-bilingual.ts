@@ -93,8 +93,9 @@ export async function loadArabicFont(
   // Step 3: embed the font (bold reuses regular — visual difference is minor
   // for short bilingual labels and saves ~250KB of bundle size).
   try {
+    // Embed once and reuse for bold — same TTF, halves font memory/CPU.
     const regular = await pdfDoc.embedFont(ttf, { subset: true });
-    const bold    = await pdfDoc.embedFont(ttf, { subset: true });
+    const bold    = regular;
     console.log("[pdf-bilingual] embedFont OK (regular+bold from vendored bytes)");
     return { regular, bold };
   } catch (err) {
