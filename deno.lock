@@ -87,8 +87,17 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@capacitor-firebase/messaging@^8.5.2",
+        "npm:@capacitor/android@^8.5.2",
+        "npm:@capacitor/app@^8.1.1",
+        "npm:@capacitor/cli@^8.5.2",
+        "npm:@capacitor/core@^8.5.2",
+        "npm:@capacitor/ios@^8.5.2",
+        "npm:@capacitor/push-notifications@^8.1.2",
         "npm:@eslint/js@^9.32.0",
         "npm:@hookform/resolvers@^3.10.0",
+        "npm:@lovable.dev/vite-plugin-dev-server-bridge@^1.0.2",
+        "npm:@lovable.dev/vite-plugin-hmr-gate@^1.8.0",
         "npm:@marsidev/react-turnstile@^1.5.3",
         "npm:@pdf-lib/fontkit@^1.1.1",
         "npm:@radix-ui/react-accordion@^1.2.11",
@@ -133,10 +142,13 @@
         "npm:clsx@^2.1.1",
         "npm:cmdk@^1.1.1",
         "npm:date-fns@^3.6.0",
+        "npm:drizzle-kit@~0.31.10",
+        "npm:drizzle-orm@~0.45.2",
         "npm:embla-carousel-react@^8.6.0",
         "npm:eslint-plugin-react-hooks@^5.2.0",
         "npm:eslint-plugin-react-refresh@~0.4.20",
         "npm:eslint@^9.32.0",
+        "npm:firebase@^12.19.0",
         "npm:framer-motion@^12.23.26",
         "npm:globals@^15.15.0",
         "npm:heic2any@^0.0.4",
@@ -149,6 +161,7 @@
         "npm:next-themes@0.3",
         "npm:pdf-lib@^1.17.1",
         "npm:postcss@^8.5.6",
+        "npm:postgres@^3.4.9",
         "npm:qrcode-generator@^2.0.4",
         "npm:qrcode.react@^4.2.0",
         "npm:react-day-picker@^8.10.1",
@@ -169,6 +182,7 @@
         "npm:vaul@~0.9.9",
         "npm:vite-plugin-pwa@^1.2.0",
         "npm:vite@^5.4.19",
+        "npm:xlsx@~0.18.5",
         "npm:zod@^3.25.76"
       ]
     }
