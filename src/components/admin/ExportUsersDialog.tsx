@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { UserWithRoles } from '@/hooks/useAdmin';
+import { ActivationRow } from '@/hooks/useUserActivation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,7 @@ import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 type TypeFilter = 'all' | 'tenants' | 'staff';
-type StatusFilter = 'all' | 'active' | 'inactive';
+type StatusFilter = 'all' | 'active' | 'invitation_sent' | 'invitation_expired' | 'disabled';
 
 // Same classification as the User Management tabs: a user whose only
 // role is "tenant" counts as a tenant; anyone with any other role is staff.
@@ -17,12 +18,23 @@ function isTenantOnly(user: UserWithRoles): boolean {
   return user.roles.length > 0 && user.roles.every((r) => r === 'tenant');
 }
 
+// Single source of truth for a user's account status — used by both the
+// filter and the Status column so they can never diverge.
+function userStatusLabel(user: UserWithRoles, act: ActivationRow | undefined): string {
+  if (!user.is_active) return 'Disabled';
+  if (act && !act.activated) {
+    return act.invite_expired ? 'Invitation expired' : 'Invitation sent';
+  }
+  return 'Active';
+}
+
 interface ExportUsersDialogProps {
   users: UserWithRoles[];
   roleLabels: Record<string, string>;
+  activation?: Record<string, ActivationRow>;
 }
 
-export function ExportUsersDialog({ users, roleLabels }: ExportUsersDialogProps) {
+export function ExportUsersDialog({ users, roleLabels, activation }: ExportUsersDialogProps) {
   const [open, setOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -32,11 +44,16 @@ export function ExportUsersDialog({ users, roleLabels }: ExportUsersDialogProps)
     return users.filter((user) => {
       if (typeFilter === 'tenants' && !isTenantOnly(user)) return false;
       if (typeFilter === 'staff' && isTenantOnly(user)) return false;
-      if (statusFilter === 'active' && !user.is_active) return false;
-      if (statusFilter === 'inactive' && user.is_active) return false;
+      if (statusFilter !== 'all') {
+        const label = userStatusLabel(user, activation?.[user.id]);
+        if (statusFilter === 'active' && label !== 'Active') return false;
+        if (statusFilter === 'invitation_sent' && label !== 'Invitation sent') return false;
+        if (statusFilter === 'invitation_expired' && label !== 'Invitation expired') return false;
+        if (statusFilter === 'disabled' && label !== 'Disabled') return false;
+      }
       return true;
     });
-  }, [users, typeFilter, statusFilter]);
+  }, [users, typeFilter, statusFilter, activation]);
 
   const handleExport = () => {
     if (matchingUsers.length === 0) {
@@ -52,7 +69,7 @@ export function ExportUsersDialog({ users, roleLabels }: ExportUsersDialogProps)
         Phone: user.phone || '',
         Type: isTenantOnly(user) ? 'Tenant' : 'Staff',
         Roles: user.roles.map((r) => roleLabels[r] || r).join(', '),
-        Status: user.is_active ? 'Active' : 'Disabled',
+        Status: userStatusLabel(user, activation?.[user.id]),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -70,7 +87,7 @@ export function ExportUsersDialog({ users, roleLabels }: ExportUsersDialogProps)
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
 
       const typePart = typeFilter === 'all' ? 'all-users' : typeFilter;
-      const statusPart = statusFilter === 'all' ? '' : `-${statusFilter}`;
+      const statusPart = statusFilter === 'all' ? '' : `-${statusFilter.replace(/_/g, '-')}`;
       const datePart = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(workbook, `users-${typePart}${statusPart}-${datePart}.xlsx`);
 
@@ -121,9 +138,11 @@ export function ExportUsersDialog({ users, roleLabels }: ExportUsersDialogProps)
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Active and disabled</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active only</SelectItem>
-                <SelectItem value="inactive">Disabled only</SelectItem>
+                <SelectItem value="invitation_sent">Invitation sent only</SelectItem>
+                <SelectItem value="invitation_expired">Invitation expired only</SelectItem>
+                <SelectItem value="disabled">Disabled only</SelectItem>
               </SelectContent>
             </Select>
           </div>
