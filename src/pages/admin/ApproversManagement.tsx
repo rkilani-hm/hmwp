@@ -195,7 +195,7 @@ export default function ApproversManagement() {
             )}
             Send reminders now
           </Button>
-          <ExportUsersDialog users={users ?? []} roleLabels={roleLabelsMap} />
+          <ExportUsersDialog users={users ?? []} roleLabels={roleLabelsMap} activation={activation} />
           <InviteTenantDialog />
         </div>
       </div>
