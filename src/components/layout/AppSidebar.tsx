@@ -514,9 +514,9 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   };
 
   return (
-    <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen flex flex-col">
+    <aside className="w-64 bg-sidebar text-sidebar-foreground h-screen flex flex-col overflow-hidden">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border">
+      <div className="p-6 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-between">
           <img src={alHamraLogo} alt="Al Hamra" className="h-12 w-auto object-contain" />
           <NotificationBell />
@@ -524,7 +524,7 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
       </div>
 
       {/* Role Display */}
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center gap-3 py-3 px-3 bg-sidebar-accent rounded-lg">
           <div className="w-8 h-8 bg-sidebar-primary/20 rounded-lg flex items-center justify-center">
             <RoleIcon className="w-4 h-4 text-sidebar-primary" />
@@ -539,7 +539,7 @@ export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
       </div>
 
       {/* Search */}
-      <div className="p-4 pb-2">
+      <div className="p-4 pb-2 shrink-0">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/40 pointer-events-none" />
           <Input

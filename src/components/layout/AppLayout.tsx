@@ -28,7 +28,7 @@ export function AppLayout({ children, currentRole }: AppLayoutProps) {
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 transform transition-all duration-200 lg:relative',
+          'fixed inset-y-0 left-0 z-50 transform transition-all duration-200 lg:relative lg:sticky lg:top-0 lg:h-screen lg:shrink-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           desktopOpen
             ? 'lg:translate-x-0 lg:w-64'
