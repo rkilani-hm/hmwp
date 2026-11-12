@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { UserWithRoles } from '@/hooks/useAdmin';
-import { ActivationRow } from '@/hooks/useUserActivation';
+import { ActivationRow, useUserActivation } from '@/hooks/useUserActivation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,11 +22,19 @@ function isTenantOnly(user: UserWithRoles): boolean {
 // filter and the Status column so they can never diverge.
 function userStatusLabel(user: UserWithRoles, act: ActivationRow | undefined): string {
   if (!user.is_active) return 'Disabled';
-  if (act && !act.activated) {
-    return act.invite_expired ? 'Invitation expired' : 'Invitation sent';
-  }
+  if (act?.activated) return 'Active';
+  if (act?.invite_expired) return 'Invitation expired';
+  if (act) return 'Invitation sent';
   return 'Active';
 }
+
+// Maps each non-"all" status filter value to its display label.
+const STATUS_LABELS: Record<Exclude<StatusFilter, 'all'>, string> = {
+  active: 'Active',
+  invitation_sent: 'Invitation sent',
+  invitation_expired: 'Invitation expired',
+  disabled: 'Disabled',
+};
 
 interface ExportUsersDialogProps {
   users: UserWithRoles[];
@@ -34,11 +42,15 @@ interface ExportUsersDialogProps {
   activation?: Record<string, ActivationRow>;
 }
 
-export function ExportUsersDialog({ users, roleLabels, activation }: ExportUsersDialogProps) {
+export function ExportUsersDialog({ users, roleLabels, activation: activationProp }: ExportUsersDialogProps) {
   const [open, setOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [exporting, setExporting] = useState(false);
+
+  // Derive each user's real status from the activation records.
+  const { data: hookActivation } = useUserActivation();
+  const activation = hookActivation ?? activationProp;
 
   const matchingUsers = useMemo(() => {
     return users.filter((user) => {
@@ -46,10 +58,7 @@ export function ExportUsersDialog({ users, roleLabels, activation }: ExportUsers
       if (typeFilter === 'staff' && isTenantOnly(user)) return false;
       if (statusFilter !== 'all') {
         const label = userStatusLabel(user, activation?.[user.id]);
-        if (statusFilter === 'active' && label !== 'Active') return false;
-        if (statusFilter === 'invitation_sent' && label !== 'Invitation sent') return false;
-        if (statusFilter === 'invitation_expired' && label !== 'Invitation expired') return false;
-        if (statusFilter === 'disabled' && label !== 'Disabled') return false;
+        if (label !== STATUS_LABELS[statusFilter]) return false;
       }
       return true;
     });
@@ -62,15 +71,23 @@ export function ExportUsersDialog({ users, roleLabels, activation }: ExportUsers
     }
     setExporting(true);
     try {
-      const rows = matchingUsers.map((user) => ({
-        'Full Name': user.full_name || '',
-        Email: user.email,
-        Company: user.company_name || '',
-        Phone: user.phone || '',
-        Type: isTenantOnly(user) ? 'Tenant' : 'Staff',
-        Roles: user.roles.map((r) => roleLabels[r] || r).join(', '),
-        Status: userStatusLabel(user, activation?.[user.id]),
-      }));
+      const formatDate = (value: string | null | undefined) =>
+        value ? new Date(value).toLocaleString() : '';
+
+      const rows = matchingUsers.map((user) => {
+        const act = activation?.[user.id];
+        return {
+          'Full Name': user.full_name || '',
+          Email: user.email,
+          Company: user.company_name || '',
+          Phone: user.phone || '',
+          Type: isTenantOnly(user) ? 'Tenant' : 'Staff',
+          Roles: user.roles.map((r) => roleLabels[r] || r).join(', '),
+          Status: userStatusLabel(user, act),
+          'Invitation sent': formatDate(act?.invitation_sent_at),
+          'Last sign-in': formatDate(act?.last_sign_in_at),
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
       // Reasonable column widths so the file opens readable.
@@ -81,7 +98,9 @@ export function ExportUsersDialog({ users, roleLabels, activation }: ExportUsers
         { wch: 18 }, // Phone
         { wch: 10 }, // Type
         { wch: 36 }, // Roles
-        { wch: 10 }, // Status
+        { wch: 18 }, // Status
+        { wch: 22 }, // Invitation sent
+        { wch: 22 }, // Last sign-in
       ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
