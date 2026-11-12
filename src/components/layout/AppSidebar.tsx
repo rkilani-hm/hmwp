@@ -128,13 +128,6 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         ],
       },
       {
-        label: 'Gate Passes',
-        icon: Package,
-        items: [
-          { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
-        ],
-      },
-      {
         label: 'Tools & Support',
         icon: Cog,
         items: [
@@ -170,13 +163,6 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         ],
       },
       {
-        label: 'Gate Passes',
-        icon: Package,
-        items: [
-          { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
-        ],
-      },
-      {
         label: 'Tools & Support',
         icon: Cog,
         items: [
@@ -207,15 +193,6 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
           { icon: Inbox, label: 'Inbox', path: '/inbox' },
           { icon: Send, label: 'Outbox', path: '/outbox' },
           { icon: ClipboardCheck, label: 'All Permits', path: '/permits' },
-        ],
-      },
-      {
-        label: 'Gate Passes',
-        icon: Package,
-        items: [
-          { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
-          { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
-          { icon: Share2, label: 'My Delegations', path: '/delegations' },
         ],
       },
       {
@@ -262,6 +239,8 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         label: 'Support',
         icon: BookOpen,
         items: [
+          { icon: ScanLine, label: 'Scan & Verify', path: '/scan-verify' },
+          { icon: Share2, label: 'My Delegations', path: '/delegations' },
           { icon: BookOpen, label: 'User Manuals', path: '/user-manuals' },
           { icon: Settings, label: 'Settings', path: '/settings' },
         ],
@@ -287,13 +266,6 @@ const getNavGroups = (role: UserRole): NavGroup[] => {
         { icon: Inbox, label: 'Inbox', path: '/inbox' },
         { icon: Send, label: 'Outbox', path: '/outbox' },
         { icon: ClipboardCheck, label: 'History', path: '/permits' },
-      ],
-    },
-    {
-      label: 'Gate Passes',
-      icon: Package,
-      items: [
-        { icon: Package, label: 'Gate Passes', path: '/gate-passes' },
       ],
     },
     {
