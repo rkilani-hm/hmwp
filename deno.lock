@@ -184,7 +184,10 @@
         "npm:vite@^5.4.19",
         "npm:xlsx@~0.18.5",
         "npm:zod@^3.25.76"
-      ]
+      ],
+      "overrides": {
+        "rollup": "4.22.4"
+      }
     }
   }
 }
