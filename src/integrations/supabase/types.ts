@@ -3608,6 +3608,9 @@ export type Database = {
         | "pending_bdcr_manager"
         | "pending_head_of_marketing"
         | "pending_on_behalf_requester"
+        | "pending_head_of_ict"
+        | "pending_hra_head"
+        | "pending_al_hamra_internal_team"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3799,6 +3802,9 @@ export const Constants = {
         "pending_bdcr_manager",
         "pending_head_of_marketing",
         "pending_on_behalf_requester",
+        "pending_head_of_ict",
+        "pending_hra_head",
+        "pending_al_hamra_internal_team",
       ],
     },
   },
