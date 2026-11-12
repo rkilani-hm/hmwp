@@ -44,6 +44,7 @@ export function SecureAttachmentPreview({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -63,59 +64,101 @@ export function SecureAttachmentPreview({
 
   const cleanPath = getCleanPath(filePath);
 
-  // Load thumbnail for images
+  // Load thumbnail for images, and preload PDFs as correctly-typed blob URLs
   useEffect(() => {
+    let pdfObjectUrl: string | null = null;
+
     const loadThumbnail = async () => {
       if (fileType === 'image') {
         try {
           const { data, error } = await supabase.storage
             .from(bucket)
             .createSignedUrl(cleanPath, 3600); // 1 hour expiry
-          
+
           if (data && !error) {
             setThumbnailUrl(data.signedUrl);
           }
         } catch (e) {
           console.error('Failed to load thumbnail:', e);
         }
+      } else if (fileType === 'pdf') {
+        try {
+          const { data, error } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(cleanPath, 3600); // 1 hour expiry
+
+          if (!data || error) return;
+
+          try {
+            // Re-wrap bytes with the correct content-type so the browser's
+            // native PDF viewer renders even if the stored type was wrong.
+            const res = await fetch(data.signedUrl);
+            if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+            const bytes = await res.arrayBuffer();
+            pdfObjectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+            setPdfUrl(pdfObjectUrl);
+          } catch (fetchErr) {
+            // Fall back to the signed URL directly (e.g. CORS blocked the fetch)
+            console.warn('PDF blob preload failed, using signed URL:', fetchErr);
+            setPdfUrl(data.signedUrl);
+          }
+        } catch (e) {
+          console.error('Failed to preload PDF:', e);
+        }
       }
     };
     loadThumbnail();
+
+    return () => {
+      if (pdfObjectUrl) {
+        URL.revokeObjectURL(pdfObjectUrl);
+      }
+    };
   }, [cleanPath, bucket, fileType]);
 
-  const loadSignedUrl = async () => {
+  const loadSignedUrl = async (): Promise<string | null> => {
     setLoading(true);
     setError(null);
     try {
       const { data, error } = await supabase.storage
         .from(bucket)
         .createSignedUrl(cleanPath, 3600); // 1 hour expiry
-      
+
       if (error) {
         throw error;
       }
-      
+
       if (data) {
         setSignedUrl(data.signedUrl);
+        return data.signedUrl;
       }
+      return null;
     } catch (e: any) {
       console.error('Failed to load file:', e);
       setError(e.message || 'Failed to load file');
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   const handlePreview = async () => {
-    await loadSignedUrl();
-    setPreviewOpen(true);
+    // PDFs preloaded at mount can open immediately without re-fetching
+    if (fileType === 'pdf' && pdfUrl) {
+      setPreviewOpen(true);
+      return;
+    }
+    const url = await loadSignedUrl();
+    if (url) {
+      setPreviewOpen(true);
+    }
   };
 
   const handleDownload = async () => {
-    await loadSignedUrl();
-    if (signedUrl) {
+    const url = await loadSignedUrl();
+    if (url) {
       const link = document.createElement('a');
-      link.href = signedUrl;
+      link.href = url;
       link.download = filename;
       link.target = '_blank';
       document.body.appendChild(link);
@@ -141,6 +184,14 @@ export function SecureAttachmentPreview({
                 src={thumbnailUrl}
                 alt={filename}
                 className="w-10 h-10 rounded-lg object-cover"
+              />
+            ) : fileType === 'pdf' && pdfUrl ? (
+              <iframe
+                src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                className="w-10 h-10 rounded-lg pointer-events-none"
+                style={{ border: 0 }}
+                aria-hidden="true"
+                tabIndex={-1}
               />
             ) : (
               <FileIcon className="w-5 h-5 text-muted-foreground" />
@@ -200,9 +251,9 @@ export function SecureAttachmentPreview({
                 {error}
               </div>
             )}
-            {!loading && !error && signedUrl && (
+            {!loading && !error && (signedUrl || pdfUrl) && (
               <>
-                {fileType === 'image' ? (
+                {fileType === 'image' && signedUrl ? (
                   <img
                     src={signedUrl}
                     alt={filename}
@@ -210,7 +261,7 @@ export function SecureAttachmentPreview({
                   />
                 ) : fileType === 'pdf' ? (
                   <iframe
-                    src={signedUrl}
+                    src={pdfUrl ?? signedUrl ?? undefined}
                     className="w-full h-[70vh] rounded-lg border"
                     title={filename}
                   />
