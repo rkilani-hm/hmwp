@@ -64,6 +64,13 @@
       "when": 1795519771356,
       "tag": "0008_revoke_client_execute_ensure_pending_status_for_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795520225230,
+      "tag": "0009_harden_high_risk_security_definer_functions",
+      "breakpoints": true
     }
   ]
 }

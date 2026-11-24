@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, User, Phone, Building2 } from 'lucide-react';
-import { getEmailsForRole } from '@/utils/emailNotifications';
 
 const Onboarding = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -108,22 +107,12 @@ const Onboarding = () => {
       const wasPendingSelfSignup = profile?.account_status === 'pending';
       if (wasPendingSelfSignup) {
         try {
-          const adminEmails = await getEmailsForRole('admin');
-          if (adminEmails.length > 0) {
-            await supabase.functions.invoke('send-email-notification', {
-              body: {
-                to: adminEmails,
-                subject: 'New tenant application — review required',
-                notificationType: 'account_pending_review',
-                details: {
-                  tenantName: fullName.trim() || profile?.full_name || '',
-                  tenantEmail: email,
-                  tenantCompany: companyName.trim() || profile?.company_name || '',
-                  tenantPhone: phone.trim() || profile?.phone || '',
-                },
-              },
-            });
-          }
+          // The existing sender validates the pending profile and resolves
+          // admin recipients server-side; no email list reaches the browser.
+          const { error: notifyError } = await supabase.functions.invoke('notify-new-tenant', {
+            body: { email },
+          });
+          if (notifyError) throw notifyError;
         } catch (notifyErr) {
           console.error('Admin notification failed (non-fatal):', notifyErr);
         }
