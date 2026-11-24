@@ -13,7 +13,7 @@ export interface AdhocApproval {
   target_name: string | null;
   target_role: string;
   target_role_label: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   request_note: string | null;
   comments: string | null;
   signature: string | null;
@@ -74,7 +74,7 @@ export function useMyPendingAdhocPermitIds() {
 export function useRequestAdditionalApproval() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (v: { permitId: string; permitNo: string; targetUserId: string; note: string }) => {
+    mutationFn: async (v: { permitId: string; permitNo: string; targetUserId: string; targetEmail?: string | null; requesterName?: string | null; note: string }) => {
       const { data, error } = await supabase.rpc('request_additional_approval' as any, {
         p_permit_id: v.permitId, p_target_user_id: v.targetUserId, p_note: v.note || null,
       });
@@ -88,6 +88,19 @@ export function useRequestAdditionalApproval() {
           data: { url: `/permits/${v.permitId}`, permitId: v.permitId },
         },
       }).catch(() => {});
+      // Email the asked approver through the same sender used for approval_required.
+      if (v.targetEmail) {
+        supabase.functions.invoke('send-email-notification', {
+          body: {
+            to: [v.targetEmail],
+            notificationType: 'adhoc_requested',
+            subject: `Approval requested: ${v.permitNo}`,
+            permitNo: v.permitNo,
+            permitId: v.permitId,
+            details: { permitId: v.permitId, requesterName: v.requesterName ?? '', note: v.note ?? '' },
+          },
+        }).catch(() => {});
+      }
       return data;
     },
     onSuccess: (_d, v) => {
@@ -96,5 +109,30 @@ export function useRequestAdditionalApproval() {
       toast.success('Approval requested. Your step is on hold until they respond.');
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to request approval'),
+  });
+}
+
+export function useCancelAdditionalApproval() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { adhocId: string; permitId: string; permitNo: string; targetUserId: string }) => {
+      const { error } = await supabase.rpc('cancel_additional_approval' as any, { p_adhoc_id: v.adhocId });
+      if (error) throw new Error(error.message);
+      supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: v.targetUserId,
+          title: 'Approval request withdrawn',
+          message: `The approval request on ${v.permitNo} was withdrawn`,
+          data: { url: `/permits/${v.permitId}`, permitId: v.permitId },
+        },
+      }).catch(() => {});
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['permit-adhoc-approvals', v.permitId] });
+      qc.invalidateQueries({ queryKey: ['activity-logs', v.permitId] });
+      qc.invalidateQueries({ queryKey: ['my-pending-adhoc'] });
+      toast.success('Request withdrawn. You can now decide your step.');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to cancel request'),
   });
 }

@@ -195,14 +195,21 @@ export default function ApproverInbox() {
     });
   };
 
-  const allSelected = filteredPermits.length > 0 && filteredPermits.every(p => selectedIds.has(p.id));
+  const bulkEligible = filteredPermits.filter(p => !adhocPermitIds?.has(p.id));
+  const allSelected = bulkEligible.length > 0 && bulkEligible.every(p => selectedIds.has(p.id));
   const toggleSelectAll = () => {
     if (allSelected) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredPermits.map(p => p.id)));
+    else setSelectedIds(new Set(filteredPermits.filter(p => !adhocPermitIds?.has(p.id)).map(p => p.id)));
   };
 
   const handleBulkApprove = async (auth: AuthPayload, signature: string | null) => {
-    const targets = filteredPermits.filter(p => selectedIds.has(p.id));
+    const allTargets = filteredPermits.filter(p => selectedIds.has(p.id));
+    // Requested (ad-hoc) approvals must be decided on the permit page.
+    const skipped = allTargets.filter(p => adhocPermitIds?.has(p.id));
+    const targets = allTargets.filter(p => !adhocPermitIds?.has(p.id));
+    if (skipped.length > 0) {
+      toast.info(`Skipped ${skipped.length} requested approval${skipped.length !== 1 ? 's' : ''} — open ${skipped.length !== 1 ? 'them' : 'it'} to review: ${skipped.map(p => p.permit_no).join(', ')}`);
+    }
     setBulkProgress({ done: 0, total: targets.length });
     let success = 0;
     let failed = 0;
@@ -468,6 +475,8 @@ export default function ApproverInbox() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Checkbox
+                          disabled={adhocPermitIds?.has(permit.id)}
+                          title={adhocPermitIds?.has(permit.id) ? 'Requested approvals must be opened to review' : undefined}
                           checked={selectedIds.has(permit.id)}
                           onCheckedChange={() => toggleSelected(permit.id)}
                           aria-label={`Select ${permit.permit_no}`}
@@ -535,6 +544,16 @@ export default function ApproverInbox() {
                         
                         {/* Action Buttons */}
                         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                          {adhocPermitIds?.has(permit.id) ? (
+                            <Button
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/permits/${permit.id}`); }}
+                            >
+                              <Eye className="w-4 h-4" />
+                              Open to review
+                            </Button>
+                          ) : (<>
                           <Button
                             size="sm"
                             variant="outline"
@@ -570,6 +589,7 @@ export default function ApproverInbox() {
                             <CheckCircle className="w-4 h-4" />
                             {t('permits.approve.approveButton')}
                           </Button>
+                          </>)}
                           <Button
                             size="sm"
                             variant="ghost"

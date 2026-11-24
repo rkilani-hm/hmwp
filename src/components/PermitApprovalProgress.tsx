@@ -64,7 +64,8 @@ export function PermitApprovalProgress({ permitId, workTypeId, permitStatus, cla
 
   const { data: approvals, isLoading: isLoadingApprovals } = usePermitApprovals(permitId);
   const { data: permitOverrides, isLoading: isLoadingOverrides } = usePermitWorkflowOverridesMap(permitId);
-  const { data: adhoc = [] } = usePermitAdhocApprovals(permitId);
+  const { data: adhocAll = [] } = usePermitAdhocApprovals(permitId);
+  const adhoc = adhocAll.filter((a) => a.status !== 'cancelled');
   const renderAdhoc = (list: AdhocApproval[]) =>
     list.map((a) => (
       <div key={a.id} className="ml-6 border-l-2 border-dashed border-muted pl-3">

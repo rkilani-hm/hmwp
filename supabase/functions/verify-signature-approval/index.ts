@@ -540,6 +540,21 @@ const handler = async (req: Request): Promise<Response> => {
                   data: { url: `/permits/${permitId}`, permitId } },
         });
       } catch (e) { console.error("adhoc push failed", e); }
+      try {
+        const { data: rp } = await svc.from("profiles").select("email").eq("id", req0.requested_by_user_id).maybeSingle();
+        if (rp?.email) {
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email-notification`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: [rp.email], notificationType: "adhoc_resolved",
+              subject: `Requested approval ${decision}: ${permitNo}`,
+              permitNo, permitId,
+              details: { permitId, approverName: targetName, decision },
+            }),
+          });
+        }
+      } catch (e) { console.error("adhoc email failed", e); }
       return new Response(JSON.stringify({ success: true, adhoc: updated }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }

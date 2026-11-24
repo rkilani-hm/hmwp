@@ -3360,6 +3360,10 @@ export type Database = {
         | { Args: { p_role_name: string; p_user: string }; Returns: Json }
       can_approve_amendment: { Args: { p_user: string }; Returns: boolean }
       can_submit_on_behalf: { Args: { p_user: string }; Returns: boolean }
+      cancel_additional_approval: {
+        Args: { p_adhoc_id: string }
+        Returns: undefined
+      }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       compute_sla_deadline: {
         Args: { _from?: string; _urgency: string; _work_type_id: string }

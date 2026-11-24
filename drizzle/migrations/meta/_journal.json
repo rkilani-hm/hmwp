@@ -50,6 +50,13 @@
       "when": 1795517770884,
       "tag": "0006_get_permit_adhoc_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795518835542,
+      "tag": "0007_cancel_additional_approval",
+      "breakpoints": true
     }
   ]
 }

@@ -68,7 +68,7 @@ import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { usePermitAttachments } from '@/hooks/usePermitAttachments';
-import { usePermitAdhocApprovals } from '@/hooks/useAdhocApprovals';
+import { usePermitAdhocApprovals, useCancelAdditionalApproval } from '@/hooks/useAdhocApprovals';
 import { RequestApprovalDialog } from '@/components/permit-detail/RequestApprovalDialog';
 
 function ExpiredIdsBanner({ permitId }: { permitId: string }) {
@@ -124,6 +124,7 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [adhocActingId, setAdhocActingId] = useState<string | null>(null);
   const { data: adhocApprovals = [] } = usePermitAdhocApprovals(id);
   const myBlockingRequest = adhocApprovals.find((a) => a.status === 'pending' && a.requested_by_user_id === user?.id);
+  const cancelAdhoc = useCancelAdditionalApproval();
   const myTargetRequest = adhocApprovals.find((a) => a.status === 'pending' && a.target_user_id === user?.id);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
@@ -405,6 +406,15 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               Rendered as a sibling of the title block so they sit at
               the top-right of the header on wide screens; wraps to a
               new row on narrow screens via flex-wrap on the parent. */}
+          {isAdmin && adhocApprovals.filter((a) => a.status === 'pending' && a.requested_by_user_id !== user?.id).map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <Badge variant="outline">Pending request: {a.requested_by_name} → {a.target_name}</Badge>
+              <Button size="sm" variant="outline" disabled={cancelAdhoc.isPending}
+                onClick={() => cancelAdhoc.mutate({ adhocId: a.id, permitId: permit.id, permitNo: permit.permit_no, targetUserId: a.target_user_id })}>
+                Cancel request
+              </Button>
+            </div>
+          ))}
           {myTargetRequest && (
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
               <Badge variant="secondary" className="gap-1"><UserCheck className="w-3 h-3" />Approval requested by {myTargetRequest.requested_by_name}</Badge>
@@ -421,9 +431,15 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
           {canApprove() && !myTargetRequest && (
             <div className="flex flex-wrap gap-2 flex-shrink-0 items-center">
               {myBlockingRequest ? (
-                <p className="w-full text-xs text-warning">
-                  Awaiting requested approval from {myBlockingRequest.target_name ?? 'another approver'}
-                </p>
+                <div className="w-full flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-warning">
+                    Awaiting requested approval from {myBlockingRequest.target_name ?? 'another approver'}
+                  </p>
+                  <Button size="sm" variant="outline" disabled={cancelAdhoc.isPending}
+                    onClick={() => cancelAdhoc.mutate({ adhocId: myBlockingRequest.id, permitId: permit.id, permitNo: permit.permit_no, targetUserId: myBlockingRequest.target_user_id })}>
+                    Cancel request
+                  </Button>
+                </div>
               ) : (
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setRequestApprovalOpen(true)}
                   disabled={secureApprove.isPending}>

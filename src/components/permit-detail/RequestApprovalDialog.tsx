@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAdhocCandidates, useRequestAdditionalApproval } from '@/hooks/useAdhocApprovals';
 
 interface Props {
@@ -18,12 +19,15 @@ interface Props {
 export function RequestApprovalDialog({ open, onOpenChange, permitId, permitNo }: Props) {
   const { data: candidates = [], isLoading } = useAdhocCandidates(permitId, open);
   const request = useRequestAdditionalApproval();
+  const { user, profile } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
   const submit = async () => {
     if (!selected) return;
-    await request.mutateAsync({ permitId, permitNo, targetUserId: selected, note });
+    const cand = candidates.find((c) => c.user_id === selected);
+    await request.mutateAsync({ permitId, permitNo, targetUserId: selected, targetEmail: cand?.email ?? null,
+      requesterName: profile?.full_name ?? user?.email ?? null, note });
     setSelected(null);
     setNote('');
     onOpenChange(false);

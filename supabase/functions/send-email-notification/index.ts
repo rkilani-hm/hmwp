@@ -46,6 +46,8 @@ interface EmailRequest {
     | 'sla_warning'
     | 'sla_breach'
     | 'status_update'
+    | 'adhoc_requested'
+    | 'adhoc_resolved'
     // Tenant account-lifecycle notifications (no permit context)
     | 'account_pending_review'  // → admins: a new tenant has signed up
     | 'account_approved'        // → tenant: admin approved your account
@@ -215,6 +217,24 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       color: WARNING,
       ctaEn: "Open and approve →",
       ctaAr: "افتح واعتمد →",
+    },
+    adhoc_requested: {
+      titleEn: "Your Approval Has Been Requested",
+      titleAr: "مطلوب اعتمادك",
+      contentEn: `You've been asked to approve <strong>${permitNo}</strong> by ${details.requesterName || 'an approver'}.` + (details.note ? `<br><br><strong>Note:</strong> ${details.note}` : ''),
+      contentAr: `طُلب منك اعتماد <strong>${permitNo}</strong> من قِبَل ${details.requesterName || 'أحد المعتمدين'}.` + (details.note ? `<br><br><strong>ملاحظة:</strong> ${details.note}` : ''),
+      color: WARNING,
+      ctaEn: "Open and approve →",
+      ctaAr: "افتح واعتمد →",
+    },
+    adhoc_resolved: {
+      titleEn: details.decision === 'rejected' ? "Requested Approval Rejected" : "Requested Approval Approved",
+      titleAr: details.decision === 'rejected' ? "تم رفض الاعتماد المطلوب" : "تم الاعتماد المطلوب",
+      contentEn: `${details.approverName || 'The approver'} has ${details.decision || 'approved'} your requested approval on <strong>${permitNo}</strong> — you can now decide your step.`,
+      contentAr: `قام ${details.approverName || 'المعتمِد'} بـ${details.decision === 'rejected' ? 'رفض' : 'اعتماد'} الطلب على <strong>${permitNo}</strong> — يمكنك الآن اتخاذ قرارك.`,
+      color: details.decision === 'rejected' ? BRAND_RED : SUCCESS,
+      ctaEn: "Open permit →",
+      ctaAr: "افتح التصريح →",
     },
     approved: {
       titleEn: "Work Permit Approved",
