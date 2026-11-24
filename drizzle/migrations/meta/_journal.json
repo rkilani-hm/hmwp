@@ -71,6 +71,13 @@
       "when": 1795520225230,
       "tag": "0009_harden_high_risk_security_definer_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795521890637,
+      "tag": "0010_tighten_low_risk_definer_helpers",
+      "breakpoints": true
     }
   ]
 }
