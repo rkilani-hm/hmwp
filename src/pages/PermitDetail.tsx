@@ -68,6 +68,8 @@ import { useIsTenantOnly } from '@/hooks/useIsTenantOnly';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { usePermitAttachments } from '@/hooks/usePermitAttachments';
+import { usePermitAdhocApprovals } from '@/hooks/useAdhocApprovals';
+import { RequestApprovalDialog } from '@/components/permit-detail/RequestApprovalDialog';
 
 function ExpiredIdsBanner({ permitId }: { permitId: string }) {
   const { data: attachments } = usePermitAttachments(permitId);
@@ -117,6 +119,12 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [modifyWorkflowOpen, setModifyWorkflowOpen] = useState(false);
+  const [requestApprovalOpen, setRequestApprovalOpen] = useState(false);
+  // When set, the SecureApprovalDialog resolves this requested (ad-hoc) approval.
+  const [adhocActingId, setAdhocActingId] = useState<string | null>(null);
+  const { data: adhocApprovals = [] } = usePermitAdhocApprovals(id);
+  const myBlockingRequest = adhocApprovals.find((a) => a.status === 'pending' && a.requested_by_user_id === user?.id);
+  const myTargetRequest = adhocApprovals.find((a) => a.status === 'pending' && a.target_user_id === user?.id);
 
   const { data: permit, isLoading, error } = useWorkPermit(id);
   const secureApprove = useSecureApprovePermit();
@@ -319,17 +327,20 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
     signature: string | null,
     scheduleChange?: ScheduleChange | null,
   ) => {
+    const acting = adhocActingId ? adhocApprovals.find((a) => a.id === adhocActingId) : null;
     await secureApprove.mutateAsync({
       permitId: permit.id,
-      role: getApprovalRole(),
+      role: acting ? acting.target_role : getApprovalRole(),
+      adhocApprovalId: acting?.id,
       comments,
       signature: approvalAction === 'approve' ? signature : null,
       approved: approvalAction === 'approve',
       auth,
       // Only send on approval when the approver actually adjusted the schedule.
       scheduleOverride:
-        approvalAction === 'approve' && scheduleChange ? scheduleChange : undefined,
+        !acting && approvalAction === 'approve' && scheduleChange ? scheduleChange : undefined,
     });
+    setAdhocActingId(null);
     setApprovalDialogOpen(false);
     setComments('');
   };
@@ -394,8 +405,32 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               Rendered as a sibling of the title block so they sit at
               the top-right of the header on wide screens; wraps to a
               new row on narrow screens via flex-wrap on the parent. */}
-          {canApprove() && (
-            <div className="flex flex-wrap gap-2 flex-shrink-0">
+          {myTargetRequest && (
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <Badge variant="secondary" className="gap-1"><UserCheck className="w-3 h-3" />Approval requested by {myTargetRequest.requested_by_name}</Badge>
+              <Button size="sm" variant="destructive" className="gap-1.5" disabled={secureApprove.isPending}
+                onClick={() => { setAdhocActingId(myTargetRequest.id); setApprovalAction('reject'); setApprovalDialogOpen(true); }}>
+                <XCircle className="w-4 h-4" />Reject
+              </Button>
+              <Button size="sm" className="gap-1.5 bg-success text-success-foreground hover:bg-success/90" disabled={secureApprove.isPending}
+                onClick={() => { setAdhocActingId(myTargetRequest.id); setApprovalAction('approve'); setApprovalDialogOpen(true); }}>
+                <CheckCircle className="w-4 h-4" />{approveLabel}
+              </Button>
+            </div>
+          )}
+          {canApprove() && !myTargetRequest && (
+            <div className="flex flex-wrap gap-2 flex-shrink-0 items-center">
+              {myBlockingRequest ? (
+                <p className="w-full text-xs text-warning">
+                  Awaiting requested approval from {myBlockingRequest.target_name ?? 'another approver'}
+                </p>
+              ) : (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setRequestApprovalOpen(true)}
+                  disabled={secureApprove.isPending}>
+                  <Users className="w-4 h-4" />
+                  Request approval
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -425,10 +460,11 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
                 // is still used for the rejection reason if the user
                 // typed one there; if empty, the dialog still confirms.
                 onClick={() => {
+                  setAdhocActingId(null);
                   setApprovalAction('reject');
                   setApprovalDialogOpen(true);
                 }}
-                disabled={secureApprove.isPending}
+                disabled={secureApprove.isPending || !!myBlockingRequest}
               >
                 <XCircle className="w-4 h-4" />
                 Reject
@@ -436,8 +472,8 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
               <Button
                 size="sm"
                 className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
-                onClick={handleApprove}
-                disabled={secureApprove.isPending}
+                onClick={() => { setAdhocActingId(null); handleApprove(); }}
+                disabled={secureApprove.isPending || !!myBlockingRequest}
               >
                 <CheckCircle className="w-4 h-4" />
                 {approveLabel}
@@ -813,9 +849,15 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             </Card>
           )}
 
+          <RequestApprovalDialog
+            open={requestApprovalOpen}
+            onOpenChange={setRequestApprovalOpen}
+            permitId={permit.id}
+            permitNo={permit.permit_no}
+          />
           <SecureApprovalDialog
             isOpen={approvalDialogOpen}
-            onClose={() => setApprovalDialogOpen(false)}
+            onClose={() => { setApprovalDialogOpen(false); setAdhocActingId(null); }}
             onConfirm={handleSecureApproval}
             title={
               approvalAction === 'approve'
@@ -830,8 +872,13 @@ export default function PermitDetail({ currentRole }: PermitDetailProps) {
             actionType={approvalAction}
             isLoading={secureApprove.isPending}
             approveLabel={approveLabel}
-            authBinding={{ permitId: permit.id, role: getApprovalRole() }}
-            scheduleEdit={{
+            authBinding={{
+              permitId: permit.id,
+              role: adhocActingId
+                ? (adhocApprovals.find((a) => a.id === adhocActingId)?.target_role ?? getApprovalRole())
+                : getApprovalRole(),
+            }}
+            scheduleEdit={adhocActingId ? null : {
               workDateFrom: (permit as any).work_date_from ?? '',
               workDateTo: (permit as any).work_date_to ?? '',
               workTimeFrom: (permit as any).work_time_from ?? '',

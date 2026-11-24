@@ -587,6 +587,39 @@ const serve_handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Ad-hoc requested approvals — printed in the chain directly after the
+    // step that requested them, labelled as an additional approval.
+    {
+      const { data: adhocRows } = await supabaseAdmin
+        .from('permit_adhoc_approvals')
+        .select('requested_by_role, target_user_id, target_role, status, approved_at, signature, comments, created_at')
+        .eq('permit_id', permitId)
+        .in('status', ['approved', 'rejected'])
+        .order('created_at');
+      if (adhocRows && adhocRows.length > 0) {
+        const ids = Array.from(new Set(adhocRows.map((r: any) => r.target_user_id)));
+        const { data: profs } = await supabaseAdmin.from('profiles').select('id, full_name, email').in('id', ids);
+        const nameById = new Map((profs ?? []).map((p: any) => [p.id, p.full_name || p.email]));
+        const pretty = (k: string) => ROLE_DISPLAY_NAMES[k] ?? k.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        adhocRows.forEach((r: any, i: number) => {
+          const parent = approvals.find((a) => a.roleKey === r.requested_by_role);
+          approvals.push({
+            name: `Requested approval: ${pretty(r.target_role)} (for ${pretty(r.requested_by_role)})`,
+            nameAr: null,
+            roleKey: r.target_role,
+            status: r.status,
+            approver: nameById.get(r.target_user_id) ?? null,
+            date: r.approved_at,
+            signature: r.signature,
+            comments: r.comments,
+            actorType: 'approver',
+            // Sort just before the requesting step (they signed first).
+            stepOrder: (parent?.stepOrder ?? 999) - 0.5 + i * 0.01,
+          } as ApprovalRow);
+        });
+      }
+    }
+
     approvals.sort((a, b) => a.stepOrder - b.stepOrder);
 
     // Status badge — one-word summary derived from permit_approvals.

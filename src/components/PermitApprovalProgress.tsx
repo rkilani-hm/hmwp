@@ -18,6 +18,7 @@ import { usePermitApprovals, type PermitApproval } from '@/hooks/useEntityApprov
 import { usePermitWorkflowOverridesMap } from '@/hooks/usePermitWorkflowOverrides';
 import { useActorTypes } from '@/hooks/useActorTypes';
 import { approveVerb } from '@/utils/actorVerb';
+import { usePermitAdhocApprovals, type AdhocApproval } from '@/hooks/useAdhocApprovals';
 import {
   type RenderStatus,
   defaultRoleLabel,
@@ -63,6 +64,24 @@ export function PermitApprovalProgress({ permitId, workTypeId, permitStatus, cla
 
   const { data: approvals, isLoading: isLoadingApprovals } = usePermitApprovals(permitId);
   const { data: permitOverrides, isLoading: isLoadingOverrides } = usePermitWorkflowOverridesMap(permitId);
+  const { data: adhoc = [] } = usePermitAdhocApprovals(permitId);
+  const renderAdhoc = (list: AdhocApproval[]) =>
+    list.map((a) => (
+      <div key={a.id} className="ml-6 border-l-2 border-dashed border-muted pl-3">
+        <ApprovalCard
+          keyPrefix={KEY}
+          label={`Requested approval — ${a.target_name ?? 'Approver'} (${a.target_role_label ?? defaultRoleLabel(a.target_role)})`}
+          status={a.status as RenderStatus}
+          approval={{
+            approver_name: a.status === 'pending' ? null : a.target_name,
+            approved_at: a.approved_at,
+            comments: a.comments ?? (a.request_note ? `Request: ${a.request_note}` : null),
+            signature: a.signature,
+            auth_method: a.auth_method,
+          } as any}
+        />
+      </div>
+    ));
 
   // Resolve actor_type per approving user so each completed row shows
   // "Approved" vs "Reviewed" based on who actually acted (R5/E4).
@@ -178,6 +197,7 @@ export function PermitApprovalProgress({ permitId, workTypeId, permitStatus, cla
             />
           ))
         )}
+        {renderAdhoc(adhoc)}
       </div>
     );
   }
@@ -191,15 +211,18 @@ export function PermitApprovalProgress({ permitId, workTypeId, permitStatus, cla
       <div className="space-y-2">
         <SubmittedRow isSubmitted={!!isSubmitted} keyPrefix={KEY} />
         {stepRows.map((row) => (
-          <ApprovalCard
-            key={row.stepId}
-            keyPrefix={KEY}
-            label={row.roleLabel}
-            status={row.status}
-            approval={row.approval}
-            approvedLabel={approveVerb(actorTypes?.get(row.approval?.approver_user_id ?? ''), 'past')}
-          />
+          <div key={row.stepId} className="space-y-2">
+            <ApprovalCard
+              keyPrefix={KEY}
+              label={row.roleLabel}
+              status={row.status}
+              approval={row.approval}
+              approvedLabel={approveVerb(actorTypes?.get(row.approval?.approver_user_id ?? ''), 'past')}
+            />
+            {renderAdhoc(adhoc.filter((a) => a.requested_by_role === row.roleName))}
+          </div>
         ))}
+        {renderAdhoc(adhoc.filter((a) => !stepRows.some((r) => r.roleName === a.requested_by_role)))}
       </div>
     </div>
   );

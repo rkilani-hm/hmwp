@@ -79,6 +79,8 @@ const ApprovalSchema = z.object({
   comments: z.string().max(1000, "Comments must be less than 1000 characters").transform((v) => v.trim()),
   signature: z.string().max(100000, "Signature data too large").nullable(),
   approved: z.boolean({ required_error: "Approved status is required" }),
+  // When set, this call resolves an ad-hoc "requested approval" instead of a workflow step.
+  adhocApprovalId: z.string().uuid().optional(),
 
   // Exactly one of the following auth paths must be provided:
   authMethod: z.enum(["password", "webauthn"]),
@@ -424,7 +426,7 @@ const handler = async (req: Request): Promise<Response> => {
         status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-    const { permitId, role, comments, signature, approved, authMethod, password, webauthn, scheduleOverride } = parseResult.data;
+    const { permitId, role, comments, signature, approved, authMethod, password, webauthn, scheduleOverride, adhocApprovalId } = parseResult.data;
 
     const ipAddress =
       req.headers.get("x-forwarded-for") ||
@@ -480,6 +482,69 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Identity verified for ${user.email} via ${authMethod}`);
 
     // -----------------------------------------------------------------------
+    // Ad-hoc requested approval: the caller must be the target of a pending
+    // request on this permit. Resolves it and notifies the requester.
+    // -----------------------------------------------------------------------
+    if (adhocApprovalId) {
+      const svc = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: req0 } = await svc.from("permit_adhoc_approvals").select("*")
+        .eq("id", adhocApprovalId).eq("permit_id", permitId).maybeSingle();
+      if (!req0 || req0.target_user_id !== user.id || req0.status !== "pending") {
+        return new Response(JSON.stringify({ error: "You are not the requested approver for this permit, or it was already resolved." }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+      if (approved && !signature) {
+        return new Response(JSON.stringify({ error: "Signature is required to approve" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+      let sigHash: string | null = null;
+      if (signature) {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(signature));
+        sigHash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      const decision = approved ? "approved" : "rejected";
+      const { data: updated, error: upErr } = await svc.from("permit_adhoc_approvals").update({
+        status: decision, comments: comments || null, signature: approved ? signature : null,
+        signature_hash: sigHash, auth_method: authMethod, approved_at: new Date().toISOString(),
+      }).eq("id", adhocApprovalId).eq("status", "pending").select().maybeSingle();
+      if (upErr || !updated) {
+        console.error("adhoc update failed", upErr);
+        return new Response(JSON.stringify({ error: "Could not record the decision" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+      const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      const targetName = prof?.full_name || user.email || "Approver";
+      const { data: pm } = await svc.from("work_permits").select("permit_no").eq("id", permitId).maybeSingle();
+      const permitNo = pm?.permit_no ?? "";
+      const ua = req.headers.get("user-agent") || "unknown";
+      await svc.from("signature_audit_logs").insert({
+        permit_id: permitId, user_id: user.id, user_email: user.email!, user_name: targetName,
+        role: req0.target_role, action: approved ? "adhoc_approved" : "adhoc_rejected",
+        ip_address: ipAddress, user_agent: ua, signature_hash: sigHash,
+        password_verified: authMethod === "password", auth_method: authMethod,
+        webauthn_credential_id: webauthnCredentialRowId,
+      });
+      await svc.from("activity_logs").insert({
+        permit_id: permitId, action: `Requested Approval ${approved ? "Approved" : "Rejected"}`,
+        performed_by: targetName, performed_by_id: user.id,
+        details: `Requested approval ${decision} by ${targetName}${comments ? ` — ${comments}` : ""}`,
+      });
+      const msg = `${targetName} has ${decision} your requested approval on ${permitNo} — you can now decide your step.`;
+      await svc.from("notifications").insert({
+        user_id: req0.requested_by_user_id, permit_id: permitId, type: "adhoc_approval_resolved",
+        title: `Requested approval ${decision}`, message: msg,
+      });
+      try {
+        await svc.functions.invoke("send-push-notification", {
+          body: { userId: req0.requested_by_user_id, title: `Requested approval ${decision}`, message: msg,
+                  data: { url: `/permits/${permitId}`, permitId } },
+        });
+      } catch (e) { console.error("adhoc push failed", e); }
+      return new Response(JSON.stringify({ success: true, adhoc: updated }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+    }
+
+    // -----------------------------------------------------------------------
     // R6: server-side authorization gate.
     // The acting user must genuinely hold the step's role, OR be an admin, OR
     // be a non-tenant delegate with an ACTIVE delegation for that role from a
@@ -502,7 +567,9 @@ const handler = async (req: Request): Promise<Response> => {
     if (!authz?.allowed) {
       console.warn(`Approval denied for ${user.email} as role ${roleField} on permit ${permitId}`);
       return new Response(
-        JSON.stringify({ error: "You are not an authorized approver for this step." }),
+        JSON.stringify({ error: authz?.blocked_by_adhoc
+          ? `Awaiting requested approval from ${authz?.blocked_by_name ?? "another approver"}. You can decide your step once they respond.`
+          : "You are not an authorized approver for this step." }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }

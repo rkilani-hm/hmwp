@@ -913,6 +913,68 @@ export type Database = {
         }
         Relationships: []
       }
+      permit_adhoc_approvals: {
+        Row: {
+          approved_at: string | null
+          auth_method: string | null
+          comments: string | null
+          created_at: string
+          id: string
+          permit_id: string
+          request_note: string | null
+          requested_by_role: string
+          requested_by_user_id: string
+          signature: string | null
+          signature_hash: string | null
+          status: string
+          target_role: string
+          target_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          permit_id: string
+          request_note?: string | null
+          requested_by_role: string
+          requested_by_user_id: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          target_role: string
+          target_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          auth_method?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          permit_id?: string
+          request_note?: string | null
+          requested_by_role?: string
+          requested_by_user_id?: string
+          signature?: string | null
+          signature_hash?: string | null
+          status?: string
+          target_role?: string
+          target_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permit_adhoc_approvals_permit_id_fkey"
+            columns: ["permit_id"]
+            isOneToOne: false
+            referencedRelation: "work_permits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permit_amendments: {
         Row: {
           added_id_count: number | null
@@ -3389,6 +3451,27 @@ export type Database = {
         Args: { role_name: string }
         Returns: string
       }
+      get_permit_adhoc_approvals: {
+        Args: { p_permit_id: string }
+        Returns: {
+          approved_at: string
+          auth_method: string
+          comments: string
+          created_at: string
+          id: string
+          permit_id: string
+          request_note: string
+          requested_by_name: string
+          requested_by_role: string
+          requested_by_user_id: string
+          signature: string
+          status: string
+          target_name: string
+          target_role: string
+          target_role_label: string
+          target_user_id: string
+        }[]
+      }
       get_public_permit_status: {
         Args: { _permit_no: string }
         Returns: {
@@ -3430,6 +3513,16 @@ export type Database = {
       is_non_tenant_staff: { Args: { p_user: string }; Returns: boolean }
       is_tenant_only: { Args: { p_user: string }; Returns: boolean }
       is_tenant_user: { Args: { _user_id: string }; Returns: boolean }
+      list_adhoc_approver_candidates: {
+        Args: { p_permit_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          role_label: string
+          role_name: string
+          user_id: string
+        }[]
+      }
       list_companies: {
         Args: never
         Returns: {
@@ -3518,6 +3611,10 @@ export type Database = {
       reconcile_permit_approvals: {
         Args: { _permit_id: string }
         Returns: undefined
+      }
+      request_additional_approval: {
+        Args: { p_note?: string; p_permit_id: string; p_target_user_id: string }
+        Returns: string
       }
       resolve_user_email: { Args: { p_user_id: string }; Returns: string }
       same_company: {

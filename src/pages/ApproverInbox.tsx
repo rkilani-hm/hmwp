@@ -48,6 +48,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMyPendingAdhocPermitIds } from '@/hooks/useAdhocApprovals';
 import { GatePassesPendingWidget } from '@/components/dashboard/GatePassesPendingWidget';
 
 // Role resolution for permit approval in this inbox:
@@ -108,6 +109,7 @@ export default function ApproverInbox() {
   const navigate = useNavigate();
   const { roles, profile, user, refreshProfile } = useAuth();
   const { data: permits, isLoading } = usePendingPermitsForApprover();
+  const { data: adhocPermitIds } = useMyPendingAdhocPermitIds();
   const authPreference = profile?.auth_preference || 'password';
   const secureApprove = useSecureApprovePermit();
   const [searchTerm, setSearchTerm] = useState('');
@@ -476,6 +478,9 @@ export default function ApproverInbox() {
                         <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="font-semibold text-lg">{permit.permit_no}</h3>
                           <StatusBadge status={permit.status as any} />
+                          {adhocPermitIds?.has(permit.id) && (
+                            <Badge className="bg-accent text-accent-foreground">Approval requested</Badge>
+                          )}
                           {permit.urgency === 'urgent' && (
                             <Badge variant="destructive" className="flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />

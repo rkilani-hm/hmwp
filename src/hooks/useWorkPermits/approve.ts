@@ -153,6 +153,8 @@ export function useApprovePermit() {
       queryClient.invalidateQueries({ queryKey: ['permit-active-approvers', variables.permitId] });
       // Activity log will have a new row.
       queryClient.invalidateQueries({ queryKey: ['activity-logs', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['permit-adhoc-approvals', variables.permitId] });
+      queryClient.invalidateQueries({ queryKey: ['my-pending-adhoc'] });
       toast.success(variables.approved ? 'Permit approved!' : 'Permit rejected');
     },
     onError: (error) => {
@@ -185,7 +187,9 @@ export function useSecureApprovePermit() {
       approved,
       auth,
       scheduleOverride,
+      adhocApprovalId,
     }: {
+      adhocApprovalId?: string;
       permitId: string;
       role: string;
       comments: string;
@@ -210,6 +214,7 @@ export function useSecureApprovePermit() {
         approved,
         authMethod: auth.authMethod,
       };
+      if (adhocApprovalId) body.adhocApprovalId = adhocApprovalId;
       if (scheduleOverride) {
         body.scheduleOverride = scheduleOverride;
       }
