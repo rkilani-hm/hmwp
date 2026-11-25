@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { exportRowsToCsv } from '@/utils/csvExport';
 import { DateRangePresets, presetToRange, type DateRange, type DateRangePreset } from '@/components/ui/DateRangePresets';
-import { useWorkPermits } from '@/hooks/useWorkPermits';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { useSLAStats } from '@/hooks/useSLAStats';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,7 +44,6 @@ import { differenceInHours, format, parseISO, startOfMonth, eachDayOfInterval } 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--muted))'];
 
 export default function Reports() {
-  const { data: allPermits, isLoading } = useWorkPermits();
   const [preset, setPreset] = useState<DateRangePreset>('all');
   const [range, setRange] = useState<DateRange>(presetToRange('all'));
 
@@ -54,30 +53,31 @@ export default function Reports() {
   // when permits had breached. useSLAStats computes breaches live.
   const { metrics: slaMetrics, breachedIds } = useSLAStats({ dateFrom: range.from, dateTo: range.to });
 
-  // Filter permits by created_at within selected range. When no range
-  // is set, fall through to the unfiltered list.
-  const permits = useMemo(() => {
-    if (!allPermits) return allPermits;
-    if (!range.from && !range.to) return allPermits;
-    const fromTs = range.from ? new Date(range.from).getTime() : -Infinity;
-    const toTs = range.to ? new Date(range.to).getTime() + 86_399_999 : Infinity;
-    return allPermits.filter((p: any) => {
-      const t = new Date(p.created_at).getTime();
-      return t >= fromTs && t <= toTs;
-    });
-  }, [allPermits, range]);
+  // Load EVERY permit in the range (paged past the 1000-row cap, RLS-scoped).
+  const { data: permits, isLoading } = useQuery({
+    queryKey: ['work-permits', 'reports', range.from ?? null, range.to ?? null],
+    queryFn: () =>
+      fetchAllRows<any>(() => {
+        let q = supabase
+          .from('work_permits')
+          .select('id, permit_no, status, urgency, workflow_customized, created_at, updated_at, requester_name, contractor_name, work_types(id, name)')
+          .order('created_at', { ascending: false })
+          .order('id');
+        if (range.from) q = q.gte('created_at', new Date(range.from).toISOString());
+        if (range.to) q = q.lte('created_at', new Date(new Date(range.to).getTime() + 86_399_999).toISOString());
+        return q;
+      }),
+  });
 
   // Fetch workflow audit data
   const { data: workflowAuditData } = useQuery({
     queryKey: ['workflow-audit-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      return fetchAllRows<any>(() => supabase
         .from('permit_workflow_audit')
         .select('*, profiles:modified_by(full_name)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+        .order('created_at', { ascending: false })
+        .order('id'));
     },
   });
 
@@ -87,13 +87,12 @@ export default function Reports() {
   const { data: approvalsData } = useQuery({
     queryKey: ['permit-approvals-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      return fetchAllRows<any>(() => supabase
         .from('permit_approvals')
-        .select('permit_id, role_name, status, approved_at, created_at')
+        .select('id, permit_id, role_name, status, approved_at, created_at')
         .eq('status', 'approved')
-        .not('approved_at', 'is', null);
-      if (error) throw error;
-      return data || [];
+        .not('approved_at', 'is', null)
+        .order('id'));
     },
   });
 

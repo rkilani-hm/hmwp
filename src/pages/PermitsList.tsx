@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWorkPermits } from '@/hooks/useWorkPermits';
+import { usePermitListCounts } from '@/hooks/usePermitListCounts';
 import {
   useArchiveWorkPermit,
   useRestoreWorkPermit,
@@ -99,6 +100,9 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
 
   const filteredActive = filterPermits(activePermits);
   const filteredArchived = filterPermits(archivedPermits);
+  const { data: serverCounts } = usePermitListCounts(searchQuery, statusFilter);
+  const activeTotal = serverCounts?.active ?? filteredActive.length;
+  const archivedTotal = serverCounts?.archived ?? filteredArchived.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -317,7 +321,7 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
             {currentRole === 'tenant' ? 'My Permits' : 'All Permits'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {filteredActive.length} active permit{filteredActive.length !== 1 ? 's' : ''}
+            {activeTotal} active permit{activeTotal !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex gap-2">
@@ -408,10 +412,10 @@ export default function PermitsList({ currentRole }: PermitsListProps) {
       {isAdmin && archivedPermits.length > 0 ? (
         <Tabs defaultValue="active" onValueChange={() => setSelectedIds(new Set())}>
           <TabsList>
-            <TabsTrigger value="active">Active ({filteredActive.length})</TabsTrigger>
+            <TabsTrigger value="active">Active ({activeTotal})</TabsTrigger>
             <TabsTrigger value="archived">
               <Archive className="w-3.5 h-3.5 mr-1.5" />
-              Archived ({filteredArchived.length})
+              Archived ({archivedTotal})
             </TabsTrigger>
           </TabsList>
           <TabsContent value="active">

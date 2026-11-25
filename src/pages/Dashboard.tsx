@@ -30,6 +30,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useGatePasses, useGatePassStats } from '@/hooks/useGatePasses';
 import { gatePassTypeLabels, gatePassStatusLabels } from '@/types/gatePass';
 import { PackageCheck } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 type UserRole = string;
 
@@ -105,6 +107,18 @@ const toPermitCardFormat = (permit: WorkPermit) => ({
 export default function Dashboard({ currentRole }: DashboardProps) {
   const navigate = useNavigate();
   const { data: permits, isLoading } = useWorkPermits();
+  // RLS-scoped server count so it isn't capped at the 1000-row fetch limit.
+  const { data: modifiedWorkflowCountData } = useQuery({
+    queryKey: ['work-permits', 'modified-workflow-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('work_permits')
+        .select('id', { count: 'exact', head: true })
+        .eq('workflow_customized', true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
   const stats = usePermitStats();
   const gpStats = useGatePassStats();
   const { data: gatePasses } = useGatePasses();
@@ -120,7 +134,7 @@ export default function Dashboard({ currentRole }: DashboardProps) {
     (p) => p.status.startsWith('pending') || p.status === 'submitted' || p.status === 'under_review'
   ).slice(0, 3) || [];
   const reworkPermits = permits?.filter((p) => p.status === 'rework_needed').slice(0, 3) || [];
-  const modifiedWorkflowCount = permits?.filter((p) => p.workflow_customized).length || 0;
+  const modifiedWorkflowCount = modifiedWorkflowCountData ?? 0;
 
   const containerVariants = {
     hidden: { opacity: 0 },
