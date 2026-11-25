@@ -1,3 +1,5 @@
+import { authenticate, AccessError, mayPush } from '../_shared/notification-security.ts';
+import { z } from 'npm:zod@3';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -372,59 +374,25 @@ async function sendPushNotification(
   }
 }
 
-serve(async (req) => {
+export const handler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { admin: supabase, service, user } = await authenticate(req);
+    const parsed = z.object({
+      userId: z.string().uuid().optional(), userIds: z.array(z.string().uuid()).min(1).max(500).optional(),
+      title: z.string().min(1).max(255), message: z.string().min(1).max(4000),
+      data: z.record(z.unknown()).optional(),
+    }).strict().safeParse(await req.json().catch(() => null));
+    if (!parsed.success) throw new AccessError('Invalid push request', 400);
+    const { userId, userIds, title, message, data } = parsed.data;
+    if (!mayPush(service, user?.id, userId, userIds)) throw new AccessError('You may only send a push to yourself');
+    if ((!userId && !userIds) || (userId && userIds)) throw new AccessError('Specify exactly one recipient selector', 400);
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
     const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      console.error('VAPID keys not configured');
-      return new Response(JSON.stringify({ error: 'Push notifications not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Auth: require service-role bearer (internal callers) or any authenticated user
-    const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const token = authHeader.slice(7).trim();
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    if (token !== supabaseServiceKey) {
-      const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
-      if (uErr || !user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    const body = await req.json();
-    const { userId, userIds, title, message, data } = body;
-
-    // Bound bulk targeting
-    if (userIds && Array.isArray(userIds) && userIds.length > 500) {
-      return new Response(JSON.stringify({ error: 'Too many recipients' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!title || !message) {
-      return new Response(JSON.stringify({ error: 'Title and message are required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!vapidPublicKey || !vapidPrivateKey) throw new AccessError('Push notifications not configured', 500);
 
     // Build query for subscriptions
     let query = supabase.from('push_subscriptions').select('*');
@@ -454,7 +422,7 @@ serve(async (req) => {
       title,
       body: message,
       icon: '/pwa-192x192.png',
-      tag: data?.permitId || 'notification',
+      tag: typeof data?.permitId === 'string' ? data.permitId : 'notification',
       data: data || {},
     };
 
@@ -547,8 +515,9 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in send-push-notification:', error);
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
+      status: error instanceof AccessError ? error.status : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
+if (import.meta.main) serve(handler);

@@ -34,35 +34,19 @@ export async function sendEmailNotification(
   subject: string,
   details: EmailDetails
 ): Promise<{ success: boolean; error?: string }> {
+  // Legacy rework caller: recipient/subject/details are never forwarded.
+  // The server verifies the recorded rework action and derives the email.
+  if (notificationType !== 'rework' || !details.permitId) {
+    return { success: false, error: 'Use a verified server notification action' };
+  }
   try {
-    const { data, error } = await supabase.functions.invoke('send-email-notification', {
-      body: {
-        to,
-        notificationType,
-        subject,
-        permitNo: details.permitNo,
-        permitId: details.permitId,
-        details: {
-          permitId: details.permitId,
-          workType: details.workType,
-          requesterName: details.requesterName,
-          urgency: details.urgency,
-          approverName: details.approverName,
-          reason: details.reason,
-          comments: details.comments,
-        },
-      },
+    const { data, error } = await supabase.functions.invoke('dispatch-permit-notification', {
+      body: { event: 'rework', permitId: details.permitId },
     });
-
-    if (error) {
-      console.error('Email notification error:', error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (err: any) {
-    console.error('Email notification exception:', err);
-    return { success: false, error: err.message };
+    if (error) return { success: false, error: error.message };
+    return { success: !data?.deliveryWarnings };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Notification failed' };
   }
 }
 

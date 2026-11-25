@@ -5,53 +5,15 @@ import { toast } from 'sonner';
 import { useEffect } from 'react';
 import type { GatePass, GatePassItem } from '@/types/gatePass';
 
-// Fan-out approver notifications for a gate pass via the server-side RPC — the GP
-// analogue of notifyActiveApprovers (useWorkPermits). notify_gate_pass_active_approvers
-// runs SECURITY DEFINER (bypasses the RLS that blocks a requester from reading
-// other users' roles/emails), inserts idempotent in-app notifications, and
-// returns user_ids + emails to hand to the push/email edge functions.
+// Preserve gate-pass fan-out through the permission-checked server path.
 async function notifyGatePassApprovers(gatePassId: string, passNo: string) {
   try {
-    const { data, error } = await supabase.rpc('notify_gate_pass_active_approvers' as any, {
-      p_gate_pass_id: gatePassId,
-      p_notification_type: 'gatepass_pending',
+    const { data, error } = await supabase.functions.invoke('dispatch-permit-notification', {
+      body: { event: 'gatepass_pending', gatePassId },
     });
-    if (error) {
-      console.error(`[gp-notify] notify_gate_pass_active_approvers failed for ${passNo}:`, error);
-      return;
-    }
-    const payload = (data || {}) as { user_ids?: string[]; emails?: string[] };
-    const userIds = payload.user_ids ?? [];
-    const emails = payload.emails ?? [];
-
-    if (userIds.length > 0) {
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            userIds,
-            title: 'New Gate Pass',
-            message: `${passNo} requires your review`,
-            data: { url: '/gate-passes/approvals', gatePassId },
-          },
-        });
-      } catch (e) { console.error('[gp-notify] push failed:', e); }
-    }
-    if (emails.length > 0) {
-      try {
-        await supabase.functions.invoke('send-email-notification', {
-          body: {
-            to: emails,
-            notificationType: 'approval_required',
-            subject: `Gate Pass Awaiting Approval: ${passNo}`,
-            permitNo: passNo,
-            details: {},
-          },
-        });
-      } catch (e) { console.error('[gp-notify] email failed:', e); }
-    }
-  } catch (e) {
-    console.error('[gp-notify] error:', e);
-  }
+    if (error) throw error;
+    if (data?.deliveryWarnings) toast.warning(`Gate pass ${passNo} saved, but a notification could not be delivered.`);
+  } catch (error) { console.error('[gp-notify] server notification failed:', error); }
 }
 
 export function useGatePasses() {

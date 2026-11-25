@@ -1,3 +1,5 @@
+import { isServiceBearer } from '../_shared/notification-security.ts';
+import { z } from 'npm:zod@3';
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -37,6 +39,7 @@ interface EmailRequest {
   notificationType:
     // Permit / gate-pass workflow notifications (require permitNo)
     | 'new_permit'
+    | 'permit_submitted'
     | 'approval_required'
     | 'approved'
     | 'rejected'
@@ -208,6 +211,15 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
       color: INFO,
       ctaEn: "Review this work permit →",
       ctaAr: "مراجعة تصريح العمل →",
+    },
+    permit_submitted: {
+      titleEn: "Work Permit Request Received",
+      titleAr: "تم استلام طلب تصريح العمل",
+      contentEn: `Your work permit request <strong>${permitNo}</strong> has been received.`,
+      contentAr: `تم استلام طلب تصريح العمل <strong>${permitNo}</strong>.`,
+      color: INFO,
+      ctaEn: "View permit →",
+      ctaAr: "عرض التصريح →",
     },
     approval_required: {
       titleEn: "Work Permit Awaiting Your Approval",
@@ -525,33 +537,35 @@ function generateEmailHtml(type: EmailRequest['notificationType'], permitNo: str
 `;
 }
 
-const handler = async (req: Request): Promise<Response> => {
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Auth: require service-role bearer (internal callers) or an authenticated user
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
+    // Only trusted server callers may choose email recipients/content.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-    const token = authHeader.slice(7).trim();
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (token !== supabaseServiceKey) {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.3");
-      const supa = createClient(Deno.env.get("SUPABASE_URL")!, supabaseServiceKey);
-      const { data: { user }, error: uErr } = await supa.auth.getUser(token);
-      if (uErr || !user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
+    if (!isServiceBearer(authHeader, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))) {
+      return new Response(JSON.stringify({ error: "Service role required" }), {
+        status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
-
-    const { to, subject, body, permitId, notificationType, permitNo, details, hasAttachment } = await req.json();
+    const parsed = z.object({
+      to: z.array(z.string().trim().email()).min(1).max(500),
+      subject: z.string().min(1).max(1000), body: z.string().max(200000).optional(),
+      permitId: z.string().uuid().optional(), permitNo: z.string().max(255).optional(),
+      notificationType: z.enum(['new_permit','permit_submitted','approval_required','approved','rejected','rework','forwarded','closed','sla_warning','sla_breach','status_update','adhoc_requested','adhoc_resolved','account_pending_review','account_approved','account_rejected','password_reset','tenant_invitation']),
+      details: z.record(z.unknown()).optional(), hasAttachment: z.boolean().optional(),
+    }).safeParse(await req.json().catch(() => null));
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid email request" }), {
+      status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+    const { to, subject, body, permitId, notificationType, permitNo, details, hasAttachment } = parsed.data;
 
     // ---- Delivery audit logging ----
     // Best-effort recording of every send outcome into email_delivery_logs so
@@ -616,7 +630,7 @@ const handler = async (req: Request): Promise<Response> => {
       const accessToken = await getMicrosoftToken();
 
       // Generate email body if not provided
-      const emailBody = body || generateEmailHtml(notificationType, permitNo || 'N/A', details || {});
+      const emailBody = body || generateEmailHtml(notificationType, permitNo || 'N/A', (details || {}) as Record<string, string>);
 
       // Send the email
       await sendEmail(accessToken, to, subject, emailBody);
@@ -656,4 +670,4 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-serve(handler);
+if (import.meta.main) serve(handler);

@@ -1,3 +1,5 @@
+import { authenticate, AccessError, requireDocumentAccess } from '../_shared/notification-security.ts';
+import { z } from 'npm:zod@3';
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { newGraphRetryStats, fetchWithGraphRetry } from "../_shared/graph-send-retry.ts";
@@ -48,82 +50,37 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-const handler = async (req: Request): Promise<Response> => {
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    const { admin: supabaseAdmin, service: isServiceCall, user } = await authenticate(req);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const parsed = z.object({
+      gatePassId: z.string().uuid(), recipientEmail: z.string().trim().email().optional(),
+      recipients: z.array(z.string().trim().email()).min(1).max(100).optional(),
+      recipientName: z.string().max(255).optional(),
+    }).strict().safeParse(await req.json().catch(() => null));
+    if (!parsed.success) throw new AccessError('Invalid gate pass email request', 400);
+    const { gatePassId, recipientEmail, recipientName } = parsed.data;
+    const recipientList = [...new Set([...(parsed.data.recipients ?? []), ...(recipientEmail ? [recipientEmail] : [])])];
+    if (!recipientList.length) throw new AccessError('At least one recipient is required', 400);
+    let gp;
+    if (!isServiceCall && user) gp = await requireDocumentAccess(supabaseAdmin, user.id, 'gatepass', gatePassId);
+    else {
+      const { data, error } = await supabaseAdmin.from('gate_passes').select('*').eq('id', gatePassId).single();
+      if (error || !data) throw new AccessError('Gate pass not found', 404);
+      gp = data;
     }
-
-    const token = authHeader.replace("Bearer ", "");
-    // Accept the service-role key (internal caller, e.g. the approval function)
-    // OR a valid user token.
-    let user: { id: string } | null = null;
-    const isServiceCall = token === supabaseServiceKey;
-    if (!isServiceCall) {
-      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey);
-      const { data: { user: u }, error: authError } = await supabaseUser.auth.getUser(token);
-      if (authError || !u) {
-        return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
-          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
-      user = u;
-    }
-
-    const body = await req.json();
-    const { gatePassId, recipientEmail, recipientName } = body;
-    // Recipients may be a single recipientEmail (back-compat) or an array.
-    const recipientList: string[] = Array.from(new Set(
-      [
-        ...(Array.isArray(body.recipients) ? body.recipients : []),
-        ...(recipientEmail ? [recipientEmail] : []),
-      ]
-        .filter((e: unknown): e is string => typeof e === "string" && e.trim() !== "")
-        .map((e: string) => e.trim()),
-    ));
-    if (!gatePassId || recipientList.length === 0) {
-      return new Response(JSON.stringify({ error: "Gate pass ID and at least one recipient are required" }), {
-        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Fetch gate pass
-    const { data: gp, error: gpError } = await supabaseAdmin
-      .from("gate_passes")
-      .select("*")
-      .eq("id", gatePassId)
-      .single();
-
-    if (gpError || !gp) {
-      return new Response(JSON.stringify({ error: "Gate pass not found" }), {
-        status: 404, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Auth check — skipped for trusted service-role calls (internal approval flow).
-    if (!isServiceCall && user) {
-      const isRequester = gp.requester_id === user.id;
-      const { data: isApproverResult } = await supabaseAdmin.rpc("is_gate_pass_approver", { _user_id: user.id });
-      const { data: isAdminResult } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-      if (!isRequester && !isApproverResult && !isAdminResult) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
-    }
+    // The detail page has a real chosen-recipient feature. Preserve it, but audit who shares which pass.
+    const { error: auditError } = await supabaseAdmin.from('user_activity_logs').insert({
+      user_id: user?.id || gp.requester_id, user_email: user?.email || gp.requester_email || 'System',
+      action_type: 'Gate Pass PDF Email Requested',
+      details: JSON.stringify({ gatePassId, recipients: recipientList, sender: user?.email || 'System', service_call: isServiceCall }),
+    });
+    if (auditError) throw new AccessError('Could not record email sender', 500);
 
     // Download the PDF from storage
     const pdfFileName = gp.pdf_url || `gate-pass-${gp.pass_no.replace(/\//g, "-")}.pdf`;
@@ -331,9 +288,9 @@ const handler = async (req: Request): Promise<Response> => {
     console.error("Error emailing gate pass PDF:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      { status: error instanceof AccessError ? error.status : 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
 
-serve(handler);
+if (import.meta.main) serve(handler);

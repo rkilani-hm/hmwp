@@ -103,9 +103,8 @@ export interface BulkReassignmentSummary {
  * After reconciliation, for every permit where a NEW active role
  * appeared (skipped_count > 0 OR inserted_count > 0), fires the
  * notify_permit_active_approvers RPC. That RPC inserts in-app
- * notifications AND returns the email list. We then call
- * send-email-notification so the newly-assigned approvers get
- * email pings too.
+ * notifications. The server dispatches email and push to the resolved
+ * approvers without exposing recipient addresses to the browser.
  *
  * Admin only.
  */
@@ -134,47 +133,10 @@ export function useReassignAllPermits() {
 
       for (const r of needsNotify) {
         try {
-          const { data: notifyResult, error: notifyErr } = await supabase.rpc(
-            'notify_permit_active_approvers' as any,
-            {
-              p_permit_id: r.permit_id,
-              p_notification_type: 'new_permit',
-            },
-          );
-          if (notifyErr) {
-            console.warn(`notify failed for ${r.permit_no}:`, notifyErr);
-            continue;
-          }
-          const payload = (notifyResult || {}) as {
-            emails?: string[] | null;
-            permit_no?: string;
-            urgency?: string;
-            requester_name?: string;
-          };
-          const emails = payload.emails ?? [];
-          if (emails.length > 0) {
-            // Reuse the existing edge function which has SMTP creds.
-            // Field names match EmailRequest interface in
-            // supabase/functions/send-email-notification: notificationType
-            // (not 'type') and details (not 'data'). Also pass permitId
-            // and permitNo at top level — the function reads them there
-            // for activity logging and rate-limiting.
-            await supabase.functions.invoke('send-email-notification', {
-              body: {
-                to: emails,
-                subject: `Work Permit Awaiting Your Review: ${payload.permit_no || r.permit_no || ''}`,
-                notificationType: 'new_permit',
-                permitId: r.permit_id,
-                permitNo: payload.permit_no || r.permit_no || '',
-                details: {
-                  permitId: r.permit_id,
-                  permitNo: payload.permit_no || r.permit_no || '',
-                  urgency: payload.urgency || 'normal',
-                  requesterName: payload.requester_name,
-                },
-              },
-            });
-          }
+          const { error: notifyErr } = await supabase.functions.invoke('dispatch-permit-notification', {
+            body: { event: 'permit_pending', permitId: r.permit_id, notificationType: 'new_permit' },
+          });
+          if (notifyErr) console.warn(`notify failed for ${r.permit_no}:`, notifyErr);
         } catch (err) {
           console.warn(`notify chain failed for ${r.permit_no}:`, err);
         }

@@ -1,3 +1,5 @@
+import { authenticate, AccessError, requireDocumentAccess } from '../_shared/notification-security.ts';
+import { z } from 'npm:zod@3';
 // =============================================================================
 // email-permit-pdf
 //
@@ -53,55 +55,49 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-serve(async (req: Request): Promise<Response> => {
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const admin = createClient(supabaseUrl, serviceKey);
-
-    // Auth: service-role bearer (internal caller) OR a valid user token.
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    const { admin, service, user } = await authenticate(req);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const parsed = z.object({ permitId: z.string().uuid(), recipients: z.array(z.string().trim().email()).min(1).max(100) }).strict().safeParse(await req.json().catch(() => null));
+    if (!parsed.success) throw new AccessError('Invalid permit email request', 400);
+    const { permitId, recipients } = parsed.data;
+    const to = [...new Set(recipients.map(e => e.toLowerCase()))];
+    let permit;
+    if (!service && user) permit = await requireDocumentAccess(admin, user.id, 'permit', permitId);
+    else {
+      const { data, error } = await admin.from('work_permits').select('*').eq('id', permitId).single();
+      if (error || !data) throw new AccessError('Permit not found', 404);
+      permit = data;
     }
-    const token = authHeader.slice(7).trim();
-    if (token !== serviceKey) {
-      const supaUser = createClient(supabaseUrl, anonKey);
-      const { data: { user }, error } = await supaUser.auth.getUser(token);
-      if (error || !user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+    if (!service) {
+      // No chosen-recipient work-permit UI exists: restrict browser calls to registered participants.
+      const known = new Set<string>();
+      if (permit.requester_email) known.add(String(permit.requester_email).trim().toLowerCase());
+      const { data: steps, error } = await admin.from('permit_approvals').select('role_id').eq('permit_id', permitId);
+      if (error) throw new AccessError('Could not verify recipients', 500);
+      const roleIds = (steps ?? []).map(r => r.role_id).filter(Boolean);
+      const { data: holders, error: holdersError } = roleIds.length ? await admin.from('user_roles').select('user_id').in('role_id', roleIds) : { data: [], error: null };
+      if (holdersError) throw new AccessError('Could not verify recipients', 500);
+      const { data: adhoc, error: adhocError } = await admin.from('permit_adhoc_approvals').select('target_user_id').eq('permit_id', permitId).neq('status', 'cancelled');
+      if (adhocError) throw new AccessError('Could not verify recipients', 500);
+      const ids = [...new Set([permit.requester_id, permit.created_on_behalf_by, ...(holders ?? []).map(r => r.user_id), ...(adhoc ?? []).map(r => r.target_user_id)].filter(Boolean))];
+      for (const id of ids) {
+        const { data: email, error: emailError } = await admin.rpc('resolve_user_email', { p_user_id: id });
+        if (emailError) throw new AccessError('Could not verify recipients', 500);
+        if (email) known.add(String(email).trim().toLowerCase());
       }
+      if (to.some(e => !known.has(e))) throw new AccessError('Recipients must be registered participants on this permit');
     }
-
-    const { permitId, recipients } = await req.json();
-    const to: string[] = Array.from(new Set(
-      (Array.isArray(recipients) ? recipients : [])
-        .filter((e: unknown): e is string => typeof e === "string" && e.trim() !== "")
-        .map((e: string) => e.trim()),
-    ));
-    if (!permitId || to.length === 0) {
-      return new Response(JSON.stringify({ error: "permitId and recipients are required" }), {
-        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const { data: permit, error: permitError } = await admin
-      .from("work_permits")
-      .select("permit_no, pdf_url, requester_name, work_date_from, work_date_to")
-      .eq("id", permitId)
-      .single();
-    if (permitError || !permit) {
-      return new Response(JSON.stringify({ error: "Permit not found" }), {
-        status: 404, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
+    // Record the authorized caller before downloading or sending the signed PDF.
+    const { error: auditError } = await admin.from('activity_logs').insert({
+      permit_id: permitId, action: 'Permit PDF Email Requested',
+      performed_by: user?.email || 'System', performed_by_id: user?.id || null,
+      details: `Permit PDF email requested for: ${to.join(', ')}`,
+    });
+    if (auditError) throw new AccessError('Could not record email sender', 500);
 
     const pdfFileName = permit.pdf_url || `${String(permit.permit_no).replace(/\//g, "-")}.pdf`;
     const { data: pdfData, error: pdfError } = await admin.storage
@@ -219,7 +215,8 @@ serve(async (req: Request): Promise<Response> => {
       await admin.from("activity_logs").insert({
         permit_id: permitId,
         action: "Approved Permit Emailed",
-        performed_by: "System",
+        performed_by: user?.email || "System",
+        performed_by_id: user?.id || null,
         details: `Approved permit PDF emailed to: ${to.join(", ")}`,
       });
     } catch (_) { /* non-fatal */ }
@@ -231,7 +228,8 @@ serve(async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error emailing permit PDF:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+      status: error instanceof AccessError ? error.status : 500, headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
-});
+};
+if (import.meta.main) serve(handler);

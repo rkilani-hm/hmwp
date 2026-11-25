@@ -1,3 +1,4 @@
+import { authenticate, AccessError } from '../_shared/notification-security.ts';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Standard CORS headers (defined locally, as every other function does). The
@@ -39,12 +40,14 @@ interface ChatMessage {
   content: string;
 }
 
-serve(async (req) => {
+export const handler = async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const { user } = await authenticate(req);
+    if (!user) throw new AccessError('A signed-in user is required', 401);
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("cf-connecting-ip") || "unknown";
     if (rateLimited(ip)) {
@@ -119,8 +122,9 @@ serve(async (req) => {
   } catch (err) {
     console.error("ai-copilot error:", err);
     return new Response(
-      JSON.stringify({ error: "internal_error", message: (err as Error).message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: err instanceof AccessError ? "unauthorized" : "internal_error", message: (err as Error).message }),
+      { status: err instanceof AccessError ? err.status : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-});
+};
+if (import.meta.main) serve(handler);

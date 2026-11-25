@@ -114,15 +114,8 @@ export function useApproveTenant() {
 
       // Best-effort email — don't block / fail on email errors.
       try {
-        await supabase.functions.invoke('send-email-notification', {
-          body: {
-            to: [tenantEmail],
-            subject: 'Your Al Hamra tenant account has been approved',
-            notificationType: 'account_approved',
-            details: {
-              tenantName: tenantName ?? '',
-            },
-          },
+        await supabase.functions.invoke('dispatch-permit-notification', {
+          body: { event: 'account_approved', tenantId },
         });
       } catch (emailErr) {
         console.error('Approval email failed (non-fatal):', emailErr);
@@ -181,16 +174,8 @@ export function useRejectTenant() {
 
       // Best-effort email.
       try {
-        await supabase.functions.invoke('send-email-notification', {
-          body: {
-            to: [tenantEmail],
-            subject: 'Your Al Hamra tenant account application — update',
-            notificationType: 'account_rejected',
-            details: {
-              tenantName: tenantName ?? '',
-              reason: reason?.trim() || '',
-            },
-          },
+        await supabase.functions.invoke('dispatch-permit-notification', {
+          body: { event: 'account_rejected', tenantId },
         });
       } catch (emailErr) {
         console.error('Rejection email failed (non-fatal):', emailErr);

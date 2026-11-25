@@ -32,6 +32,19 @@ broke.
 
 ## Running
 
+### Security Pass 2 — isolated edge authorization and notification dispatch
+
+`security_pass_two.test.ts` imports the actual handlers and mocks all HTTP.
+It checks authentication, service-only email, self-only browser push, specific
+permit/gate-pass access, and server-derived notification recipients for ad-hoc
+request/cancel, submissions, rework, and admin account reviews. No accounts,
+sessions, production connections, or real notifications are created.
+
+```bash
+deno test --allow-env --allow-net --node-modules-dir=none \
+  supabase/functions/tests/security_pass_two.test.ts
+```
+
 ### Security Pass 1 — isolated, no accounts or sessions
 
 `security_pass_one.test.ts` executes the actual profile/workflow migration in

@@ -64,7 +64,7 @@ export function useMyPendingAdhocPermitIds() {
       const { data } = await supabase
         .from('permit_adhoc_approvals' as any)
         .select('permit_id')
-        .eq('target_user_id', user!.id)
+        .eq('target_user_id', user?.id ?? '')
         .eq('status', 'pending');
       return new Set(((data ?? []) as any[]).map((r) => r.permit_id));
     },
@@ -75,33 +75,12 @@ export function useRequestAdditionalApproval() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (v: { permitId: string; permitNo: string; targetUserId: string; targetEmail?: string | null; requesterName?: string | null; note: string }) => {
-      const { data, error } = await supabase.rpc('request_additional_approval' as any, {
-        p_permit_id: v.permitId, p_target_user_id: v.targetUserId, p_note: v.note || null,
+      const { data, error } = await supabase.functions.invoke('dispatch-permit-notification', {
+        body: { event: 'adhoc_request', permitId: v.permitId, targetUserId: v.targetUserId, note: v.note || '' },
       });
       if (error) throw new Error(error.message);
-      // Best-effort push (the notification row itself is written server-side).
-      supabase.functions.invoke('send-push-notification', {
-        body: {
-          userId: v.targetUserId,
-          title: 'Approval requested',
-          message: `You have been asked to approve ${v.permitNo}`,
-          data: { url: `/permits/${v.permitId}`, permitId: v.permitId },
-        },
-      }).catch(() => {});
-      // Email the asked approver through the same sender used for approval_required.
-      if (v.targetEmail) {
-        supabase.functions.invoke('send-email-notification', {
-          body: {
-            to: [v.targetEmail],
-            notificationType: 'adhoc_requested',
-            subject: `Approval requested: ${v.permitNo}`,
-            permitNo: v.permitNo,
-            permitId: v.permitId,
-            details: { permitId: v.permitId, requesterName: v.requesterName ?? '', note: v.note ?? '' },
-          },
-        }).catch(() => {});
-      }
-      return data;
+      if (data?.deliveryWarnings) toast.warning('Approval requested, but a notification could not be delivered.');
+      return data?.result;
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['permit-adhoc-approvals', v.permitId] });
@@ -116,16 +95,11 @@ export function useCancelAdditionalApproval() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (v: { adhocId: string; permitId: string; permitNo: string; targetUserId: string }) => {
-      const { error } = await supabase.rpc('cancel_additional_approval' as any, { p_adhoc_id: v.adhocId });
+      const { data, error } = await supabase.functions.invoke('dispatch-permit-notification', {
+        body: { event: 'adhoc_cancel', adhocId: v.adhocId },
+      });
       if (error) throw new Error(error.message);
-      supabase.functions.invoke('send-push-notification', {
-        body: {
-          userId: v.targetUserId,
-          title: 'Approval request withdrawn',
-          message: `The approval request on ${v.permitNo} was withdrawn`,
-          data: { url: `/permits/${v.permitId}`, permitId: v.permitId },
-        },
-      }).catch(() => {});
+      if (data?.deliveryWarnings) toast.warning('Request withdrawn, but its notification could not be delivered.');
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['permit-adhoc-approvals', v.permitId] });
