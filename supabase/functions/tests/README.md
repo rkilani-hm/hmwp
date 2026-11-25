@@ -32,6 +32,22 @@ broke.
 
 ## Running
 
+### Security Pass 1 — isolated, no accounts or sessions
+
+`security_pass_one.test.ts` executes the actual profile/workflow migration in
+in-memory PostgreSQL with synthetic local rows and stubbed identity functions.
+It does not connect to production or create authentication users or sessions.
+Its 16 tests cover the seven protected profile fields, normal self-edits,
+admin/service/null-identity control, signup company resolution, blocked company
+creation on UPDATE, and admin-only override INSERT/UPDATE/DELETE policies.
+
+```bash
+deno test --allow-read --allow-env --allow-net --allow-sys --node-modules-dir=none \
+  supabase/functions/tests/security_pass_one.test.ts
+```
+
+### Existing staging-only account-based suite
+
 The suite is a Deno test file. It needs **service-role** access to seed fixture
 users + permits, then signs each fixture user in to obtain a real JWT and uses
 an `authenticated`-context client to exercise the RLS rules end-to-end.

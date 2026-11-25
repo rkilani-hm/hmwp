@@ -1,8 +1,6 @@
-# Scoped security hardening
-- [x] Restrict reminder digest to service role and verify privileges.
-- [x] Move onboarding role-email lookup to existing server sender; revoke browser lookup.
-- [x] Guard pending-approval creation for requester, on-behalf, admin, and service callers; confirm deployed guard.
-- [x] Validate contractor inputs and tenant links without removing anonymous access; confirm deployed guard.
-- [x] Re-run all four privilege checks and confirm clean build.
-- [x] Skip account creation, session minting, and account-based flow checks as requested.
-- [x] Commit and confirm all scoped changes are saved.
+# Security Pass 1
+- [x] Investigate profile triggers, Settings/admin callers, and workflow override writers.
+- [x] Protect account approval, activation, VIP, department, actor type, and company fields on non-admin updates.
+- [x] Restrict direct workflow override writes to admins while preserving the verified service-role writer.
+- [x] Verify deployed triggers/policies and run isolated regression tests without creating users or sessions.
+- [x] Confirm clean build and commit the scoped changes.

@@ -99,6 +99,18 @@ const Onboarding = () => {
 
       await refreshProfile();
 
+      // Company membership is admin-owned after signup. Do not report a
+      // successful completion if the database rejected an initial-company edit.
+      const { data: savedProfile, error: readError } = await supabase
+        .from('profiles')
+        .select('company_name')
+        .eq('id', user.id)
+        .single();
+      if (readError) throw readError;
+      if (!savedProfile.company_name?.trim()) {
+        throw new Error('An administrator must assign your company before you can continue.');
+      }
+
       // If this is a self-signup tenant just completing their profile
       // (account_status still 'pending'), notify the admin team that a
       // new application is in the queue. Admin-created users land as

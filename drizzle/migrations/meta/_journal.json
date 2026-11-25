@@ -78,6 +78,13 @@
       "when": 1795521890637,
       "tag": "0010_tighten_low_risk_definer_helpers",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795586059704,
+      "tag": "0011_protect_profile_and_workflow_override_privileges",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,7 @@ import { normalizeKuwaitPhone } from '@/lib/validation/phone';
 
 export default function Settings() {
   const { user, profile, roles, refreshProfile, isApprover } = useAuth();
+  const canEditCompany = roles.includes('admin');
   const { isSubscribed } = usePushNotifications();
   const { isSupported: biometricSupported, isChecking: checkingBiometric } = useBiometricAuth();
   const isMobile = useIsMobile();
@@ -267,7 +268,7 @@ export default function Settings() {
             email,
             full_name: fullName.trim(),
             phone: normalizedPhone,
-            company_name: companyName.trim() || null,
+            ...(canEditCompany ? { company_name: companyName.trim() || null } : {}),
             // Tenant master data — trimmed, blank → null so the
             // wizards' pre-fill logic doesn't have to distinguish
             // '' from missing.
@@ -491,6 +492,7 @@ export default function Settings() {
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Enter your company name"
+                    disabled={!canEditCompany}
                   />
                 </div>
 
