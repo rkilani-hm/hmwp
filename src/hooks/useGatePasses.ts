@@ -88,25 +88,21 @@ export function usePendingGatePassesForApprover() {
   });
 }
 
-/**
- * Gate pass counts by status — the GP analogue of usePermitStats, computed
- * client-side from useGatePasses() so the dashboard cards mirror the WP design.
- */
+/** Gate pass counts by status, computed server-side (RLS-scoped, not capped at 1000 rows). */
 export function useGatePassStats() {
-  const { data: passes } = useGatePasses();
-
-  if (!passes) {
-    return { total: 0, pending: 0, approved: 0, rejected: 0, completed: 0, draft: 0 };
-  }
-
-  return {
-    total: passes.length,
-    pending: passes.filter((p) => typeof p.status === 'string' && p.status.startsWith('pending')).length,
-    approved: passes.filter((p) => p.status === 'approved').length,
-    rejected: passes.filter((p) => p.status === 'rejected').length,
-    completed: passes.filter((p) => p.status === 'completed').length,
-    draft: passes.filter((p) => p.status === 'draft').length,
-  };
+  const { user } = useAuth();
+  useGatePasses(); // realtime subscription invalidates ['gate-passes', ...]
+  const { data } = useQuery({
+    queryKey: ['gate-passes', 'stats'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_gate_pass_stats' as any);
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
+    },
+  });
+  const n = (k: string) => Number(data?.[k] ?? 0);
+  return { total: n('total'), pending: n('pending'), approved: n('approved'), rejected: n('rejected'), completed: n('completed'), draft: n('draft') };
 }
 
 export function useGatePass(id: string | undefined) {

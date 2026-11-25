@@ -268,37 +268,29 @@ export function useProcessedPermitsForApprover() {
   });
 }
 
+// Server-side counts (RLS-scoped) so the cards stay accurate past the 1000-row fetch cap.
 export function usePermitStats() {
-  const { data: permits } = useWorkPermits();
-
-  if (!permits) {
-    return {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      closed: 0,
-      draft: 0,
-      cancelled: 0,
-      slaBreached: 0,
-      urgent: 0,
-    };
-  }
-
+  const { user } = useAuth();
+  useWorkPermits(); // keeps the realtime subscription that invalidates ['work-permits', ...]
+  const { data } = useQuery({
+    queryKey: ['work-permits', 'stats'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_work_permit_stats' as any);
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
+    },
+  });
+  const n = (k: string) => Number(data?.[k] ?? 0);
   return {
-    total: permits.length,
-    pending: permits.filter(p =>
-      p.status.startsWith('pending') ||
-      p.status === 'submitted' ||
-      p.status === 'under_review' ||
-      p.status === 'rework_needed'
-    ).length,
-    approved: permits.filter(p => p.status === 'approved').length,
-    rejected: permits.filter(p => p.status === 'rejected').length,
-    closed: permits.filter(p => p.status === 'closed').length,
-    draft: permits.filter(p => p.status === 'draft').length,
-    cancelled: permits.filter(p => p.status === 'cancelled' || p.status === 'superseded').length,
-    slaBreached: permits.filter(p => p.sla_breached).length,
-    urgent: permits.filter(p => p.urgency === 'urgent').length,
+    total: n('total'),
+    pending: n('pending'),
+    approved: n('approved'),
+    rejected: n('rejected'),
+    closed: n('closed'),
+    draft: n('draft'),
+    cancelled: n('cancelled'),
+    slaBreached: n('sla_breached'),
+    urgent: n('urgent'),
   };
 }

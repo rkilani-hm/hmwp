@@ -3429,6 +3429,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_gate_pass_stats: { Args: never; Returns: Json }
       get_my_action_role: { Args: { p_permit_id: string }; Returns: string }
       get_my_effective_roles: {
         Args: never
@@ -3505,6 +3506,7 @@ export type Database = {
         }[]
       }
       get_user_department: { Args: { p_user: string }; Returns: string }
+      get_work_permit_stats: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

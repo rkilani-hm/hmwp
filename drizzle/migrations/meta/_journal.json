@@ -85,6 +85,13 @@
       "when": 1795586059704,
       "tag": "0011_protect_profile_and_workflow_override_privileges",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795596344985,
+      "tag": "0012_dashboard_count_functions",
+      "breakpoints": true
     }
   ]
 }
