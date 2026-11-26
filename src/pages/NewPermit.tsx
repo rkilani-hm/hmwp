@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCanSubmitOnBehalf } from '@/hooks/useOnBehalf';
-import { getNewPermitAccess } from '@/lib/clientPermitAccess';
+import { getNewPermitAccess, isInternalStaffEmail } from '@/lib/clientPermitAccess';
 
 // The New Request wizard routes here with ?category=. Every purpose uses this
 // same form; the title (and the auto-selected workflow) change per purpose.
@@ -41,12 +41,13 @@ const CATEGORY_META: Partial<Record<RequestCategory, { title: string; subtitle: 
 
 export default function NewPermit() {
   const [params] = useSearchParams();
-  const { user, roles, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { data: canSubmitOnBehalf, isPending } = useCanSubmitOnBehalf();
-  const isInternalStaff = roles.some(role => role !== 'tenant');
+  const email = user?.email ?? profile?.email ?? null;
+  const isInternalStaff = isInternalStaffEmail(email);
   const access = getNewPermitAccess({
     signedIn: !!user,
-    isInternalStaff,
+    email,
     loading: authLoading || (!!user && isInternalStaff && isPending),
     canSubmitOnBehalf: canSubmitOnBehalf === true,
   });

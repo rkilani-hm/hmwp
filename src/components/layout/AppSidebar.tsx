@@ -445,13 +445,16 @@ function SidebarNavGroup({
 
 export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { data: canSubmitOnBehalf } = useCanSubmitOnBehalf();
+  const email = user?.email ?? profile?.email ?? null;
   // Applies to Helpdesk, Admin, and default approver Permits sections.
   // Tenant navigation is unchanged; it has no /new-permit item.
   const navGroups = getNavGroups(currentRole).map(group => ({
     ...group,
-    items: group.items.filter(item => canShowStaffPermitLink(item.path, canSubmitOnBehalf === true)),
+    items: group.items.filter(item =>
+      canShowStaffPermitLink(item.path, email, canSubmitOnBehalf === true),
+    ),
   }));
   const RoleIcon = getRoleIcon(currentRole);
   const [search, setSearch] = useState('');
