@@ -3321,6 +3321,10 @@ export type Database = {
       }
     }
     Functions: {
+      _ensure_permit_pending_approvals_internal: {
+        Args: { p_permit_id: string }
+        Returns: number
+      }
       active_delegation_for: {
         Args: { p_delegator: string; p_role_id: string }
         Returns: string

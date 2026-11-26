@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { NON_PENDING_PERMIT_STATUSES } from '@/lib/pendingPermitFilter';
 
 // RLS-scoped exact counts for the All Permits header/tabs, applying the same
 // search + status filters as the list so totals stay correct past 1000 rows.
@@ -19,7 +20,7 @@ export function usePermitListCounts(search: string, status: string) {
           q = q.or(`permit_no.ilike.${p},contractor_name.ilike.${p},work_description.ilike.${p}`);
         }
         if (status === 'pending') {
-          q = q.or('status.like.pending*,status.eq.submitted,status.eq.under_review');
+          q = q.not('status', 'in', `(${NON_PENDING_PERMIT_STATUSES.join(',')})`);
         } else if (status !== 'all') {
           q = q.eq('status', status as any);
         }

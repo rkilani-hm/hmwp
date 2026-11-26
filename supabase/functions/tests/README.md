@@ -32,6 +32,18 @@ broke.
 
 ## Running
 
+### Pending approval assignment — isolated PostgreSQL regression
+
+`pending_assignment.test.ts` reproduces the former trigger permission failure,
+then executes the current migrations in memory. It checks forward/rework/reject
+updates, retained direct-RPC guards, private-helper grants, trusted workflow
+edits, and preservation of settled approvals. No accounts or sessions are created.
+
+```bash
+deno test --allow-read --allow-env --allow-net --allow-sys --node-modules-dir=none \
+  supabase/functions/tests/pending_assignment.test.ts
+```
+
 ### Security Pass 2 — isolated edge authorization and notification dispatch
 
 `security_pass_two.test.ts` imports the actual handlers and mocks all HTTP.

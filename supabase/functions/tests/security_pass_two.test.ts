@@ -171,7 +171,7 @@ Deno.test('Public submission confirmation and approval-required service emails s
   Deno.env.set('MS_TENANT_ID', 'local-fixture');
   Deno.env.set('MS_CLIENT_ID', 'local-fixture');
   Deno.env.set('MS_CLIENT_SECRET', 'local-fixture');
-  for (const notificationType of ['permit_submitted', 'approval_required', 'adhoc_resolved']) {
+  for (const notificationType of ['permit_submitted', 'approval_required', 'adhoc_resolved', 'rework']) {
     let delivered = false;
     await mocked(async () => {
       assertEquals((await email(req({ to: ['derived@example.invalid'], subject: 'Local fixture', notificationType, permitNo: 'WP-LOCAL', details: { permitId: documentId, decision: 'approved' } }, serviceKey))).status, 200);
@@ -204,6 +204,10 @@ for (const event of ['adhoc_request', 'adhoc_cancel', 'permit_pending', 'gatepas
       const sentEmail = delivered.find(d => d.name === 'send-email-notification');
       if (event === 'adhoc_cancel') assertEquals(sentEmail, undefined);
       else assertEquals(sentEmail?.body.to, ['derived@example.invalid']);
+      if (event === 'rework') {
+        assertEquals(sentEmail?.body.notificationType, 'rework');
+        assertEquals(sentEmail?.body.details.comments, 'Recorded reason');
+      }
       if (event === 'adhoc_request' || event === 'adhoc_cancel') {
         assertEquals(delivered.find(d => d.name === 'send-push-notification')?.body.userId, otherId);
       }
@@ -236,10 +240,27 @@ for (const event of ['adhoc_request', 'adhoc_cancel', 'permit_pending', 'gatepas
       }
       if (url.pathname.endsWith('/has_role')) return response(true);
       if (url.pathname.endsWith('/permit_adhoc_approvals')) return response({ permit_id: documentId, target_user_id: otherId, request_note: 'Review please' });
-      if (url.pathname.endsWith('/work_permits')) return response({ permit_no: 'WP-LOCAL', status: 'rework', requester_id: otherId, rework_comments: 'Recorded reason' });
+      if (url.pathname.endsWith('/work_permits')) return response({ permit_no: 'WP-LOCAL', status: 'rework_needed', requester_id: otherId, rework_comments: 'Recorded reason' });
       if (url.pathname.endsWith('/profiles')) return response({ full_name: 'Local Fixture', account_status: event === 'account_rejected' ? 'rejected' : 'approved', account_reviewed_by: callerId });
       if (url.pathname.endsWith('/activity_logs')) return response([{ id: 'local-action' }]);
       throw new Error(`Unexpected mock endpoint ${url.pathname}`);
+    });
+  });
+}
+
+for (const [status, hasAction] of [['rework',true],['approved',true],['rework_needed',false]] as const) {
+  Deno.test(`Rework email rejects status=${status}, caller action=${hasAction}`, async () => {
+    let sent = false;
+    await mocked(async () => {
+      const result = await dispatch(req({event:'rework',permitId:documentId},'browser-fixture'));
+      assertEquals(result.status,403);
+      assertEquals(sent,false);
+    }, url => {
+      if (url.pathname === '/auth/v1/user') return response({id:'00000000-0000-0000-0000-000000000099',email:'isolated@example.invalid'});
+      if (url.pathname.endsWith('/work_permits')) return response({permit_no:'WP-LOCAL',status,requester_id:otherId});
+      if (url.pathname.endsWith('/activity_logs')) return response(hasAction ? [{id:'local-action'}] : []);
+      sent = true;
+      throw new Error(`Unexpected delivery: ${url.pathname}`);
     });
   });
 }

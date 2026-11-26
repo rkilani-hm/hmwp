@@ -76,7 +76,7 @@ export const handler = async (req: Request) => {
       // Require the recorded action by this caller; a global approver role is insufficient.
       const { data: permit } = await admin.from('work_permits').select('permit_no, status, requester_id, requester_email, rework_comments').eq('id', v.permitId).single();
       const { data: action } = await admin.from('activity_logs').select('id').eq('permit_id', v.permitId).eq('performed_by_id', user.id).eq('action', 'Rework Requested').gte('created_at', new Date(now - 10 * 60000).toISOString()).limit(1);
-      if (!permit || permit.status !== 'rework' || !action?.length) throw new AccessError('No authorized rework action to notify');
+      if (!permit || permit.status !== 'rework_needed' || !action?.length) throw new AccessError('No authorized rework action to notify');
       const to = permit.requester_id ? await resolveEmail(permit.requester_id) : permit.requester_email;
       if (to) email({ to: [to], notificationType: 'rework', subject: `Work Permit Rework Required: ${permit.permit_no}`, permitId: v.permitId, permitNo: permit.permit_no, details: { permitId: v.permitId, comments: permit.rework_comments } });
     } else {

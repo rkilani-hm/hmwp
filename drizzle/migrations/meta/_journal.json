@@ -92,6 +92,20 @@
       "when": 1795596344985,
       "tag": "0012_dashboard_count_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795696457082,
+      "tag": "0013_separate_trusted_pending_approval_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795696510973,
+      "tag": "0014_use_private_assignment_for_workflow_trigger",
+      "breakpoints": true
     }
   ]
 }

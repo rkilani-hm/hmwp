@@ -262,9 +262,9 @@ export function useRequestRework() {
 
       // Send email notification to requester
       try {
-        if (data.requester_email) {
-          await sendEmailNotification(
-            [data.requester_email],
+        if (data.requester_id || data.requester_email) {
+          const delivery = await sendEmailNotification(
+            data.requester_email ? [data.requester_email] : [],
             'rework',
             `Work Permit Rework Required: ${data.permit_no}`,
             {
@@ -273,9 +273,13 @@ export function useRequestRework() {
               comments: reason,
             }
           );
+          if (!delivery.success) {
+            toast.warning('Permit sent back for rework, but the email could not be sent.');
+          }
         }
       } catch (emailError) {
         console.error('Failed to send rework email notification:', emailError);
+        toast.warning('Permit sent back for rework, but the email could not be sent.');
       }
 
       return data;
