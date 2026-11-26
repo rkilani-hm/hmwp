@@ -1,6 +1,10 @@
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { PermitFormWizard, type RequestCategory } from '@/components/forms/PermitFormWizard';
 import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCanSubmitOnBehalf } from '@/hooks/useOnBehalf';
+import { getNewPermitAccess } from '@/lib/clientPermitAccess';
 
 // The New Request wizard routes here with ?category=. Every purpose uses this
 // same form; the title (and the auto-selected workflow) change per purpose.
@@ -37,11 +41,29 @@ const CATEGORY_META: Partial<Record<RequestCategory, { title: string; subtitle: 
 
 export default function NewPermit() {
   const [params] = useSearchParams();
+  const { user, roles, loading: authLoading } = useAuth();
+  const { data: canSubmitOnBehalf, isPending } = useCanSubmitOnBehalf();
+  const isInternalStaff = roles.some(role => role !== 'tenant');
+  const access = getNewPermitAccess({
+    signedIn: !!user,
+    isInternalStaff,
+    loading: authLoading || (!!user && isInternalStaff && isPending),
+    canSubmitOnBehalf: canSubmitOnBehalf === true,
+  });
   const raw = params.get('category') as RequestCategory | null;
   // Deep-link support: /new-permit?category=… skips the purpose step. Without a
   // known param, the form asks the purpose first (single road map).
   const meta = raw && CATEGORY_META[raw];
   const category = meta ? raw : undefined;
+
+  // Do not mount the client wizard until staff permission has resolved.
+  if (access === 'loading') {
+    return <div role="status" aria-label="Checking permit access" className="flex justify-center py-12">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>;
+  }
+  if (access === 'sign-in') return <Navigate to="/auth" replace />;
+  if (access === 'internal-request') return <Navigate to="/new-internal-request" replace />;
 
   return (
     <motion.div

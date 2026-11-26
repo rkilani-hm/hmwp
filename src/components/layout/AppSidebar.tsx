@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCanSubmitOnBehalf } from '@/hooks/useOnBehalf';
+import { canShowStaffPermitLink } from '@/lib/clientPermitAccess';
 import alHamraLogo from '@/assets/al-hamra-logo.png';
 import {
   LayoutDashboard,
@@ -444,7 +446,13 @@ function SidebarNavGroup({
 export function AppSidebar({ currentRole, onNavigate }: AppSidebarProps) {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
-  const navGroups = getNavGroups(currentRole);
+  const { data: canSubmitOnBehalf } = useCanSubmitOnBehalf();
+  // Applies to Helpdesk, Admin, and default approver Permits sections.
+  // Tenant navigation is unchanged; it has no /new-permit item.
+  const navGroups = getNavGroups(currentRole).map(group => ({
+    ...group,
+    items: group.items.filter(item => canShowStaffPermitLink(item.path, canSubmitOnBehalf === true)),
+  }));
   const RoleIcon = getRoleIcon(currentRole);
   const [search, setSearch] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
